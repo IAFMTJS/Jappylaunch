@@ -46,7 +46,8 @@ const Quiz: React.FC = () => {
     category: 'all',
     difficulty: 'easy',
     questionCount: 10,
-    quizType: 'multiple-choice'
+    quizType: 'multiple-choice',
+    answerType: 'romaji'
   });
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [score, setScore] = useState(0);
@@ -131,10 +132,7 @@ const Quiz: React.FC = () => {
   const generateQuiz = useCallback(() => {
     let filteredWords = quizWords.filter(word => {
       const matchesCategory = settings.category === 'all' || word.category === settings.category;
-      const matchesDifficulty = word.difficulty === settings.difficulty;
-      const isHiraganaOrKatakana = /^[\u3040-\u309F\u30A0-\u30FF]+$/.test(word.japanese);
-      
-      return matchesCategory && matchesDifficulty && isHiraganaOrKatakana;
+      return matchesCategory;
     });
 
     const shuffled = [...filteredWords]
@@ -166,23 +164,28 @@ const Quiz: React.FC = () => {
   };
 
   const checkAnswer = (answer: string, correctWord: typeof quizWords[0]) => {
-    if (settings.difficulty === 'hard') {
-      switch (settings.answerType) {
-        case 'hiragana':
-          return answer === correctWord.japanese;
-        case 'katakana':
-          // Convert hiragana to katakana for comparison
-          const katakanaAnswer = answer.replace(/[\u3040-\u309F]/g, char => 
-            String.fromCharCode(char.charCodeAt(0) + 0x60)
-          );
-          return katakanaAnswer === correctWord.japanese;
-        case 'romaji':
-          return answer.toLowerCase() === correctWord.romaji?.toLowerCase();
-        default:
-          return false;
-      }
+    switch (settings.difficulty) {
+      case 'easy':
+        return answer.toLowerCase() === correctWord.english.toLowerCase();
+      case 'medium':
+        return answer.toLowerCase() === correctWord.english.toLowerCase();
+      case 'hard':
+        switch (settings.answerType) {
+          case 'hiragana':
+            return answer === correctWord.japanese;
+          case 'katakana':
+            const katakanaAnswer = answer.replace(/[\u3040-\u309F]/g, char => 
+              String.fromCharCode(char.charCodeAt(0) + 0x60)
+            );
+            return katakanaAnswer === correctWord.japanese;
+          case 'romaji':
+            return answer.toLowerCase() === correctWord.romaji?.toLowerCase();
+          default:
+            return false;
+        }
+      default:
+        return false;
     }
-    return answer.toLowerCase() === correctWord.english.toLowerCase();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -290,28 +293,21 @@ const Quiz: React.FC = () => {
             <label className={`block mb-2 ${themeClasses.text}`}>Select Difficulty:</label>
             <select
               value={settings.difficulty}
-              onChange={(e) => {
-                const newDifficulty = e.target.value as Difficulty;
-                setSettings(prev => ({
-                  ...prev,
-                  difficulty: newDifficulty,
-                  answerType: newDifficulty === 'hard' ? 'hiragana' : undefined
-                }));
-              }}
+              onChange={(e) => setSettings(prev => ({ ...prev, difficulty: e.target.value as Difficulty }))}
               className={`w-full p-3 rounded-lg border ${themeClasses.input}`}
             >
-              <option value="easy">Easy (English answers)</option>
-              <option value="medium">Medium (English answers)</option>
-              <option value="hard">Hard (Japanese answers)</option>
+              <option value="easy">Easy (Show word with romaji)</option>
+              <option value="medium">Medium (Show only word)</option>
+              <option value="hard">Hard (Type in Japanese/romaji)</option>
             </select>
           </div>
 
           {settings.difficulty === 'hard' && (
             <div>
-              <label className={`block mb-2 ${themeClasses.text}`}>Select Answer Type:</label>
+              <label className={`block mb-2 ${themeClasses.text}`}>Answer Type:</label>
               <select
                 value={settings.answerType}
-                onChange={(e) => setSettings(prev => ({ ...prev, answerType: e.target.value as AnswerType }))}
+                onChange={(e) => setSettings(prev => ({ ...prev, answerType: e.target.value as 'hiragana' | 'katakana' | 'romaji' }))}
                 className={`w-full p-3 rounded-lg border ${themeClasses.input}`}
               >
                 <option value="hiragana">Hiragana</option>
@@ -407,7 +403,6 @@ const Quiz: React.FC = () => {
   }
 
   const currentWord = questions[currentQuestion];
-  const isHardMode = settings.difficulty === 'hard';
 
   return (
     <div className={`${themeClasses.container} rounded-lg shadow-md p-6`}>
@@ -421,13 +416,12 @@ const Quiz: React.FC = () => {
           </div>
           <div className={`text-sm ${themeClasses.text}`}>
             {settings.quizType === 'multiple-choice' ? 'Multiple Choice' : 'Writing'} - {settings.difficulty}
-            {isHardMode && ` (${settings.answerType})`}
           </div>
         </div>
       </div>
 
       <div className="mb-6">
-        {isHardMode ? (
+        {settings.difficulty === 'hard' ? (
           <h3 className={`text-3xl font-bold mb-4 ${themeClasses.text}`}>
             {currentWord.english}
           </h3>
@@ -466,9 +460,7 @@ const Quiz: React.FC = () => {
               type="text"
               value={userAnswer}
               onChange={(e) => setUserAnswer(e.target.value)}
-              placeholder={isHardMode 
-                ? `Enter the answer in ${settings.answerType}...`
-                : "Enter the English meaning..."}
+              placeholder="Enter the English meaning..."
               className={`w-full p-3 rounded-lg border ${themeClasses.input}`}
               autoFocus
             />
@@ -488,13 +480,10 @@ const Quiz: React.FC = () => {
             <p className="text-xl font-semibold mb-2">
               {isCorrect ? 'Correct! 🎉' : 'Incorrect 😕'}
             </p>
-            {isHardMode ? (
+            {settings.difficulty === 'hard' ? (
               <>
                 <p className="mb-2">
                   The correct answer is: {currentWord.japanese}
-                </p>
-                <p className="text-sm opacity-75">
-                  Romaji: {currentWord.romaji}
                 </p>
               </>
             ) : (
