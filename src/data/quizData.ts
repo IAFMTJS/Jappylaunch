@@ -479,59 +479,47 @@ export const quizWords: QuizWord[] = [
   { japanese: 'かいふく', english: 'recovery', category: 'health', difficulty: 'hard', hint: 'Getting better', romaji: 'kaifuku' },
   { japanese: 'よぼう', english: 'prevention', category: 'health', difficulty: 'hard', hint: 'Staying healthy', romaji: 'yobou' },
 
-  // Hiragana (Easy)
+  // Hiragana (All entries set to 'easy' as difficulty is handled by the quiz UI)
   { japanese: 'あ', english: 'a', category: 'hiragana', difficulty: 'easy', hint: 'First hiragana', romaji: 'a' },
   { japanese: 'い', english: 'i', category: 'hiragana', difficulty: 'easy', hint: 'Second hiragana', romaji: 'i' },
   { japanese: 'う', english: 'u', category: 'hiragana', difficulty: 'easy', hint: 'Third hiragana', romaji: 'u' },
   { japanese: 'え', english: 'e', category: 'hiragana', difficulty: 'easy', hint: 'Fourth hiragana', romaji: 'e' },
   { japanese: 'お', english: 'o', category: 'hiragana', difficulty: 'easy', hint: 'Fifth hiragana', romaji: 'o' },
+  { japanese: 'か', english: 'ka', category: 'hiragana', difficulty: 'easy', hint: 'K sound + a', romaji: 'ka' },
+  { japanese: 'き', english: 'ki', category: 'hiragana', difficulty: 'easy', hint: 'K sound + i', romaji: 'ki' },
+  { japanese: 'く', english: 'ku', category: 'hiragana', difficulty: 'easy', hint: 'K sound + u', romaji: 'ku' },
+  { japanese: 'け', english: 'ke', category: 'hiragana', difficulty: 'easy', hint: 'K sound + e', romaji: 'ke' },
+  { japanese: 'こ', english: 'ko', category: 'hiragana', difficulty: 'easy', hint: 'K sound + o', romaji: 'ko' },
+  { japanese: 'さ', english: 'sa', category: 'hiragana', difficulty: 'easy', hint: 'S sound + a', romaji: 'sa' },
+  { japanese: 'し', english: 'shi', category: 'hiragana', difficulty: 'easy', hint: 'S sound + i', romaji: 'shi' },
+  { japanese: 'す', english: 'su', category: 'hiragana', difficulty: 'easy', hint: 'S sound + u', romaji: 'su' },
+  { japanese: 'せ', english: 'se', category: 'hiragana', difficulty: 'easy', hint: 'S sound + e', romaji: 'se' },
+  { japanese: 'そ', english: 'so', category: 'hiragana', difficulty: 'easy', hint: 'S sound + o', romaji: 'so' },
+  { japanese: 'た', english: 'ta', category: 'hiragana', difficulty: 'easy', hint: 'T sound + a', romaji: 'ta' },
+  { japanese: 'ち', english: 'chi', category: 'hiragana', difficulty: 'easy', hint: 'T sound + i', romaji: 'chi' },
+  { japanese: 'つ', english: 'tsu', category: 'hiragana', difficulty: 'easy', hint: 'T sound + u', romaji: 'tsu' },
+  { japanese: 'て', english: 'te', category: 'hiragana', difficulty: 'easy', hint: 'T sound + e', romaji: 'te' },
+  { japanese: 'と', english: 'to', category: 'hiragana', difficulty: 'easy', hint: 'T sound + o', romaji: 'to' },
 
-  // Hiragana (Medium)
-  { japanese: 'か', english: 'ka', category: 'hiragana', difficulty: 'medium', hint: 'K sound + a', romaji: 'ka' },
-  { japanese: 'き', english: 'ki', category: 'hiragana', difficulty: 'medium', hint: 'K sound + i', romaji: 'ki' },
-  { japanese: 'く', english: 'ku', category: 'hiragana', difficulty: 'medium', hint: 'K sound + u', romaji: 'ku' },
-  { japanese: 'け', english: 'ke', category: 'hiragana', difficulty: 'medium', hint: 'K sound + e', romaji: 'ke' },
-  { japanese: 'こ', english: 'ko', category: 'hiragana', difficulty: 'medium', hint: 'K sound + o', romaji: 'ko' },
-
-  // Hiragana (Hard)
-  { japanese: 'さ', english: 'sa', category: 'hiragana', difficulty: 'hard', hint: 'S sound + a', romaji: 'sa' },
-  { japanese: 'し', english: 'shi', category: 'hiragana', difficulty: 'hard', hint: 'S sound + i', romaji: 'shi' },
-  { japanese: 'す', english: 'su', category: 'hiragana', difficulty: 'hard', hint: 'S sound + u', romaji: 'su' },
-  { japanese: 'せ', english: 'se', category: 'hiragana', difficulty: 'hard', hint: 'S sound + e', romaji: 'se' },
-  { japanese: 'そ', english: 'so', category: 'hiragana', difficulty: 'hard', hint: 'S sound + o', romaji: 'so' },
-
-  // Hiragana (Additional)
-  { japanese: 'た', english: 'ta', category: 'hiragana', difficulty: 'hard', hint: 'T sound + a', romaji: 'ta' },
-  { japanese: 'ち', english: 'chi', category: 'hiragana', difficulty: 'hard', hint: 'T sound + i', romaji: 'chi' },
-  { japanese: 'つ', english: 'tsu', category: 'hiragana', difficulty: 'hard', hint: 'T sound + u', romaji: 'tsu' },
-  { japanese: 'て', english: 'te', category: 'hiragana', difficulty: 'hard', hint: 'T sound + e', romaji: 'te' },
-  { japanese: 'と', english: 'to', category: 'hiragana', difficulty: 'hard', hint: 'T sound + o', romaji: 'to' },
-
-  // Katakana (Easy)
+  // Katakana (All entries set to 'easy' as difficulty is handled by the quiz UI)
   { japanese: 'ア', english: 'a', category: 'katakana', difficulty: 'easy', hint: 'First katakana', romaji: 'a' },
   { japanese: 'イ', english: 'i', category: 'katakana', difficulty: 'easy', hint: 'Second katakana', romaji: 'i' },
   { japanese: 'ウ', english: 'u', category: 'katakana', difficulty: 'easy', hint: 'Third katakana', romaji: 'u' },
   { japanese: 'エ', english: 'e', category: 'katakana', difficulty: 'easy', hint: 'Fourth katakana', romaji: 'e' },
   { japanese: 'オ', english: 'o', category: 'katakana', difficulty: 'easy', hint: 'Fifth katakana', romaji: 'o' },
-
-  // Katakana (Medium)
-  { japanese: 'カ', english: 'ka', category: 'katakana', difficulty: 'medium', hint: 'K sound + a', romaji: 'ka' },
-  { japanese: 'キ', english: 'ki', category: 'katakana', difficulty: 'medium', hint: 'K sound + i', romaji: 'ki' },
-  { japanese: 'ク', english: 'ku', category: 'katakana', difficulty: 'medium', hint: 'K sound + u', romaji: 'ku' },
-  { japanese: 'ケ', english: 'ke', category: 'katakana', difficulty: 'medium', hint: 'K sound + e', romaji: 'ke' },
-  { japanese: 'コ', english: 'ko', category: 'katakana', difficulty: 'medium', hint: 'K sound + o', romaji: 'ko' },
-
-  // Katakana (Hard)
-  { japanese: 'サ', english: 'sa', category: 'katakana', difficulty: 'hard', hint: 'S sound + a', romaji: 'sa' },
-  { japanese: 'シ', english: 'shi', category: 'katakana', difficulty: 'hard', hint: 'S sound + i', romaji: 'shi' },
-  { japanese: 'ス', english: 'su', category: 'katakana', difficulty: 'hard', hint: 'S sound + u', romaji: 'su' },
-  { japanese: 'セ', english: 'se', category: 'katakana', difficulty: 'hard', hint: 'S sound + e', romaji: 'se' },
-  { japanese: 'ソ', english: 'so', category: 'katakana', difficulty: 'hard', hint: 'S sound + o', romaji: 'so' },
-
-  // Katakana (Additional)
-  { japanese: 'タ', english: 'ta', category: 'katakana', difficulty: 'hard', hint: 'T sound + a', romaji: 'ta' },
-  { japanese: 'チ', english: 'chi', category: 'katakana', difficulty: 'hard', hint: 'T sound + i', romaji: 'chi' },
-  { japanese: 'ツ', english: 'tsu', category: 'katakana', difficulty: 'hard', hint: 'T sound + u', romaji: 'tsu' },
-  { japanese: 'テ', english: 'te', category: 'katakana', difficulty: 'hard', hint: 'T sound + e', romaji: 'te' },
-  { japanese: 'ト', english: 'to', category: 'katakana', difficulty: 'hard', hint: 'T sound + o', romaji: 'to' }
+  { japanese: 'カ', english: 'ka', category: 'katakana', difficulty: 'easy', hint: 'K sound + a', romaji: 'ka' },
+  { japanese: 'キ', english: 'ki', category: 'katakana', difficulty: 'easy', hint: 'K sound + i', romaji: 'ki' },
+  { japanese: 'ク', english: 'ku', category: 'katakana', difficulty: 'easy', hint: 'K sound + u', romaji: 'ku' },
+  { japanese: 'ケ', english: 'ke', category: 'katakana', difficulty: 'easy', hint: 'K sound + e', romaji: 'ke' },
+  { japanese: 'コ', english: 'ko', category: 'katakana', difficulty: 'easy', hint: 'K sound + o', romaji: 'ko' },
+  { japanese: 'サ', english: 'sa', category: 'katakana', difficulty: 'easy', hint: 'S sound + a', romaji: 'sa' },
+  { japanese: 'シ', english: 'shi', category: 'katakana', difficulty: 'easy', hint: 'S sound + i', romaji: 'shi' },
+  { japanese: 'ス', english: 'su', category: 'katakana', difficulty: 'easy', hint: 'S sound + u', romaji: 'su' },
+  { japanese: 'セ', english: 'se', category: 'katakana', difficulty: 'easy', hint: 'S sound + e', romaji: 'se' },
+  { japanese: 'ソ', english: 'so', category: 'katakana', difficulty: 'easy', hint: 'S sound + o', romaji: 'so' },
+  { japanese: 'タ', english: 'ta', category: 'katakana', difficulty: 'easy', hint: 'T sound + a', romaji: 'ta' },
+  { japanese: 'チ', english: 'chi', category: 'katakana', difficulty: 'easy', hint: 'T sound + i', romaji: 'chi' },
+  { japanese: 'ツ', english: 'tsu', category: 'katakana', difficulty: 'easy', hint: 'T sound + u', romaji: 'tsu' },
+  { japanese: 'テ', english: 'te', category: 'katakana', difficulty: 'easy', hint: 'T sound + e', romaji: 'te' },
+  { japanese: 'ト', english: 'to', category: 'katakana', difficulty: 'easy', hint: 'T sound + o', romaji: 'to' }
 ]; 
