@@ -1,5 +1,7 @@
 # Japanese Vocabulary Learning App
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/your-site-id/deploy-status)](https://app.netlify.com/sites/your-site-name/deploys)
+
 A comprehensive Japanese vocabulary learning application with various exercises and quizzes.
 
 ## Features

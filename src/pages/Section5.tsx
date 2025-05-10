@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import Settings from '../components/Settings';
+import { kuroshiroInstance } from '../utils/kuroshiro';
 
 interface BaseWord {
   japanese: string;
   english: string;
   difficulty: 'easy' | 'medium' | 'hard';
+  romaji?: string;
 }
 
 interface ThemedWord extends BaseWord {
@@ -44,6 +46,7 @@ const Section5 = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [completedWords, setCompletedWords] = useState<number>(0);
   const [totalWords, setTotalWords] = useState<number>(0);
+  const [romajiMap, setRomajiMap] = useState<{ [key: string]: string }>({});
 
   const categories: Category[] = [
     { 
@@ -114,6 +117,97 @@ const Section5 = () => {
     setCompletedWords(prev => prev + 1);
   };
 
+  const getRomaji = async (text: string) => {
+    if (romajiMap[text]) return romajiMap[text];
+    try {
+      const romaji = await kuroshiroInstance.convert(text);
+      setRomajiMap(prev => ({ ...prev, [text]: romaji }));
+      return romaji;
+    } catch (error) {
+      console.error('Error converting to romaji:', error);
+      return '';
+    }
+  };
+
+  useEffect(() => {
+    if (settings.showRomajiVocabulary) {
+      const updateRomaji = async () => {
+        const newRomajiMap: { [key: string]: string } = {};
+        for (const category of categories) {
+          for (const word of category.words) {
+            if (!romajiMap[word.japanese]) {
+              newRomajiMap[word.japanese] = await getRomaji(word.japanese);
+            }
+          }
+        }
+        setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
+      };
+      updateRomaji();
+    }
+  }, [settings.showRomajiVocabulary]);
+
+  const renderWord = (word: Word) => (
+    <div className="bg-gray-50 p-4 rounded-lg">
+      <div className="flex justify-between items-start">
+        <div>
+          <h3 className="text-lg font-semibold">{word.japanese}</h3>
+          {settings.showRomajiVocabulary && (
+            <p className="text-gray-500 italic">
+              {romajiMap[word.japanese] || 'Loading...'}
+            </p>
+          )}
+          <p className="text-gray-600">{word.english}</p>
+        </div>
+        <span className={`px-2 py-1 rounded text-sm ${
+          word.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
+          word.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+          'bg-red-100 text-red-800'
+        }`}>
+          {word.difficulty}
+        </span>
+      </div>
+      
+      {'synonym' in word && (
+        <div className="mt-2">
+          <p className="text-sm text-gray-500">
+            Synonym: {word.synonym} | Antonym: {word.antonym}
+          </p>
+        </div>
+      )}
+      
+      {'related' in word && (
+        <div className="mt-2">
+          <p className="text-sm text-gray-500">
+            Related words: {word.related.join(', ')}
+          </p>
+        </div>
+      )}
+      
+      {'usage' in word && (
+        <div className="mt-2">
+          <p className="text-sm text-gray-500">
+            Usage: {word.usage}
+          </p>
+        </div>
+      )}
+      
+      {'literal' in word && (
+        <div className="mt-2">
+          <p className="text-sm text-gray-500">
+            Literal meaning: {word.literal}
+          </p>
+        </div>
+      )}
+
+      <button
+        onClick={handleWordComplete}
+        className="mt-2 px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
+      >
+        Mark as Learned
+      </button>
+    </div>
+  );
+
   return (
     <div className="py-8">
       <div className="flex items-center justify-between mb-8">
@@ -163,60 +257,9 @@ const Section5 = () => {
             {currentCategory && (
               <div className="space-y-4">
                 {filteredWords.map((word: Word, index: number) => (
-                  <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-lg font-semibold">{word.japanese}</h3>
-                        <p className="text-gray-600">{word.english}</p>
-                      </div>
-                      <span className={`px-2 py-1 rounded text-sm ${
-                        word.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
-                        word.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {word.difficulty}
-                      </span>
-                    </div>
-                    
-                    {'synonym' in word && (
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-500">
-                          Synonym: {word.synonym} | Antonym: {word.antonym}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {'related' in word && (
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-500">
-                          Related words: {word.related.join(', ')}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {'usage' in word && (
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-500">
-                          Usage: {word.usage}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {'literal' in word && (
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-500">
-                          Literal meaning: {word.literal}
-                        </p>
-                      </div>
-                    )}
-
-                    <button
-                      onClick={handleWordComplete}
-                      className="mt-2 px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
-                    >
-                      Mark as Learned
-                    </button>
-                  </div>
+                  <React.Fragment key={index}>
+                    {renderWord(word)}
+                  </React.Fragment>
                 ))}
               </div>
             )}

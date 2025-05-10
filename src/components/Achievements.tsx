@@ -8,7 +8,7 @@ interface Achievement {
   description: string;
   icon: string;
   condition: (progress: any) => boolean;
-  category: 'word' | 'sentence' | 'kanji' | 'general';
+  category: 'word' | 'sentence' | 'kanji' | 'hiragana' | 'katakana' | 'general';
 }
 
 const ACHIEVEMENTS: Achievement[] = [
@@ -89,6 +89,68 @@ const ACHIEVEMENTS: Achievement[] = [
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       return lastAttempt >= sevenDaysAgo;
+    },
+    category: 'general'
+  },
+  {
+    id: 'hiragana_beginner',
+    title: 'Hiragana Explorer',
+    description: 'Complete your first hiragana practice',
+    icon: 'あ',
+    condition: (progress) => progress.hiragana.totalQuestions > 0,
+    category: 'hiragana'
+  },
+  {
+    id: 'hiragana_master',
+    title: 'Hiragana Master',
+    description: 'Complete 100 hiragana practices with 90% accuracy',
+    icon: 'あ',
+    condition: (progress) => 
+      progress.hiragana.totalQuestions >= 100 && 
+      (progress.hiragana.correctAnswers / progress.hiragana.totalQuestions) >= 0.9,
+    category: 'hiragana'
+  },
+  {
+    id: 'katakana_beginner',
+    title: 'Katakana Explorer',
+    description: 'Complete your first katakana practice',
+    icon: 'ア',
+    condition: (progress) => progress.katakana.totalQuestions > 0,
+    category: 'katakana'
+  },
+  {
+    id: 'katakana_master',
+    title: 'Katakana Master',
+    description: 'Complete 100 katakana practices with 90% accuracy',
+    icon: 'ア',
+    condition: (progress) => 
+      progress.katakana.totalQuestions >= 100 && 
+      (progress.katakana.correctAnswers / progress.katakana.totalQuestions) >= 0.9,
+    category: 'katakana'
+  },
+  {
+    id: 'kana_master',
+    title: 'Kana Master',
+    description: 'Master both hiragana and katakana with 90% accuracy',
+    icon: '🎯',
+    condition: (progress) => 
+      progress.hiragana.totalQuestions >= 100 && 
+      progress.katakana.totalQuestions >= 100 &&
+      (progress.hiragana.correctAnswers / progress.hiragana.totalQuestions) >= 0.9 &&
+      (progress.katakana.correctAnswers / progress.katakana.totalQuestions) >= 0.9,
+    category: 'general'
+  },
+  {
+    id: 'kana_streak_7',
+    title: 'Kana Warrior',
+    description: 'Practice hiragana or katakana for 7 consecutive days',
+    icon: '🔥',
+    condition: (progress) => {
+      const lastHiragana = new Date(progress.hiragana.lastAttempt);
+      const lastKatakana = new Date(progress.katakana.lastAttempt);
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      return lastHiragana >= sevenDaysAgo || lastKatakana >= sevenDaysAgo;
     },
     category: 'general'
   }

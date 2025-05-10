@@ -1,9 +1,91 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
+import { kuroshiroInstance } from '../utils/kuroshiro';
+
+interface ReadingMaterial {
+  title: string;
+  content: string;
+  translation: string;
+  vocabulary: string[];
+}
 
 const Section6 = () => {
+  const { settings } = useApp();
   const [selectedType, setSelectedType] = useState<string>('hiragana');
   const [selectedLevel, setSelectedLevel] = useState<string>('beginner');
+  const [romajiMap, setRomajiMap] = useState<{ [key: string]: string }>({});
+
+  const getRomaji = async (text: string) => {
+    if (romajiMap[text]) return romajiMap[text];
+    try {
+      const romaji = await kuroshiroInstance.convert(text);
+      setRomajiMap(prev => ({ ...prev, [text]: romaji }));
+      return romaji;
+    } catch (error) {
+      console.error('Error converting to romaji:', error);
+      return '';
+    }
+  };
+
+  useEffect(() => {
+    if (settings.showRomajiReading) {
+      const updateRomaji = async () => {
+        const newRomajiMap: { [key: string]: string } = {};
+        for (const material of currentMaterials) {
+          if (!romajiMap[material.content]) {
+            newRomajiMap[material.content] = await getRomaji(material.content);
+          }
+          for (const word of material.vocabulary) {
+            if (!romajiMap[word]) {
+              newRomajiMap[word] = await getRomaji(word);
+            }
+          }
+        }
+        setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
+      };
+      updateRomaji();
+    }
+  }, [settings.showRomajiReading, selectedType, selectedLevel]);
+
+  const renderReadingMaterial = (material: ReadingMaterial) => (
+    <div className="bg-gray-50 p-6 rounded-lg">
+      <h3 className="text-xl font-semibold mb-4">{material.title}</h3>
+      
+      <div className="mb-4">
+        <h4 className="font-medium mb-2">Reading:</h4>
+        <p className="text-lg leading-relaxed">{material.content}</p>
+        {settings.showRomajiReading && (
+          <p className="text-gray-500 italic mt-2">
+            {romajiMap[material.content] || 'Loading...'}
+          </p>
+        )}
+      </div>
+
+      <div className="mb-4">
+        <h4 className="font-medium mb-2">Translation:</h4>
+        <p className="text-gray-700">{material.translation}</p>
+      </div>
+
+      <div>
+        <h4 className="font-medium mb-2">Vocabulary:</h4>
+        <div className="flex flex-wrap gap-2">
+          {material.vocabulary.map((word, i) => (
+            <div key={i} className="flex flex-col items-center">
+              <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                {word}
+              </span>
+              {settings.showRomajiReading && (
+                <span className="text-xs text-gray-500 mt-1">
+                  {romajiMap[word] || 'Loading...'}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   const readingMaterials = {
     hiragana: {
@@ -118,33 +200,9 @@ const Section6 = () => {
 
         <div className="space-y-8">
           {currentMaterials.map((material, index) => (
-            <div key={index} className="bg-gray-50 p-6 rounded-lg">
-              <h3 className="text-xl font-semibold mb-4">{material.title}</h3>
-              
-              <div className="mb-4">
-                <h4 className="font-medium mb-2">Reading:</h4>
-                <p className="text-lg leading-relaxed">{material.content}</p>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="font-medium mb-2">Translation:</h4>
-                <p className="text-gray-700">{material.translation}</p>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2">Vocabulary:</h4>
-                <div className="flex flex-wrap gap-2">
-                  {material.vocabulary.map((word, i) => (
-                    <span
-                      key={i}
-                      className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
-                    >
-                      {word}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <React.Fragment key={index}>
+              {renderReadingMaterial(material)}
+            </React.Fragment>
           ))}
         </div>
       </div>

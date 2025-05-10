@@ -28,6 +28,11 @@ const Statistics: React.FC = () => {
           text: 'text-dark-text',
           grid: 'border-dark-border',
         },
+        stat: {
+          label: 'text-gray-400',
+          value: 'text-gray-100',
+          highlight: 'text-blue-400'
+        }
       };
     }
 
@@ -43,6 +48,11 @@ const Statistics: React.FC = () => {
             text: 'text-blue-text',
             grid: 'border-blue-border',
           },
+          stat: {
+            label: 'text-blue-600',
+            value: 'text-blue-900',
+            highlight: 'text-blue-600'
+          }
         };
       case 'green':
         return {
@@ -55,6 +65,11 @@ const Statistics: React.FC = () => {
             text: 'text-green-text',
             grid: 'border-green-border',
           },
+          stat: {
+            label: 'text-green-600',
+            value: 'text-green-900',
+            highlight: 'text-green-600'
+          }
         };
       default:
         return {
@@ -67,6 +82,11 @@ const Statistics: React.FC = () => {
             text: 'text-gray-800',
             grid: 'border-gray-200',
           },
+          stat: {
+            label: 'text-gray-600',
+            value: 'text-gray-900',
+            highlight: 'text-blue-600'
+          }
         };
     }
   };
@@ -138,6 +158,41 @@ const Statistics: React.FC = () => {
     </div>
   );
 
+  const renderSectionStats = (title: string, section: any, icon: string) => (
+    <div className={`p-4 rounded-lg border ${themeClasses.border} ${themeClasses.card}`}>
+      <div className="flex items-center space-x-3 mb-4">
+        <span className="text-2xl">{icon}</span>
+        <h3 className="text-lg font-semibold">{title}</h3>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className={`text-sm ${themeClasses.stat.label}`}>Total Questions</p>
+          <p className={`text-xl font-medium ${themeClasses.stat.value}`}>
+            {section.totalQuestions}
+          </p>
+        </div>
+        <div>
+          <p className={`text-sm ${themeClasses.stat.label}`}>Accuracy</p>
+          <p className={`text-xl font-medium ${themeClasses.stat.value}`}>
+            {calculateAccuracy(section)}%
+          </p>
+        </div>
+        <div>
+          <p className={`text-sm ${themeClasses.stat.label}`}>Best Streak</p>
+          <p className={`text-xl font-medium ${themeClasses.stat.highlight}`}>
+            {section.bestStreak}
+          </p>
+        </div>
+        <div>
+          <p className={`text-sm ${themeClasses.stat.label}`}>Last Practice</p>
+          <p className={`text-sm ${themeClasses.stat.value}`}>
+            {section.lastAttempt ? new Date(section.lastAttempt).toLocaleDateString() : 'Never'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className={`mb-8 ${themeClasses.container} rounded-lg shadow-md p-6`}>
@@ -146,7 +201,11 @@ const Statistics: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           {renderStatCard(
             'Total Questions',
-            progress.wordPractice.totalQuestions + progress.sentencePractice.totalQuestions + progress.kanji.totalQuestions,
+            progress.wordPractice.totalQuestions + 
+            progress.sentencePractice.totalQuestions + 
+            progress.kanji.totalQuestions +
+            progress.hiragana.totalQuestions +
+            progress.katakana.totalQuestions,
             '📊'
           )}
           {renderStatCard(
@@ -154,8 +213,10 @@ const Statistics: React.FC = () => {
             `${Math.round(
               (calculateAccuracy(progress.wordPractice) +
                 calculateAccuracy(progress.sentencePractice) +
-                calculateAccuracy(progress.kanji)) /
-                3
+                calculateAccuracy(progress.kanji) +
+                calculateAccuracy(progress.hiragana) +
+                calculateAccuracy(progress.katakana)) /
+                5
             )}%`,
             '🎯'
           )}
@@ -164,63 +225,22 @@ const Statistics: React.FC = () => {
             Math.max(
               progress.wordPractice.bestStreak,
               progress.sentencePractice.bestStreak,
-              progress.kanji.bestStreak
+              progress.kanji.bestStreak,
+              progress.hiragana.bestStreak,
+              progress.katakana.bestStreak
             ),
             '🔥'
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className={`p-4 rounded-lg border ${themeClasses.border} ${themeClasses.chart.background}`}>
-            <h3 className="text-lg font-semibold mb-4">Accuracy by Section</h3>
-            <div className="h-64">
-              {/* Add chart component here */}
-              <div className="flex flex-col space-y-2">
-                {getAccuracyData().labels.map((label, index) => (
-                  <div key={label} className="flex items-center">
-                    <div className="w-32">{label}</div>
-                    <div className="flex-1 h-6 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-green-500"
-                        style={{ width: `${getAccuracyData().datasets[0].data[index]}%` }}
-                      />
-                    </div>
-                    <div className="w-16 text-right">
-                      {getAccuracyData().datasets[0].data[index]}%
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className={`p-4 rounded-lg border ${themeClasses.border} ${themeClasses.chart.background}`}>
-            <h3 className="text-lg font-semibold mb-4">Questions Answered</h3>
-            <div className="h-64">
-              {/* Add chart component here */}
-              <div className="flex flex-col space-y-2">
-                {getQuestionsData().labels.map((label, index) => (
-                  <div key={label} className="flex items-center">
-                    <div className="w-32">{label}</div>
-                    <div className="flex-1 h-6 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-blue-500"
-                        style={{
-                          width: `${
-                            (getQuestionsData().datasets[0].data[index] /
-                              Math.max(...getQuestionsData().datasets[0].data)) *
-                            100
-                          }%`,
-                        }}
-                      />
-                    </div>
-                    <div className="w-16 text-right">
-                      {getQuestionsData().datasets[0].data[index]}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        <div className="space-y-6">
+          <h3 className="text-xl font-semibold mb-4">Section Performance</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {renderSectionStats('Hiragana', progress.hiragana, 'あ')}
+            {renderSectionStats('Katakana', progress.katakana, 'ア')}
+            {renderSectionStats('Word Practice', progress.wordPractice, '📚')}
+            {renderSectionStats('Sentence Practice', progress.sentencePractice, '📝')}
+            {renderSectionStats('Kanji', progress.kanji, '🖋️')}
           </div>
         </div>
       </div>

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Kanji, kanjiList } from '../data/kanjiData';
 import { useTheme } from '../context/ThemeContext';
 import { useProgress } from '../context/ProgressContext';
+import { useApp } from '../context/AppContext';
+import { kuroshiroInstance } from '../utils/kuroshiro';
 
 type Mode = 'flashcards' | 'meaning-quiz' | 'reading-quiz' | 'writing-quiz';
 type QuizDifficulty = 'easy' | 'medium' | 'hard';
@@ -36,6 +38,7 @@ const QUIZ_SETTINGS: Record<QuizDifficulty, QuizSettings> = {
 
 const KanjiPractice: React.FC = () => {
   const { theme, isDarkMode } = useTheme();
+  const { settings } = useApp();
   const [mode, setMode] = useState<Mode>('flashcards');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showMeaning, setShowMeaning] = useState(false);
@@ -58,6 +61,7 @@ const KanjiPractice: React.FC = () => {
   const [quizDifficulty, setQuizDifficulty] = useState<QuizDifficulty>('medium');
   const [questionsRemaining, setQuestionsRemaining] = useState(0);
   const [quizComplete, setQuizComplete] = useState(false);
+  const [romajiMap, setRomajiMap] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const { updateProgress } = useProgress();
 
@@ -65,6 +69,38 @@ const KanjiPractice: React.FC = () => {
   const correctSound = new Audio('/sounds/correct.mp3');
   const incorrectSound = new Audio('/sounds/incorrect.mp3');
   const timeUpSound = new Audio('/sounds/time-up.mp3');
+
+  // Function to get romaji for a given text
+  const getRomaji = async (text: string) => {
+    if (romajiMap[text]) return romajiMap[text];
+    try {
+      const romaji = await kuroshiroInstance.convert(text);
+      setRomajiMap(prev => ({ ...prev, [text]: romaji }));
+      return romaji;
+    } catch (error) {
+      console.error('Error converting to romaji:', error);
+      return text;
+    }
+  };
+
+  // Update romaji when settings change
+  useEffect(() => {
+    if (settings.showRomajiGames) {
+      const updateRomaji = async () => {
+        const currentKanji = filteredKanji[currentIndex];
+        if (!romajiMap[currentKanji.character]) {
+          await getRomaji(currentKanji.character);
+        }
+        // Update romaji for examples
+        for (const example of currentKanji.examples) {
+          if (!romajiMap[example.word]) {
+            await getRomaji(example.word);
+          }
+        }
+      };
+      updateRomaji();
+    }
+  }, [currentIndex, settings.showRomajiGames, filteredKanji]);
 
   useEffect(() => {
     filterKanji();
@@ -293,13 +329,31 @@ const KanjiPractice: React.FC = () => {
           <div className="text-center mb-8">
             {mode === 'meaning-quiz' && (
               <>
-                <div className="text-8xl mb-4">{currentKanji.character}</div>
+                {settings.showKanjiGames ? (
+                  <div className="text-8xl mb-4">{currentKanji.character}</div>
+                ) : (
+                  <div className="text-8xl mb-4">{currentKanji.kunyomi[0]}</div>
+                )}
+                {settings.showRomajiGames && (
+                  <div className="text-xl mb-4 text-gray-600">
+                    {romajiMap[currentKanji.character] || 'Loading...'}
+                  </div>
+                )}
                 <div className="text-2xl mb-4">What is the meaning of this kanji?</div>
               </>
             )}
             {mode === 'reading-quiz' && (
               <>
-                <div className="text-8xl mb-4">{currentKanji.character}</div>
+                {settings.showKanjiGames ? (
+                  <div className="text-8xl mb-4">{currentKanji.character}</div>
+                ) : (
+                  <div className="text-8xl mb-4">{currentKanji.meaning}</div>
+                )}
+                {settings.showRomajiGames && (
+                  <div className="text-xl mb-4 text-gray-600">
+                    {romajiMap[currentKanji.character] || 'Loading...'}
+                  </div>
+                )}
                 <div className="text-2xl mb-4">
                   What is the {readingType === 'onyomi' ? 'onyomi' : 'kunyomi'} reading?
                 </div>
@@ -313,6 +367,11 @@ const KanjiPractice: React.FC = () => {
                     : `Write the kanji for the reading: ${currentKanji.onyomi[0]}`
                   }
                 </div>
+                {settings.showRomajiGames && writingMode === 'reading' && (
+                  <div className="text-xl mb-4 text-gray-600">
+                    {romajiMap[currentKanji.onyomi[0]] || 'Loading...'}
+                  </div>
+                )}
               </>
             )}
             <div className="text-xl mb-4">Time left: {timeLeft}s</div>
@@ -365,6 +424,14 @@ const KanjiPractice: React.FC = () => {
             <div className="text-xl mb-4">
               The meaning is: {currentKanji.meaning}
             </div>
+            {settings.showKanjiGames && (
+              <div className="text-8xl mb-4">{currentKanji.character}</div>
+            )}
+            {settings.showRomajiGames && (
+              <div className="text-xl mb-4 text-gray-600">
+                {romajiMap[currentKanji.character] || 'Loading...'}
+              </div>
+            )}
             <div className="text-lg mb-4">
               Onyomi: {currentKanji.onyomi.join(', ')}
             </div>
@@ -496,7 +563,16 @@ const KanjiPractice: React.FC = () => {
 
         {mode === 'flashcards' ? (
           <div className={`${themeClasses.card} rounded-lg p-8 border ${themeClasses.border} text-center`}>
-            <div className="text-8xl mb-8">{currentKanji.character}</div>
+            {settings.showKanjiGames ? (
+              <div className="text-8xl mb-8">{currentKanji.character}</div>
+            ) : (
+              <div className="text-8xl mb-8">{currentKanji.kunyomi[0]}</div>
+            )}
+            {settings.showRomajiGames && (
+              <div className="text-xl mb-4 text-gray-600">
+                {romajiMap[currentKanji.character] || 'Loading...'}
+              </div>
+            )}
             
             <div className="space-y-4">
               <button
@@ -534,7 +610,13 @@ const KanjiPractice: React.FC = () => {
                   <div className="space-y-2">
                     {currentKanji.examples.map((example, index) => (
                       <div key={index}>
-                        {example.word} ({example.reading}) - {example.meaning}
+                        {settings.showKanjiGames ? example.word : example.reading} 
+                        {settings.showRomajiGames && (
+                          <span className="text-gray-600 ml-2">
+                            ({romajiMap[example.word] || 'Loading...'})
+                          </span>
+                        )}
+                        {' - '}{example.meaning}
                       </div>
                     ))}
                   </div>

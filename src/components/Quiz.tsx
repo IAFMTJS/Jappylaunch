@@ -1,7 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { quizWords, Category } from '../data/quizData';
+import { useProgress } from '../context/ProgressContext';
+import { kuroshiroInstance } from '../utils/kuroshiro';
 
 type Difficulty = 'easy' | 'medium' | 'hard';
 type QuizState = 'setup' | 'in-progress' | 'complete';
@@ -41,6 +43,8 @@ const categories = [
 const Quiz: React.FC = () => {
   const { theme, isDarkMode } = useTheme();
   const { updateProgress } = useApp();
+  const { updateProgress: updateProgressProgress } = useProgress();
+  const { settings: appSettings } = useApp();
   const [quizState, setQuizState] = useState<QuizState>('setup');
   const [settings, setSettings] = useState<QuizSettings>({
     category: 'all',
@@ -58,6 +62,12 @@ const Quiz: React.FC = () => {
   const [timeStarted, setTimeStarted] = useState<Date | null>(null);
   const [timeEnded, setTimeEnded] = useState<Date | null>(null);
   const [options, setOptions] = useState<string[]>([]);
+  const { progress } = useProgress();
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [bestStreak, setBestStreak] = useState(0);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedback, setFeedback] = useState(false);
+  const [romajiMap, setRomajiMap] = useState<Record<string, string>>({});
 
   const getThemeClasses = () => {
     if (isDarkMode) {
@@ -147,6 +157,10 @@ const Quiz: React.FC = () => {
     setIsCorrect(null);
     setTimeStarted(new Date());
     setTimeEnded(null);
+    setCurrentStreak(0);
+    setBestStreak(0);
+    setShowFeedback(false);
+    setFeedback(false);
 
     // Generate options for multiple choice
     if (settings.quizType === 'multiple-choice' && shuffled.length > 0) {
@@ -163,56 +177,66 @@ const Quiz: React.FC = () => {
     setQuizState('in-progress');
   };
 
-  const checkAnswer = (answer: string, correctWord: typeof quizWords[0]) => {
-    switch (settings.difficulty) {
-      case 'easy':
-        return answer.toLowerCase() === correctWord.english.toLowerCase();
-      case 'medium':
-        return answer.toLowerCase() === correctWord.english.toLowerCase();
-      case 'hard':
-        switch (settings.answerType) {
-          case 'hiragana':
-            return answer === correctWord.japanese;
-          case 'katakana':
-            const katakanaAnswer = answer.replace(/[\u3040-\u309F]/g, char => 
-              String.fromCharCode(char.charCodeAt(0) + 0x60)
-            );
-            return katakanaAnswer === correctWord.japanese;
-          case 'romaji':
-            return answer.toLowerCase() === correctWord.romaji?.toLowerCase();
-          default:
-            return false;
-        }
-      default:
-        return false;
+  const checkAnswer = (answer: string) => {
+    const isCorrect = questions[currentQuestion].english.toLowerCase() === answer.toLowerCase();
+    const newScore = isCorrect ? score + 1 : score;
+    const newStreak = isCorrect ? currentStreak + 1 : 0;
+    const newBestStreak = Math.max(bestStreak, newStreak);
+    
+    setScore(newScore);
+    setCurrentStreak(newStreak);
+    setBestStreak(newBestStreak);
+    setShowFeedback(true);
+    setFeedback(isCorrect);
+    
+    // Update progress based on category
+    if (settings.category === 'hiragana' || settings.category === 'katakana') {
+      const section = settings.category as 'hiragana' | 'katakana';
+      updateProgressProgress(section, {
+        totalQuestions: (progress[section].totalQuestions || 0) + 1,
+        correctAnswers: (progress[section].correctAnswers || 0) + (isCorrect ? 1 : 0),
+        bestStreak: newBestStreak,
+        lastAttempt: new Date().toISOString(),
+        averageTime: 0 // TODO: Implement time tracking
+      });
     }
+
+    setTimeout(() => {
+      setShowFeedback(false);
+      if (currentQuestion < questions.length - 1) {
+        setCurrentQuestion(prev => prev + 1);
+        setCurrentStreak(newStreak);
+      } else {
+        const finalScore = Math.round((newScore / questions.length) * 100);
+        setQuizState('complete');
+        const endTime = new Date();
+        setTimeEnded(endTime);
+        
+        // Update quiz stats in AppContext with complete QuizData
+        const timeTaken = timeStarted && endTime ? (endTime.getTime() - timeStarted.getTime()) / 1000 : 0;
+        updateProgress('section8', questions.length, newScore, {
+          score: finalScore,
+          date: new Date().toISOString(),
+          category: settings.category,
+          difficulty: settings.difficulty,
+          quizType: 'multiple-choice',
+          timeTaken,
+          totalQuestions: questions.length,
+          correctAnswers: newScore
+        });
+      }
+    }, 1000);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!userAnswer.trim()) return;
 
-    const currentWord = questions[currentQuestion];
-    const isAnswerCorrect = checkAnswer(userAnswer.trim(), currentWord);
-    
-    setIsCorrect(isAnswerCorrect);
-    setShowAnswer(true);
-    
-    if (isAnswerCorrect) {
-      setScore(prev => prev + 1);
-    }
+    checkAnswer(userAnswer.trim());
   };
 
   const handleOptionSelect = (option: string) => {
-    const currentWord = questions[currentQuestion];
-    const isAnswerCorrect = option === currentWord.english;
-    
-    setIsCorrect(isAnswerCorrect);
-    setShowAnswer(true);
-    
-    if (isAnswerCorrect) {
-      setScore(prev => prev + 1);
-    }
+    checkAnswer(option);
   };
 
   const handleNext = useCallback(() => {
@@ -255,6 +279,33 @@ const Quiz: React.FC = () => {
   const restartQuiz = () => {
     setQuizState('setup');
   };
+
+  // Function to get romaji for a given text
+  const getRomaji = async (text: string) => {
+    if (romajiMap[text]) return romajiMap[text];
+    try {
+      const romaji = await kuroshiroInstance.convert(text);
+      setRomajiMap(prev => ({ ...prev, [text]: romaji }));
+      return romaji;
+    } catch (error) {
+      console.error('Error converting to romaji:', error);
+      return text;
+    }
+  };
+
+  // Update romaji when settings change
+  useEffect(() => {
+    if (appSettings.showRomajiGames) {
+      const updateRomaji = async () => {
+        for (const word of questions) {
+          if (!romajiMap[word.japanese]) {
+            await getRomaji(word.japanese);
+          }
+        }
+      };
+      updateRomaji();
+    }
+  }, [questions, appSettings.showRomajiGames]);
 
   if (quizState === 'setup') {
     return (
@@ -428,11 +479,11 @@ const Quiz: React.FC = () => {
         ) : (
           <>
             <h3 className={`text-3xl font-bold mb-4 ${themeClasses.text}`}>
-              {currentWord.japanese}
+              {appSettings.showKanjiGames ? currentWord.japanese : currentWord.romaji}
             </h3>
-            {settings.difficulty === 'easy' && currentWord.romaji && (
+            {appSettings.showRomajiGames && (
               <p className={`text-xl text-gray-600 mb-4 ${themeClasses.text}`}>
-                Romaji: {currentWord.romaji}
+                {romajiMap[currentWord.japanese] || 'Loading...'}
               </p>
             )}
           </>
@@ -475,10 +526,10 @@ const Quiz: React.FC = () => {
       ) : (
         <div className="space-y-4">
           <div className={`p-4 rounded-lg ${
-            isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            feedback ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
           }`}>
             <p className="text-xl font-semibold mb-2">
-              {isCorrect ? 'Correct! 🎉' : 'Incorrect 😕'}
+              {feedback ? 'Correct! 🎉' : 'Incorrect 😕'}
             </p>
             {settings.difficulty === 'hard' ? (
               <>

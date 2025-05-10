@@ -6,6 +6,8 @@ interface DayData {
   date: Date;
   practiceCount: number;
   accuracy: number;
+  hiraganaPractice: boolean;
+  katakanaPractice: boolean;
 }
 
 const StreakCalendar: React.FC = () => {
@@ -84,38 +86,69 @@ const StreakCalendar: React.FC = () => {
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth();
       const daysInMonth = new Date(year, month + 1, 0).getDate();
-      const firstDay = new Date(year, month, 1).getDay();
-
+      const firstDayOfMonth = new Date(year, month, 1).getDay();
+      
       const data: DayData[] = [];
-      const today = new Date();
-
-      // Add empty cells for days before the first day of the month
-      for (let i = 0; i < firstDay; i++) {
-        data.push({
-          date: new Date(year, month, -i),
+      
+      // Add padding for days before the first day of the month
+      for (let i = 0; i < firstDayOfMonth; i++) {
+        const date = new Date(year, month, -i);
+        data.unshift({
+          date,
           practiceCount: 0,
           accuracy: 0,
+          hiraganaPractice: false,
+          katakanaPractice: false
         });
       }
-
-      // Add cells for each day of the month
+      
+      // Add days of the current month
       for (let day = 1; day <= daysInMonth; day++) {
         const date = new Date(year, month, day);
-        const practiceCount = Math.floor(Math.random() * 10); // Replace with actual data
-        const accuracy = Math.floor(Math.random() * 100); // Replace with actual data
-
+        const dateStr = date.toISOString().split('T')[0];
+        
+        // Check if there was practice on this day
+        const hiraganaLastAttempt = new Date(progress.hiragana.lastAttempt).toISOString().split('T')[0];
+        const katakanaLastAttempt = new Date(progress.katakana.lastAttempt).toISOString().split('T')[0];
+        
+        const hiraganaPractice = hiraganaLastAttempt === dateStr;
+        const katakanaPractice = katakanaLastAttempt === dateStr;
+        
         data.push({
           date,
-          practiceCount,
-          accuracy,
+          practiceCount: (hiraganaPractice ? 1 : 0) + (katakanaPractice ? 1 : 0),
+          accuracy: hiraganaPractice && katakanaPractice
+            ? (progress.hiragana.correctAnswers + progress.katakana.correctAnswers) /
+              (progress.hiragana.totalQuestions + progress.katakana.totalQuestions) * 100
+            : hiraganaPractice
+            ? (progress.hiragana.correctAnswers / progress.hiragana.totalQuestions) * 100
+            : katakanaPractice
+            ? (progress.katakana.correctAnswers / progress.katakana.totalQuestions) * 100
+            : 0,
+          hiraganaPractice,
+          katakanaPractice
         });
       }
-
+      
+      // Add padding for days after the last day of the month
+      const totalDays = 42; // 6 rows of 7 days
+      const remainingDays = totalDays - data.length;
+      for (let i = 1; i <= remainingDays; i++) {
+        const date = new Date(year, month + 1, i);
+        data.push({
+          date,
+          practiceCount: 0,
+          accuracy: 0,
+          hiraganaPractice: false,
+          katakanaPractice: false
+        });
+      }
+      
       setCalendarData(data);
     };
 
     generateCalendarData();
-  }, [currentMonth]);
+  }, [currentMonth, progress]);
 
   const getMonthName = (date: Date) => {
     return date.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -142,15 +175,21 @@ const StreakCalendar: React.FC = () => {
   };
 
   const getCellClass = (day: DayData) => {
+    const today = new Date();
+    const isToday = day.date.toDateString() === today.toDateString();
+    
     if (!isInCurrentMonth(day.date)) {
       return themeClasses.calendar.empty;
     }
-    if (isToday(day.date)) {
+    
+    if (isToday) {
       return themeClasses.calendar.today;
     }
+    
     if (day.practiceCount > 0) {
       return themeClasses.calendar.streak;
     }
+    
     return themeClasses.calendar.cell;
   };
 
@@ -195,8 +234,11 @@ const StreakCalendar: React.FC = () => {
               <div className="text-sm">{day.date.getDate()}</div>
               {isInCurrentMonth(day.date) && day.practiceCount > 0 && (
                 <div className="text-xs mt-1">
-                  <div>Practice: {day.practiceCount}</div>
-                  <div>Accuracy: {day.accuracy}%</div>
+                  <div className="flex items-center justify-between">
+                    <span>Hiragana: {day.hiraganaPractice ? '✓' : '✗'}</span>
+                    <span>Katakana: {day.katakanaPractice ? '✓' : '✗'}</span>
+                  </div>
+                  <div className="mt-1">Accuracy: {Math.round(day.accuracy)}%</div>
                 </div>
               )}
             </div>

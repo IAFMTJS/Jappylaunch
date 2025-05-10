@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
+import { kuroshiroInstance } from '../utils/kuroshiro';
 
 interface GameState {
   isPlaying: boolean;
@@ -25,6 +26,7 @@ interface WordPair {
   english: string;
   isMatched: boolean;
   isSelected: boolean;
+  hiragana: string;
 }
 
 interface SentenceWord {
@@ -36,7 +38,7 @@ interface SentenceWord {
 
 const Section8 = () => {
   const { theme, isDarkMode } = useTheme();
-  const { updateProgress } = useApp();
+  const { updateProgress, settings } = useApp();
   const [selectedGame, setSelectedGame] = useState<string>('matching');
   const [gameState, setGameState] = useState<GameState>({
     isPlaying: false,
@@ -59,6 +61,7 @@ const Section8 = () => {
     selectedAssociations: [] as string[],
     correctAssociations: [] as string[]
   });
+  const [romajiMap, setRomajiMap] = useState<Record<string, string>>({});
 
   const games = [
     { id: 'matching', name: 'Word Matching', description: 'Match Japanese words with their English meanings' },
@@ -70,12 +73,30 @@ const Section8 = () => {
 
   // Game data
   const matchingGameData = [
-    { id: 1, japanese: '猫', english: 'cat' },
-    { id: 2, japanese: '犬', english: 'dog' },
-    { id: 3, japanese: '鳥', english: 'bird' },
-    { id: 4, japanese: '魚', english: 'fish' },
-    { id: 5, japanese: '本', english: 'book' },
-    { id: 6, japanese: '水', english: 'water' }
+    { id: 1, japanese: '猫', english: 'cat', hiragana: 'ねこ' },
+    { id: 2, japanese: '犬', english: 'dog', hiragana: 'いぬ' },
+    { id: 3, japanese: '鳥', english: 'bird', hiragana: 'とり' },
+    { id: 4, japanese: '魚', english: 'fish', hiragana: 'さかな' },
+    { id: 5, japanese: '本', english: 'book', hiragana: 'ほん' },
+    { id: 6, japanese: '水', english: 'water', hiragana: 'みず' },
+    { id: 7, japanese: '山', english: 'mountain', hiragana: 'やま' },
+    { id: 8, japanese: '川', english: 'river', hiragana: 'かわ' },
+    { id: 9, japanese: '空', english: 'sky', hiragana: 'そら' },
+    { id: 10, japanese: '海', english: 'sea', hiragana: 'うみ' },
+    { id: 11, japanese: '花', english: 'flower', hiragana: 'はな' },
+    { id: 12, japanese: '木', english: 'tree', hiragana: 'き' },
+    { id: 13, japanese: 'あめ', english: 'rain', hiragana: 'あめ' },
+    { id: 14, japanese: 'くも', english: 'cloud', hiragana: 'くも' },
+    { id: 15, japanese: 'かみ', english: 'paper', hiragana: 'かみ' },
+    { id: 16, japanese: 'みず', english: 'water', hiragana: 'みず' },
+    { id: 17, japanese: 'テレビ', english: 'TV', hiragana: 'テレビ' },
+    { id: 18, japanese: 'ラジオ', english: 'radio', hiragana: 'ラジオ' },
+    { id: 19, japanese: 'パソコン', english: 'computer', hiragana: 'パソコン' },
+    { id: 20, japanese: 'カメラ', english: 'camera', hiragana: 'カメラ' },
+    { id: 21, japanese: 'ピアノ', english: 'piano', hiragana: 'ピアノ' },
+    { id: 22, japanese: 'ギター', english: 'guitar', hiragana: 'ギター' },
+    { id: 23, japanese: 'コーヒー', english: 'coffee', hiragana: 'コーヒー' },
+    { id: 24, japanese: 'ジュース', english: 'juice', hiragana: 'ジュース' }
   ];
 
   const sentenceGameData = [
@@ -86,7 +107,31 @@ const Section8 = () => {
     { id: 5, word: '毎日', type: 'adverb' },
     { id: 6, word: '学校', type: 'noun' },
     { id: 7, word: 'に', type: 'particle' },
-    { id: 8, word: '行きます', type: 'verb' }
+    { id: 8, word: '行きます', type: 'verb' },
+    { id: 9, word: '今日', type: 'noun' },
+    { id: 10, word: 'から', type: 'particle' },
+    { id: 11, word: '日本語', type: 'noun' },
+    { id: 12, word: 'を', type: 'particle' },
+    { id: 13, word: '勉強', type: 'noun' },
+    { id: 14, word: 'します', type: 'verb' },
+    { id: 15, word: '明日', type: 'noun' },
+    { id: 16, word: 'も', type: 'particle' },
+    { id: 17, word: 'あした', type: 'noun' },
+    { id: 18, word: 'きょう', type: 'noun' },
+    { id: 19, word: 'あさ', type: 'noun' },
+    { id: 20, word: 'よる', type: 'noun' },
+    { id: 21, word: 'みる', type: 'verb' },
+    { id: 22, word: 'きく', type: 'verb' },
+    { id: 23, word: 'たべる', type: 'verb' },
+    { id: 24, word: 'のむ', type: 'verb' },
+    { id: 25, word: 'テレビ', type: 'noun' },
+    { id: 26, word: 'ラジオ', type: 'noun' },
+    { id: 27, word: 'パソコン', type: 'noun' },
+    { id: 28, word: 'カメラ', type: 'noun' },
+    { id: 29, word: 'ピアノ', type: 'noun' },
+    { id: 30, word: 'ギター', type: 'noun' },
+    { id: 31, word: 'コーヒー', type: 'noun' },
+    { id: 32, word: 'ジュース', type: 'noun' }
   ];
 
   const memoryGameData = [
@@ -97,7 +142,15 @@ const Section8 = () => {
     { id: 5, content: 'お', match: 'o' },
     { id: 6, content: 'か', match: 'ka' },
     { id: 7, content: 'き', match: 'ki' },
-    { id: 8, content: 'く', match: 'ku' }
+    { id: 8, content: 'く', match: 'ku' },
+    { id: 9, content: 'け', match: 'ke' },
+    { id: 10, content: 'こ', match: 'ko' },
+    { id: 11, content: 'さ', match: 'sa' },
+    { id: 12, content: 'し', match: 'shi' },
+    { id: 13, content: 'す', match: 'su' },
+    { id: 14, content: 'せ', match: 'se' },
+    { id: 15, content: 'そ', match: 'so' },
+    { id: 16, content: 'た', match: 'ta' }
   ];
 
   const quizGameData = [
@@ -115,6 +168,81 @@ const Section8 = () => {
       question: 'What does "水" mean?',
       options: ['Fire', 'Water', 'Earth', 'Air'],
       correct: 1
+    },
+    {
+      question: 'What is the Japanese word for "mountain"?',
+      options: ['やま', 'かわ', 'うみ', 'そら'],
+      correct: 0
+    },
+    {
+      question: 'How do you say "thank you" in Japanese?',
+      options: ['ありがとう', 'すみません', 'おめでとう', 'さようなら'],
+      correct: 0
+    },
+    {
+      question: 'What does "学校" mean?',
+      options: ['School', 'Hospital', 'Library', 'Park'],
+      correct: 0
+    },
+    {
+      question: 'What is the Japanese word for "flower"?',
+      options: ['はな', 'き', 'くさ', 'みどり'],
+      correct: 0
+    },
+    {
+      question: 'How do you say "I am a student" in Japanese?',
+      options: ['わたしはがくせいです', 'わたしはせんせいです', 'わたしはいしゃです', 'わたしはエンジニアです'],
+      correct: 0
+    },
+    {
+      question: 'What does "毎日" mean?',
+      options: ['Every day', 'Sometimes', 'Never', 'Once'],
+      correct: 0
+    },
+    {
+      question: 'What is the Japanese word for "tree"?',
+      options: ['き', 'はな', 'くさ', 'みどり'],
+      correct: 0
+    },
+    {
+      question: 'What is the Japanese word for "rain"?',
+      options: ['あめ', 'くも', 'かぜ', 'ゆき'],
+      correct: 0
+    },
+    {
+      question: 'How do you say "computer" in Japanese?',
+      options: ['パソコン', 'テレビ', 'ラジオ', 'カメラ'],
+      correct: 0
+    },
+    {
+      question: 'What is the Japanese word for "piano"?',
+      options: ['ピアノ', 'ギター', 'バイオリン', 'ドラム'],
+      correct: 0
+    },
+    {
+      question: 'How do you say "coffee" in Japanese?',
+      options: ['コーヒー', 'ジュース', 'おちゃ', 'みず'],
+      correct: 0
+    },
+    {
+      question: 'What is the Japanese word for "morning"?',
+      options: ['あさ', 'よる', 'ひる', 'ゆうがた'],
+      correct: 0
+    },
+    {
+      question: 'How do you say "to eat" in Japanese?',
+      options: ['たべる', 'のむ', 'みる', 'きく'],
+      correct: 0
+    },
+    {
+      question: 'What is the Japanese word for "camera"?',
+      options: ['カメラ', 'テレビ', 'ラジオ', 'パソコン'],
+      correct: 0
+    },
+    {
+      question: 'How do you say "juice" in Japanese?',
+      options: ['ジュース', 'コーヒー', 'おちゃ', 'みず'],
+      correct: 0
     }
   ];
 
@@ -122,12 +250,52 @@ const Section8 = () => {
     {
       word: '食べる',
       associations: ['ごはん', 'レストラン', 'お箸', 'おいしい', '料理'],
-      distractors: ['学校', '本', '電車']
+      distractors: ['学校', '本', '電車', '音楽']
     },
     {
       word: '学校',
       associations: ['勉強', '先生', '学生', '教室', '授業'],
-      distractors: ['食べる', '旅行', '音楽']
+      distractors: ['食べる', '旅行', '音楽', 'スポーツ']
+    },
+    {
+      word: '旅行',
+      associations: ['飛行機', 'ホテル', '観光', 'カメラ', '地図'],
+      distractors: ['学校', '仕事', '勉強', '料理']
+    },
+    {
+      word: '音楽',
+      associations: ['ピアノ', 'ギター', '歌', 'コンサート', 'CD'],
+      distractors: ['料理', '勉強', '運動', '仕事']
+    },
+    {
+      word: 'スポーツ',
+      associations: ['サッカー', '野球', 'テニス', '運動', '試合'],
+      distractors: ['勉強', '料理', '音楽', '旅行']
+    },
+    {
+      word: 'テレビ',
+      associations: ['ニュース', 'ドラマ', 'アニメ', 'チャンネル', 'リモコン'],
+      distractors: ['ラジオ', 'パソコン', 'カメラ', 'ピアノ']
+    },
+    {
+      word: 'コーヒー',
+      associations: ['カフェ', 'ミルク', '砂糖', 'カップ', 'ドーナツ'],
+      distractors: ['ジュース', 'おちゃ', 'みず', 'ビール']
+    },
+    {
+      word: 'たべる',
+      associations: ['ごはん', 'レストラン', 'お箸', 'おいしい', '料理'],
+      distractors: ['のむ', 'みる', 'きく', 'あるく']
+    },
+    {
+      word: 'あさ',
+      associations: ['おはよう', '朝ごはん', '新聞', 'テレビ', 'コーヒー'],
+      distractors: ['よる', 'ひる', 'ゆうがた', 'ばん']
+    },
+    {
+      word: 'ピアノ',
+      associations: ['音楽', 'コンサート', '練習', '曲', '先生'],
+      distractors: ['ギター', 'バイオリン', 'ドラム', 'フルート']
     }
   ];
 
@@ -407,6 +575,59 @@ const Section8 = () => {
     }
   }, [memoryCards, matchingPairs, sentenceWords, gameState.isPlaying, selectedGame]);
 
+  // Function to get romaji for a given text
+  const getRomaji = async (text: string) => {
+    if (romajiMap[text]) return romajiMap[text];
+    try {
+      const romaji = await kuroshiroInstance.convert(text);
+      setRomajiMap(prev => ({ ...prev, [text]: romaji }));
+      return romaji;
+    } catch (error) {
+      console.error('Error converting to romaji:', error);
+      return text;
+    }
+  };
+
+  // Update romaji when settings change
+  useEffect(() => {
+    if (settings.showRomajiGames) {
+      const updateRomaji = async () => {
+        // Update romaji for sentence game
+        for (const word of sentenceGameData) {
+          if (!romajiMap[word.word]) {
+            await getRomaji(word.word);
+          }
+        }
+        // Update romaji for memory game
+        for (const card of memoryGameData) {
+          if (!romajiMap[card.content]) {
+            await getRomaji(card.content);
+          }
+        }
+        // Update romaji for quiz game
+        for (const question of quizGameData) {
+          for (const option of question.options) {
+            if (!romajiMap[option]) {
+              await getRomaji(option);
+            }
+          }
+        }
+        // Update romaji for association game
+        for (const item of associationGameData) {
+          if (!romajiMap[item.word]) {
+            await getRomaji(item.word);
+          }
+          for (const word of [...item.associations, ...item.distractors]) {
+            if (!romajiMap[word]) {
+              await getRomaji(word);
+            }
+          }
+        }
+      };
+      updateRomaji();
+    }
+  }, [settings.showRomajiGames]);
+
   const renderGameContent = () => {
     switch (selectedGame) {
       case 'matching':
@@ -425,7 +646,14 @@ const Section8 = () => {
                 }`}
                 disabled={pair.isMatched || !gameState.isPlaying}
               >
-                <span className="text-lg">{pair.japanese}</span>
+                <span className="text-lg">
+                  {settings.showKanjiGames ? pair.japanese : pair.hiragana}
+                </span>
+                {settings.showRomajiGames && (
+                  <span className="block text-sm text-gray-600 mt-1">
+                    {romajiMap[settings.showKanjiGames ? pair.japanese : pair.hiragana] || 'Loading...'}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -446,7 +674,12 @@ const Section8 = () => {
                   }`}
                   disabled={word.isPlaced || !gameState.isPlaying}
                 >
-                  {word.word}
+                  {settings.showKanjiGames ? word.word : word.type}
+                  {settings.showRomajiGames && (
+                    <span className="block text-sm text-gray-600 mt-1">
+                      {romajiMap[word.word] || 'Loading...'}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -456,7 +689,12 @@ const Section8 = () => {
                   key={index}
                   className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-lg mr-2 mb-2"
                 >
-                  {word.word}
+                  {settings.showKanjiGames ? word.word : word.type}
+                  {settings.showRomajiGames && (
+                    <span className="block text-sm text-gray-600 mt-1">
+                      {romajiMap[word.word] || 'Loading...'}
+                    </span>
+                  )}
                 </span>
               ))}
             </div>
@@ -479,7 +717,12 @@ const Section8 = () => {
                 }`}
                 disabled={card.isMatched || !gameState.isPlaying}
               >
-                {card.isFlipped || card.isMatched ? card.content : '?'}
+                {settings.showKanjiGames ? card.content : card.match}
+                {settings.showRomajiGames && (
+                  <span className="block text-sm text-gray-600 mt-1">
+                    {romajiMap[card.content] || 'Loading...'}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -505,7 +748,12 @@ const Section8 = () => {
                     }`}
                     disabled={!gameState.isPlaying || quizState.showFeedback}
                   >
-                    {option}
+                    {settings.showKanjiGames ? option : 'Option ' + (index + 1)}
+                    {settings.showRomajiGames && (
+                      <span className="block text-sm text-gray-600 mt-1">
+                        {romajiMap[option] || 'Loading...'}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -541,7 +789,12 @@ const Section8 = () => {
                     associationState.selectedAssociations.includes(word)
                   }
                 >
-                  {word}
+                  {settings.showKanjiGames ? word : 'Word ' + (index + 1)}
+                  {settings.showRomajiGames && (
+                    <span className="block text-sm text-gray-600 mt-1">
+                      {romajiMap[word] || 'Loading...'}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -607,75 +860,75 @@ const Section8 = () => {
   const themeClasses = getThemeClasses();
 
   return (
-    <div className="py-8">
-      <div className="flex items-center mb-8">
-        <Link to="/" className="text-blue-600 hover:text-blue-800 mr-4">
-          ← Back to Home
-        </Link>
-        <h1 className="text-3xl font-bold text-gray-900">Interactive Games</h1>
-      </div>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-8">Japanese Games</h1>
       
-      <div className={`${themeClasses.container} rounded-lg shadow-md p-6`}>
-        <div className="mb-6">
-          <div className="flex flex-wrap gap-4 mb-6">
-            {games.map((game) => (
-              <button
-                key={game.id}
-                onClick={() => setSelectedGame(game.id)}
-                className={`px-4 py-2 rounded-lg border transition-all ${
-                  selectedGame === game.id
-                    ? themeClasses.button.primary
-                    : themeClasses.button.secondary
-                }`}
-              >
-                {game.name}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex justify-between items-center">
-            <div className="space-y-2">
-              <h2 className={`text-xl font-semibold ${themeClasses.text}`}>
-                {games.find(g => g.id === selectedGame)?.name}
-              </h2>
-              <p className={`text-sm ${themeClasses.text} opacity-75`}>
-                {games.find(g => g.id === selectedGame)?.description}
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              {gameState.isPlaying && (
-                <>
-                  <div className={`text-lg font-medium ${themeClasses.text}`}>
-                    Score: {gameState.score}
-                  </div>
-                  <div className={`text-lg font-medium ${themeClasses.text}`}>
-                    Time: {gameState.timeLeft}s
-                  </div>
-                  <div className={`text-lg font-medium ${themeClasses.text}`}>
-                    Mistakes: {gameState.mistakes}
-                  </div>
-                </>
-              )}
-              <button
-                onClick={gameState.isPlaying ? endGame : startGame}
-                className={`px-4 py-2 rounded-lg ${
-                  gameState.isPlaying
-                    ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : themeClasses.button.primary
-                }`}
-              >
-                {gameState.isPlaying ? 'End Game' : 'Start Game'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className={`mt-6 ${themeClasses.card} rounded-lg p-6`}>
-          {renderGameContent()}
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <button
+          onClick={() => setSelectedGame('sentence')}
+          className={`p-4 rounded ${
+            selectedGame === 'sentence' ? 'bg-primary text-white' : 'bg-gray-100'
+          }`}
+        >
+          Sentence Builder
+        </button>
+        <button
+          onClick={() => setSelectedGame('memory')}
+          className={`p-4 rounded ${
+            selectedGame === 'memory' ? 'bg-primary text-white' : 'bg-gray-100'
+          }`}
+        >
+          Memory Game
+        </button>
+        <button
+          onClick={() => setSelectedGame('quiz')}
+          className={`p-4 rounded ${
+            selectedGame === 'quiz' ? 'bg-primary text-white' : 'bg-gray-100'
+          }`}
+        >
+          Quiz
+        </button>
+        <button
+          onClick={() => setSelectedGame('association')}
+          className={`p-4 rounded ${
+            selectedGame === 'association' ? 'bg-primary text-white' : 'bg-gray-100'
+          }`}
+        >
+          Word Association
+        </button>
       </div>
+
+      <div className="bg-white rounded-lg shadow-md p-6">
+        {selectedGame === 'sentence' && renderGameContent()}
+        {selectedGame === 'memory' && renderGameContent()}
+        {selectedGame === 'quiz' && renderGameContent()}
+        {selectedGame === 'association' && renderGameContent()}
+      </div>
+
+      {gameState.isPlaying && (
+        <div className="mt-4 flex justify-between items-center">
+          <div className="flex space-x-4">
+            <div className={`text-lg font-medium ${themeClasses.text}`}>
+              Time: {gameState.timeLeft}s
+            </div>
+            <div className={`text-lg font-medium ${themeClasses.text}`}>
+              Mistakes: {gameState.mistakes}
+            </div>
+          </div>
+          <button
+            onClick={gameState.isPlaying ? endGame : startGame}
+            className={`px-4 py-2 rounded-lg ${
+              gameState.isPlaying
+                ? 'bg-red-600 hover:bg-red-700 text-white'
+                : themeClasses.button.primary
+            }`}
+          >
+            {gameState.isPlaying ? 'End Game' : 'Start Game'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
 
-export default Section8; 
+export default Section8;

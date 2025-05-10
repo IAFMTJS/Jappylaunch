@@ -1,113 +1,76 @@
 import React from 'react';
-import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
+import { useApp } from '../context/AppContext';
+import type { Settings } from '../context/AppContext';
+
+type SettingsKey = keyof Settings;
 
 const Settings: React.FC = () => {
+  const { theme, isDarkMode } = useTheme();
   const { settings, updateSettings } = useApp();
-  const { theme, setTheme, isDarkMode, toggleDarkMode } = useTheme();
+
+  const getThemeClasses = () => {
+    const themeClasses = {
+      text: isDarkMode ? 'text-gray-100' : 'text-gray-900',
+      bg: isDarkMode ? 'bg-gray-800' : 'bg-white',
+      border: isDarkMode ? 'border-gray-700' : 'border-gray-200'
+    };
+    return themeClasses;
+  };
+
+  const renderToggle = (settingKey: keyof Settings, label: string) => (
+    <div className="flex items-center justify-between">
+      <span className={`text-sm ${getThemeClasses().text}`}>{label}</span>
+      <button
+        onClick={() => updateSettings({ [settingKey]: !settings[settingKey] })}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+          settings[settingKey] ? 'bg-blue-600' : 'bg-gray-200'
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+            settings[settingKey] ? 'translate-x-6' : 'translate-x-1'
+          }`}
+        />
+      </button>
+    </div>
+  );
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-      <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Settings</h2>
+    <div className={`bg-white rounded-lg shadow-md p-6 ${getThemeClasses().bg}`}>
+      <h2 className={`text-xl font-semibold mb-6 ${getThemeClasses().text}`}>Settings</h2>
       
       <div className="space-y-6">
-        {/* Theme Settings */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Appearance</h3>
-          
-          <div className="flex items-center justify-between">
-            <label className="text-gray-700 dark:text-gray-300">Theme</label>
-            <select
-              value={theme}
-              onChange={(e) => setTheme(e.target.value as 'light' | 'blue' | 'green')}
-              className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-            >
-              <option value="light">Light</option>
-              <option value="blue">Blue</option>
-              <option value="green">Green</option>
-            </select>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <label className="text-gray-700 dark:text-gray-300">Dark Mode</label>
-            <button
-              onClick={toggleDarkMode}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                isDarkMode ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  isDarkMode ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
+        <div>
+          <h3 className={`font-medium mb-4 ${getThemeClasses().text}`}>General Settings</h3>
+          <div className="space-y-4">
+            {renderToggle('showRomaji', 'Show Romaji')}
+            {renderToggle('showHints', 'Show Hints')}
+            {renderToggle('autoPlay', 'Auto Play')}
           </div>
         </div>
 
-        {/* Learning Settings */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Learning Preferences</h3>
-          
-          <div className="flex items-center justify-between">
-            <label className="text-gray-700 dark:text-gray-300">Show Romaji</label>
-            <button
-              onClick={() => updateSettings({ showRomaji: !settings.showRomaji })}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                settings.showRomaji ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  settings.showRomaji ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <label className="text-gray-700 dark:text-gray-300">Show Hints</label>
-            <button
-              onClick={() => updateSettings({ showHints: !settings.showHints })}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                settings.showHints ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  settings.showHints ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <label className="text-gray-700 dark:text-gray-300">Auto-play Audio</label>
-            <button
-              onClick={() => updateSettings({ autoPlay: !settings.autoPlay })}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                settings.autoPlay ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  settings.autoPlay ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <label className="text-gray-700 dark:text-gray-300">Difficulty</label>
-            <select
-              value={settings.difficulty}
-              onChange={(e) => updateSettings({ difficulty: e.target.value as 'easy' | 'medium' | 'hard' })}
-              className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-            >
-              <option value="easy">Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
-            </select>
+        <div>
+          <h3 className={`font-medium mb-4 ${getThemeClasses().text}`}>Section-Specific Settings</h3>
+          <div className="space-y-4">
+            <div>
+              <h4 className={`text-sm font-medium mb-2 ${getThemeClasses().text}`}>Vocabulary Builder</h4>
+              {renderToggle('showRomajiVocabulary', 'Show Romaji')}
+            </div>
+            <div>
+              <h4 className={`text-sm font-medium mb-2 ${getThemeClasses().text}`}>Reading Practice</h4>
+              {renderToggle('showRomajiReading', 'Show Romaji')}
+            </div>
+            <div>
+              <h4 className={`text-sm font-medium mb-2 ${getThemeClasses().text}`}>JLPT Preparation</h4>
+              {renderToggle('showRomajiJLPT', 'Show Romaji')}
+            </div>
+            <div>
+              <h4 className={`text-sm font-medium mb-2 ${getThemeClasses().text}`}>Games</h4>
+              {renderToggle('showKanjiGames', 'Show Kanji')}
+              {renderToggle('showRomajiGames', 'Show Romaji')}
+              {renderToggle('useHiraganaGames', 'Use Hiragana (instead of Katakana)')}
+            </div>
           </div>
         </div>
       </div>

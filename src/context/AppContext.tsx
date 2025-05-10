@@ -22,20 +22,26 @@ interface ProgressData {
   [key: string]: Progress;
 }
 
-interface Settings {
+export interface Settings {
   showRomaji: boolean;
   showHints: boolean;
   autoPlay: boolean;
   difficulty: 'easy' | 'medium' | 'hard';
+  showRomajiVocabulary: boolean;
+  showRomajiReading: boolean;
+  showRomajiJLPT: boolean;
+  showKanjiGames: boolean;
+  showRomajiGames: boolean;
+  useHiraganaGames: boolean;
 }
 
 interface QuizData {
   score: number;
+  date: string;
   category: string;
   difficulty: string;
   quizType: string;
   timeTaken: number;
-  date: string;
   totalQuestions: number;
   correctAnswers: number;
 }
@@ -68,11 +74,17 @@ const defaultProgress: ProgressData = {
   section8: { completed: 0, total: 0 }
 };
 
-const defaultSettings: Settings = {
+export const defaultSettings: Settings = {
   showRomaji: true,
   showHints: true,
   autoPlay: false,
-  difficulty: 'medium'
+  difficulty: 'medium',
+  showRomajiVocabulary: true,
+  showRomajiReading: true,
+  showRomajiJLPT: true,
+  showKanjiGames: true,
+  showRomajiGames: true,
+  useHiraganaGames: true
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);

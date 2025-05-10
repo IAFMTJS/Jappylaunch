@@ -1,55 +1,78 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
+import { kuroshiroInstance } from '../utils/kuroshiro';
+
+interface JLPTContent {
+  grammar: {
+    pattern: string;
+    meaning: string;
+    examples: string[];
+    romaji?: string[];
+  }[];
+  vocabulary: {
+    word: string;
+    reading: string;
+    meaning: string;
+    romaji?: string;
+  }[];
+  reading: {
+    passage: string;
+    questions: {
+      question: string;
+      options: string[];
+      correctAnswer: number;
+    }[];
+    romaji?: string;
+  }[];
+}
 
 const Section7 = () => {
-  const [selectedLevel, setSelectedLevel] = useState<string>('n5');
-  const [selectedSection, setSelectedSection] = useState<string>('grammar');
+  const { settings } = useApp();
+  const [selectedLevel, setSelectedLevel] = useState<string>('N5');
+  const [romajiMap, setRomajiMap] = useState<{ [key: string]: string }>({});
 
   const jlptContent = {
     n5: {
       grammar: [
         {
           pattern: '～は～です',
-          example: 'わたしは がくせい です',
           meaning: 'I am a student',
-          usage: 'Basic "is/am/are" pattern'
+          examples: ['わたしは がくせい です'],
+          romaji: ['watashihaku sei desu']
         },
         {
           pattern: '～に～があります',
-          example: 'つくえの うえに ほんが あります',
           meaning: 'There is a book on the desk',
-          usage: 'Existence of inanimate objects'
+          examples: ['つくえの うえに ほんが あります'],
+          romaji: ['tsukue no ue ni hon ga arimasu']
         }
       ],
       vocabulary: [
         {
           word: '食べる',
           reading: 'たべる',
-          romaji: 'taberu',
           meaning: 'to eat',
-          example: 'ごはんを たべます',
-          exampleRomaji: 'gohan o tabemasu'
+          romaji: 'taberu'
         },
         {
           word: '飲む',
           reading: 'のむ',
-          romaji: 'nomu',
           meaning: 'to drink',
-          example: 'みずを のみます',
-          exampleRomaji: 'mizu o nomimasu'
+          romaji: 'nomu'
         }
       ],
       reading: [
         {
-          title: '自己紹介',
-          content: 'はじめまして。わたしは たなか です。にほんじん です。よろしく おねがいします。',
+          passage: 'はじめまして。わたしは たなか です。にほんじん です。よろしく おねがいします。',
           questions: [
             {
               question: 'たなかさんは にほんじん ですか。',
               options: ['はい、そうです', 'いいえ、ちがいます'],
-              correct: 0
+              correctAnswer: 0
             }
-          ]
+          ],
+          romaji: 'hajimemashite. watashihaku sei desu. nihonjin desu. yoroshiku onegaishimasu.'
         }
       ]
     },
@@ -57,52 +80,189 @@ const Section7 = () => {
       grammar: [
         {
           pattern: '～てください',
-          example: 'ここに すわって ください',
           meaning: 'Please sit here',
-          usage: 'Polite request'
+          examples: ['ここに すわって ください'],
+          romaji: ['koko ni suwotte kudasai']
         },
         {
           pattern: '～てもいいです',
-          example: 'ここで たばこを すっても いいです',
           meaning: 'You may smoke here',
-          usage: 'Permission'
+          examples: ['ここで たばこを すっても いいです'],
+          romaji: ['koko de tabako o sutte mo ii desu']
         }
       ],
       vocabulary: [
         {
           word: '準備する',
           reading: 'じゅんびする',
-          romaji: 'junbi suru',
           meaning: 'to prepare',
-          example: 'しけんの じゅんびを します',
-          exampleRomaji: 'shiken no junbi o shimasu'
+          romaji: 'junbi suru'
         },
         {
           word: '説明する',
           reading: 'せつめいする',
-          romaji: 'setsumei suru',
           meaning: 'to explain',
-          example: 'ルールを せつめいします',
-          exampleRomaji: 'ruuru o setsumei shimasu'
+          romaji: 'setsumei suru'
         }
       ],
       reading: [
         {
-          title: '旅行の計画',
-          content: '来週、友達と 京都へ 旅行に 行きます。新幹線で 行きます。ホテルは もう 予約しました。',
+          passage: '来週、友達と 京都へ 旅行に 行きます。新幹線で 行きます。ホテルは もう 予約しました。',
           questions: [
             {
               question: 'いつ 京都へ 行きますか。',
               options: ['今週', '来週', '先週'],
-              correct: 1
+              correctAnswer: 1
             }
-          ]
+          ],
+          romaji: 'raishuu, yotama to kyoto e ryokou ni ikimasu. shinkansen de ikimasu. hoteru wa mou yoyaku shimashita.'
         }
       ]
     }
   };
 
-  const currentContent = jlptContent[selectedLevel as keyof typeof jlptContent][selectedSection as keyof typeof jlptContent.n5];
+  // Add function to get romaji
+  const getRomaji = async (text: string) => {
+    if (romajiMap[text]) return romajiMap[text];
+    try {
+      const romaji = await kuroshiroInstance.convert(text);
+      setRomajiMap(prev => ({ ...prev, [text]: romaji }));
+      return romaji;
+    } catch (error) {
+      console.error('Error converting to romaji:', error);
+      return '';
+    }
+  };
+
+  // Update romaji when settings change
+  useEffect(() => {
+    if (settings.showRomajiJLPT) {
+      const updateRomaji = async () => {
+        const newRomajiMap: { [key: string]: string } = {};
+        const content = jlptContent[selectedLevel as keyof typeof jlptContent];
+        
+        // Update grammar examples
+        for (const grammar of content.grammar) {
+          for (const example of grammar.examples) {
+            if (!romajiMap[example]) {
+              newRomajiMap[example] = await getRomaji(example);
+            }
+          }
+        }
+        // Update vocabulary
+        for (const vocab of content.vocabulary) {
+          if (!romajiMap[vocab.word]) {
+            newRomajiMap[vocab.word] = await getRomaji(vocab.word);
+          }
+        }
+        // Update reading passages
+        for (const reading of content.reading) {
+          if (!romajiMap[reading.passage]) {
+            newRomajiMap[reading.passage] = await getRomaji(reading.passage);
+          }
+        }
+        setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
+      };
+      updateRomaji();
+    }
+  }, [settings.showRomajiJLPT, selectedLevel]);
+
+  // Update the content display
+  const renderContent = (content: JLPTContent) => (
+    <div className="space-y-8">
+      {/* Grammar Section */}
+      <div>
+        <h3 className="text-xl font-semibold mb-4">Grammar</h3>
+        <div className="space-y-6">
+          {content.grammar.map((grammar, index) => (
+            <div key={index} className="bg-gray-50 p-6 rounded-lg">
+              <h4 className="font-medium mb-2">{grammar.pattern}</h4>
+              <p className="text-gray-700 mb-4">{grammar.meaning}</p>
+              <div className="space-y-2">
+                {grammar.examples.map((example, i) => (
+                  <div key={i}>
+                    <p className="text-lg">{example}</p>
+                    {settings.showRomajiJLPT && (
+                      <p className="text-gray-500 italic">
+                        {romajiMap[example] || 'Loading...'}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Vocabulary Section */}
+      <div>
+        <h3 className="text-xl font-semibold mb-4">Vocabulary</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {content.vocabulary.map((vocab, index) => (
+            <div key={index} className="bg-gray-50 p-4 rounded-lg">
+              <div className="font-medium">{vocab.word}</div>
+              <div className="text-gray-600">{vocab.reading}</div>
+              <div className="text-gray-700 mt-1">{vocab.meaning}</div>
+              {settings.showRomajiJLPT && (
+                <div className="text-gray-500 italic mt-1">
+                  {romajiMap[vocab.word] || 'Loading...'}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Reading Section */}
+      <div>
+        <h3 className="text-xl font-semibold mb-4">Reading Practice</h3>
+        <div className="space-y-8">
+          {content.reading.map((reading, index) => (
+            <div key={index} className="bg-gray-50 p-6 rounded-lg">
+              <div className="mb-6">
+                <h4 className="font-medium mb-2">Passage:</h4>
+                <p className="text-lg leading-relaxed">{reading.passage}</p>
+                {settings.showRomajiJLPT && (
+                  <p className="text-gray-500 italic mt-2">
+                    {romajiMap[reading.passage] || 'Loading...'}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-4">
+                {reading.questions.map((question, qIndex) => (
+                  <div key={qIndex} className="border-t pt-4">
+                    <p className="font-medium mb-2">{question.question}</p>
+                    <div className="space-y-2">
+                      {question.options.map((option, oIndex) => (
+                        <div
+                          key={oIndex}
+                          className="flex items-center space-x-2"
+                        >
+                          <input
+                            type="radio"
+                            name={`question-${index}-${qIndex}`}
+                            id={`option-${index}-${qIndex}-${oIndex}`}
+                            className="form-radio"
+                          />
+                          <label
+                            htmlFor={`option-${index}-${qIndex}-${oIndex}`}
+                            className="text-gray-700"
+                          >
+                            {option}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="py-8">
@@ -137,105 +297,10 @@ const Section7 = () => {
               N4
             </button>
           </div>
-
-          <div className="flex space-x-4">
-            <button
-              onClick={() => setSelectedSection('grammar')}
-              className={`px-4 py-2 rounded-lg border ${
-                selectedSection === 'grammar'
-                  ? 'bg-blue-100 border-blue-500'
-                  : 'bg-white border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              Grammar
-            </button>
-            <button
-              onClick={() => setSelectedSection('vocabulary')}
-              className={`px-4 py-2 rounded-lg border ${
-                selectedSection === 'vocabulary'
-                  ? 'bg-blue-100 border-blue-500'
-                  : 'bg-white border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              Vocabulary
-            </button>
-            <button
-              onClick={() => setSelectedSection('reading')}
-              className={`px-4 py-2 rounded-lg border ${
-                selectedSection === 'reading'
-                  ? 'bg-blue-100 border-blue-500'
-                  : 'bg-white border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              Reading
-            </button>
-          </div>
         </div>
 
-        <div className="space-y-6">
-          {selectedSection === 'grammar' && (
-            currentContent.map((item: any, index: number) => (
-              <div key={index} className="bg-gray-50 p-6 rounded-lg">
-                <h3 className="text-xl font-semibold mb-3">{item.pattern}</h3>
-                <div className="space-y-2">
-                  <p className="text-lg">{item.example}</p>
-                  <p className="text-gray-600">{item.meaning}</p>
-                  <p className="text-sm text-gray-500">Usage: {item.usage}</p>
-                </div>
-              </div>
-            ))
-          )}
-
-          {selectedSection === 'vocabulary' && (
-            currentContent.map((item: any, index: number) => (
-              <div key={index} className="bg-gray-50 p-6 rounded-lg">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-xl font-semibold">{item.word}</h3>
-                    <p className="text-gray-600">{item.reading}</p>
-                    <p className="text-gray-500 italic">{item.romaji}</p>
-                  </div>
-                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                    {item.meaning}
-                  </span>
-                </div>
-                <p className="mt-2 text-gray-700">Example: {item.example}</p>
-                <p className="text-gray-500 italic">Example (romaji): {item.exampleRomaji}</p>
-              </div>
-            ))
-          )}
-
-          {selectedSection === 'reading' && (
-            currentContent.map((item: any, index: number) => (
-              <div key={index} className="bg-gray-50 p-6 rounded-lg">
-                <h3 className="text-xl font-semibold mb-4">{item.title}</h3>
-                <div className="mb-6">
-                  <p className="text-lg leading-relaxed">{item.content}</p>
-                </div>
-                <div className="space-y-4">
-                  {item.questions.map((q: any, qIndex: number) => (
-                    <div key={qIndex} className="border-t pt-4">
-                      <p className="font-medium mb-2">{q.question}</p>
-                      <div className="space-y-2">
-                        {q.options.map((option: string, oIndex: number) => (
-                          <button
-                            key={oIndex}
-                            className={`w-full text-left p-2 rounded ${
-                              q.correct === oIndex
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-white hover:bg-gray-50'
-                            }`}
-                          >
-                            {option}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
+        <div className="space-y-8">
+          {renderContent(jlptContent[selectedLevel as keyof typeof jlptContent])}
         </div>
       </div>
     </div>
