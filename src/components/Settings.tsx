@@ -5,7 +5,7 @@ import type { Settings } from '../context/AppContext';
 
 type SettingsKey = keyof Settings;
 
-const Settings: React.FC = () => {
+const SettingsPanel: React.FC = () => {
   const { theme, isDarkMode } = useTheme();
   const { settings, updateSettings } = useApp();
 
@@ -78,4 +78,4 @@ const Settings: React.FC = () => {
   );
 };
 
-export default Settings; 
+export default SettingsPanel; 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import Settings from '../components/Settings';
+import SettingsPanel from '../components/Settings';
 
 const Section3 = () => {
   const { settings, updateProgress } = useApp();
@@ -125,7 +125,7 @@ const Section3 = () => {
         </div>
 
         <div>
-          <Settings />
+          <SettingsPanel />
         </div>
       </div>
     </div>

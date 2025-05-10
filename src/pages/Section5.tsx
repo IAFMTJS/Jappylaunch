@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import Settings from '../components/Settings';
+import SettingsPanel from '../components/Settings';
 import { kuroshiroInstance } from '../utils/kuroshiro';
 
 interface BaseWord {
@@ -267,7 +267,7 @@ const Section5 = () => {
         </div>
 
         <div>
-          <Settings />
+          <SettingsPanel />
         </div>
       </div>
     </div>

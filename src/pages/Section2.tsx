@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import Dictionary from '../components/Dictionary';
-import Settings from '../components/Settings';
+import SettingsPanel from '../components/Settings';
 
 const Section2 = () => {
   return (
@@ -25,7 +25,7 @@ const Section2 = () => {
           </div>
         </div>
         <div>
-          <Settings />
+          <SettingsPanel />
         </div>
       </div>
     </div>

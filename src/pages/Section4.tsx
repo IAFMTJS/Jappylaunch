@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import KanjiPractice from '../components/Kanji';
-import Settings from '../components/Settings';
+import SettingsPanel from '../components/Settings';
 
 const Section4 = () => {
   return (
@@ -25,7 +25,7 @@ const Section4 = () => {
           </div>
         </div>
         <div>
-          <Settings />
+          <SettingsPanel />
         </div>
       </div>
     </div>
