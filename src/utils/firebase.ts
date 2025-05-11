@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator, AuthError } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator, FirestoreError } from 'firebase/firestore';
+import { getAuth, connectAuthEmulator, type AuthError } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator, type FirestoreError } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 // Your web app's Firebase configuration
@@ -18,9 +18,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Initialize services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const functions = getFunctions(app);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const functions = getFunctions(app);
 
 // Enable persistence for offline support
 db.enablePersistence()
@@ -72,5 +72,16 @@ if (process.env.NODE_ENV === 'development') {
 // Security settings for auth
 auth.useDeviceLanguage();
 auth.settings.appVerificationDisabledForTesting = process.env.NODE_ENV === 'development';
+
+export { auth, db };
+
+export type FirebaseError = AuthError | FirestoreError;
+
+export const isFirebaseError = (error: unknown): error is FirebaseError => {
+  return error instanceof Error && (
+    'code' in error && 
+    typeof (error as FirebaseError).code === 'string'
+  );
+};
 
 export default app; 

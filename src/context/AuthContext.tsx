@@ -1,16 +1,17 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import type { User, AuthError, UserCredential } from 'firebase/auth';
 import { 
-  getAuth, 
   onAuthStateChanged, 
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
   updatePassword,
-  sendEmailVerification
+  sendEmailVerification,
+  type User,
+  type AuthError,
+  type UserCredential
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../utils/firebase';
 import type { AuthContextType, AuthErrorResponse } from '../types/auth';
 
@@ -42,18 +43,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const handleError = (error: unknown): never => {
-    if (error instanceof AuthError) {
-      const errorResponse: AuthErrorResponse = {
-        code: error.code,
-        message: error.message,
-        name: error.name
-      };
-      setError(errorResponse);
-      throw error;
-    }
     if (error instanceof Error) {
       const errorResponse: AuthErrorResponse = {
-        code: 'unknown',
+        code: error instanceof AuthError ? error.code : 'unknown',
         message: error.message,
         name: error.name
       };
@@ -123,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateUserPassword = async (actionCode: string, newPassword: string) => {
+  const updateUserPassword = async (_actionCode: string, newPassword: string) => {
     try {
       clearError();
       if (!currentUser) {
