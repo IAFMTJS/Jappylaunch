@@ -25,21 +25,45 @@ export const useAuth = () => {
   return context;
 };
 
+const LoadingScreen = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+      <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+    </div>
+  </div>
+);
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<AuthErrorResponse | null>(null);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [sessionWarning, setSessionWarning] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
-      setCurrentUser(user);
-      setIsEmailVerified(user?.emailVerified ?? false);
-      setLoading(false);
-    });
+    try {
+      const unsubscribe = onAuthStateChanged(auth, 
+        (user) => {
+          setCurrentUser(user);
+          setIsEmailVerified(user?.emailVerified ?? false);
+          setLoading(false);
+          setInitError(null);
+        },
+        (error) => {
+          console.error('Firebase auth initialization error:', error);
+          setInitError(error instanceof Error ? error.message : 'Unknown error occurred');
+          setLoading(false);
+        }
+      );
 
-    return unsubscribe;
+      return unsubscribe;
+    } catch (error) {
+      console.error('Firebase auth setup error:', error);
+      setInitError(error instanceof Error ? error.message : 'Failed to initialize authentication');
+      setLoading(false);
+    }
   }, []);
 
   const handleError = (error: unknown): never => {
@@ -155,9 +179,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearError
   };
 
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (initError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+          <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-2">Initialization Error</h2>
+          <p className="text-gray-600 dark:text-gray-400">{initError}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }; 
