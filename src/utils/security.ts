@@ -228,19 +228,15 @@ export const checkDomainLock = (): boolean => {
 // Initialize security measures
 export const initializeSecurity = (): void => {
   if (process.env.NODE_ENV === 'production') {
-    protectSourceMaps();
-    enableAntiDebugging();
-    
-    if (!checkDomainLock()) {
-      console.error('Unauthorized domain');
-      window.location.href = '/';
-      return;
-    }
-    
-    if (!checkRuntimeIntegrity()) {
-      console.error('Runtime integrity check failed');
-      window.location.href = '/';
-      return;
+    try {
+      // Only enable basic security measures in production
+      protectSourceMaps();
+      
+      // Log initialization status
+      console.log('Security initialization completed');
+    } catch (error) {
+      // Log security initialization errors but don't block the app
+      console.error('Security initialization error:', error);
     }
   }
 }; 
