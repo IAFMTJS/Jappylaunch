@@ -3,9 +3,10 @@
   publish = "build"
 
 [[redirects]]
-  from = "/*"
-  to = "/index.html"
+  from = "/romaji-data.json"
+  to = "/romaji-data.json"
   status = 200
+  force = true
 
 [build.environment]
   NODE_VERSION = "18"
@@ -24,4 +25,11 @@
 [[headers]]
   for = "/assets/*"
   [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable" 
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/romaji-data.json"
+  [headers.values]
+    Content-Type = "application/json"
+    Access-Control-Allow-Origin = "*"
+    Cache-Control = "public, max-age=0, must-revalidate" 
