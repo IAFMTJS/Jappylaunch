@@ -4,91 +4,53 @@ import { db } from '../utils/firebase';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface SectionProgress {
-  masteredIds: string[];
+  masteredIds: Set<string>;
   totalItems: number;
   bestStreak: number;
   highScore: number;
-  lastAttempt: string;
   averageTime: number;
+  lastAttempt: string;
+  totalQuestions: number;
+  correctAnswers: number;
 }
 
 interface ProgressData {
-  wordPractice: SectionProgress;
-  sentencePractice: SectionProgress;
-  kanji: SectionProgress;
-  hiragana: SectionProgress;
-  katakana: SectionProgress;
-  anime: SectionProgress;
+  [key: string]: SectionProgress;
 }
 
 interface ProgressContextType {
   progress: ProgressData;
-  markItemMastered: (section: keyof ProgressData, itemId: string) => void;
-  setTotalItems: (section: keyof ProgressData, total: number) => void;
-  updateScoreboard: (section: keyof ProgressData, data: Partial<Pick<SectionProgress, 'bestStreak' | 'highScore' | 'averageTime'>>) => void;
+  markItemMastered: (section: string, itemId: string) => void;
+  setTotalItems: (section: string, total: number) => void;
+  updateScoreboard: (section: string, data: Partial<Pick<SectionProgress, 'bestStreak' | 'highScore' | 'averageTime'>>) => void;
   resetProgress: () => void;
+  updateProgress: (section: string, data: Partial<SectionProgress>) => void;
 }
 
-const initialProgress: ProgressData = {
-  wordPractice: {
-    masteredIds: [],
-    totalItems: 0,
-    bestStreak: 0,
-    highScore: 0,
-    lastAttempt: '',
-    averageTime: 0
-  },
-  sentencePractice: {
-    masteredIds: [],
-    totalItems: 0,
-    bestStreak: 0,
-    highScore: 0,
-    lastAttempt: '',
-    averageTime: 0
-  },
-  kanji: {
-    masteredIds: [],
-    totalItems: 0,
-    bestStreak: 0,
-    highScore: 0,
-    lastAttempt: '',
-    averageTime: 0
-  },
-  hiragana: {
-    masteredIds: [],
-    totalItems: 0,
-    bestStreak: 0,
-    highScore: 0,
-    lastAttempt: '',
-    averageTime: 0
-  },
-  katakana: {
-    masteredIds: [],
-    totalItems: 0,
-    bestStreak: 0,
-    highScore: 0,
-    lastAttempt: '',
-    averageTime: 0
-  },
-  anime: {
-    masteredIds: [],
-    totalItems: 0,
-    bestStreak: 0,
-    highScore: 0,
-    lastAttempt: '',
-    averageTime: 0
-  }
+const defaultSectionProgress: SectionProgress = {
+  masteredIds: new Set(),
+  totalItems: 0,
+  bestStreak: 0,
+  highScore: 0,
+  averageTime: 0,
+  lastAttempt: '',
+  totalQuestions: 0,
+  correctAnswers: 0
 };
 
-const ProgressContext = createContext<ProgressContextType | undefined>(undefined);
+const ProgressContext = createContext<ProgressContextType>({
+  progress: {},
+  markItemMastered: () => {},
+  setTotalItems: () => {},
+  updateScoreboard: () => {},
+  resetProgress: () => {},
+  updateProgress: () => {}
+});
 
 export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
   const isAuthenticated = !!currentUser;
-  const [progress, setProgress] = useState<ProgressData>(() => {
-    const savedProgress = localStorage.getItem('progress');
-    return savedProgress ? JSON.parse(savedProgress) : initialProgress;
-  });
+  const [progress, setProgress] = useState<ProgressData>({});
 
   // Use db as correct type
   const typedDb: ReturnType<typeof getFirestore> = db;
@@ -109,7 +71,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } else {
       // If not authenticated, load from localStorage
       const savedProgress = localStorage.getItem('progress');
-      setProgress(savedProgress ? JSON.parse(savedProgress) : initialProgress);
+      setProgress(savedProgress ? JSON.parse(savedProgress) : {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, currentUser]);
@@ -123,63 +85,70 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [progress, isAuthenticated, currentUser]);
 
-  // Mark an item as mastered
-  const markItemMastered = (section: keyof ProgressData, itemId: string) => {
-    setProgress(prev => {
-      const sectionData = prev[section];
-      if (sectionData.masteredIds.includes(itemId)) return prev;
-      return {
-        ...prev,
-        [section]: {
-          ...sectionData,
-          masteredIds: [...sectionData.masteredIds, itemId],
-          lastAttempt: new Date().toISOString()
-        }
-      };
-    });
-  };
-
-  // Set total items for a section
-  const setTotalItems = (section: keyof ProgressData, total: number) => {
+  const markItemMastered = (section: string, itemId: string) => {
     setProgress(prev => ({
       ...prev,
       [section]: {
-        ...prev[section],
+        ...(prev[section] || defaultSectionProgress),
+        masteredIds: new Set([...(prev[section]?.masteredIds || []), itemId])
+      }
+    }));
+  };
+
+  const setTotalItems = (section: string, total: number) => {
+    setProgress(prev => ({
+      ...prev,
+      [section]: {
+        ...(prev[section] || defaultSectionProgress),
         totalItems: total
       }
     }));
   };
 
-  // Update scoreboard stats
-  const updateScoreboard = (section: keyof ProgressData, data: Partial<Pick<SectionProgress, 'bestStreak' | 'highScore' | 'averageTime'>>) => {
+  const updateScoreboard = (section: string, data: Partial<Pick<SectionProgress, 'bestStreak' | 'highScore' | 'averageTime'>>) => {
     setProgress(prev => ({
       ...prev,
       [section]: {
-        ...prev[section],
+        ...(prev[section] || defaultSectionProgress),
+        ...data
+      }
+    }));
+  };
+
+  const updateProgress = (section: string, data: Partial<SectionProgress>) => {
+    setProgress(prev => ({
+      ...prev,
+      [section]: {
+        ...(prev[section] || defaultSectionProgress),
         ...data,
-        lastAttempt: new Date().toISOString()
+        totalQuestions: (prev[section]?.totalQuestions || 0) + (data.totalQuestions || 0),
+        correctAnswers: (prev[section]?.correctAnswers || 0) + (data.correctAnswers || 0),
+        bestStreak: Math.max(prev[section]?.bestStreak || 0, data.bestStreak || 0),
+        highScore: Math.max(prev[section]?.highScore || 0, data.highScore || 0),
+        averageTime: data.averageTime || prev[section]?.averageTime || 0
       }
     }));
   };
 
   const resetProgress = () => {
-    setProgress(initialProgress);
+    setProgress({});
     if (!isAuthenticated) {
       localStorage.removeItem('progress');
     }
   };
 
   return (
-    <ProgressContext.Provider value={{ progress, markItemMastered, setTotalItems, updateScoreboard, resetProgress }}>
+    <ProgressContext.Provider value={{ 
+      progress, 
+      markItemMastered, 
+      setTotalItems, 
+      updateScoreboard, 
+      resetProgress,
+      updateProgress 
+    }}>
       {children}
     </ProgressContext.Provider>
   );
 };
 
-export const useProgress = () => {
-  const context = useContext(ProgressContext);
-  if (context === undefined) {
-    throw new Error('useProgress must be used within a ProgressProvider');
-  }
-  return context;
-}; 
+export const useProgress = () => useContext(ProgressContext); 

@@ -54,7 +54,9 @@ const Section8 = () => {
   const [quizState, setQuizState] = useState({
     currentQuestion: 0,
     selectedAnswer: null as number | null,
-    showFeedback: false
+    showFeedback: false,
+    isCorrect: null as boolean | null,
+    showCorrect: false
   });
   const [associationState, setAssociationState] = useState({
     currentWord: '',
@@ -331,7 +333,9 @@ const Section8 = () => {
     setQuizState({
       currentQuestion: 0,
       selectedAnswer: null,
-      showFeedback: false
+      showFeedback: false,
+      isCorrect: null,
+      showCorrect: false
     });
   }, []);
 
@@ -444,30 +448,35 @@ const Section8 = () => {
   const handleQuizAnswerSelect = (answerIndex: number) => {
     if (!gameState.isPlaying || quizState.showFeedback) return;
 
+    const isCorrect = answerIndex === quizGameData[quizState.currentQuestion].correct;
     setQuizState(prev => ({
       ...prev,
       selectedAnswer: answerIndex,
-      showFeedback: true
+      showFeedback: true,
+      isCorrect,
+      showCorrect: !isCorrect
     }));
 
-    const isCorrect = answerIndex === quizGameData[quizState.currentQuestion].correct;
     if (isCorrect) {
       setGameState(prev => ({ ...prev, score: prev.score + 10 }));
     } else {
       setGameState(prev => ({ ...prev, mistakes: prev.mistakes + 1 }));
     }
+  };
 
-    setTimeout(() => {
-      if (quizState.currentQuestion < quizGameData.length - 1) {
-        setQuizState(prev => ({
-          currentQuestion: prev.currentQuestion + 1,
-          selectedAnswer: null,
-          showFeedback: false
-        }));
-      } else {
-        endGame();
-      }
-    }, 1500);
+  const handleNextQuizQuestion = () => {
+    if (quizState.currentQuestion < quizGameData.length - 1) {
+      setQuizState(prev => ({
+        ...prev,
+        currentQuestion: prev.currentQuestion + 1,
+        selectedAnswer: null,
+        showFeedback: false,
+        isCorrect: null,
+        showCorrect: false
+      }));
+    } else {
+      endGame();
+    }
   };
 
   const handleAssociationSelect = (association: string) => {
@@ -746,17 +755,29 @@ const Section8 = () => {
                           : 'bg-red-100 text-red-800'
                         : 'bg-white hover:bg-gray-50'
                     }`}
-                    disabled={!gameState.isPlaying || quizState.showFeedback}
+                    disabled={quizState.showFeedback}
                   >
-                    {settings.showKanjiGames ? option : 'Option ' + (index + 1)}
-                    {settings.showRomajiGames && (
-                      <span className="block text-sm text-gray-600 mt-1">
-                        {romajiMap[option] || 'Loading...'}
-                      </span>
-                    )}
+                    {option}
                   </button>
                 ))}
               </div>
+              {quizState.showFeedback && (
+                <div className="mt-4">
+                  {quizState.isCorrect ? (
+                    <div className="text-green-700 font-semibold">Correct!</div>
+                  ) : (
+                    <div className="text-red-700 font-semibold">
+                      Incorrect! The correct answer is: <span className="underline">{currentQuestion.options[currentQuestion.correct]}</span>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleNextQuizQuestion}
+                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Next Question
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );

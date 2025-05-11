@@ -2,14 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import SettingsPanel from '../components/Settings';
+import { kuroshiroInstance } from '../utils/kuroshiro';
 
 const Section3 = () => {
   const { settings, updateProgress } = useApp();
   const [selectedExercise, setSelectedExercise] = useState<string>('sentence');
   const [prompt, setPrompt] = useState<string>('');
+  const [romajiPrompt, setRomajiPrompt] = useState<string>('');
+  const [showRomaji, setShowRomaji] = useState<boolean>(settings.showRomaji);
   const [userInput, setUserInput] = useState<string>('');
   const [completedExercises, setCompletedExercises] = useState<number>(0);
   const [totalExercises, setTotalExercises] = useState<number>(0);
+
+  // Only hiragana/katakana prompts
+  const prompts = {
+    sentence: 'まいにち がっこう いきます', // "Every day I go to school" (hiragana)
+    paragraph: 'わたしの すきな きせつは はる です。はるに なると、こうえんで さんぽ します。',
+    diary: 'きょうは たのしい いちにち でした。ともだちと あそびました。',
+    email: 'ともだちへ パーティーに きてください。ひは きんようび、じかんは ごご しちじ です。',
+    story: 'あるひ、ふしぎな できごとが おこりました。わたしは そとで きれいな ねこを みつけました。'
+  };
 
   const exercises = [
     { id: 'sentence', name: 'Sentence Construction' },
@@ -20,13 +32,6 @@ const Section3 = () => {
   ];
 
   const getPrompt = (type: string) => {
-    const prompts = {
-      sentence: 'Write a sentence about your daily routine using the following words: 毎日、学校、行きます',
-      paragraph: 'Write a short paragraph about your favorite season. Include what you like to do during that season.',
-      diary: 'Write a diary entry about your day. Include what you did, what you ate, and how you felt.',
-      email: 'Write an email to a Japanese friend inviting them to a party. Include the date, time, and location.',
-      story: 'Write a short story about a magical day. Use your imagination!'
-    };
     return prompts[type as keyof typeof prompts] || '';
   };
 
@@ -52,6 +57,30 @@ const Section3 = () => {
     updateProgress('section3', completedExercises, totalExercises);
   }, [completedExercises, totalExercises, updateProgress]);
 
+  // Romaji conversion
+  useEffect(() => {
+    let isMounted = true;
+    const convertRomaji = async () => {
+      if (showRomaji && prompt) {
+        try {
+          const romaji = await kuroshiroInstance.convert(prompt);
+          if (isMounted) setRomajiPrompt(romaji);
+        } catch {
+          if (isMounted) setRomajiPrompt('');
+        }
+      } else {
+        setRomajiPrompt('');
+      }
+    };
+    convertRomaji();
+    return () => { isMounted = false; };
+  }, [prompt, showRomaji]);
+
+  // Set initial prompt
+  useEffect(() => {
+    setPrompt(getPrompt(selectedExercise));
+  }, [selectedExercise]);
+
   return (
     <div className="py-8">
       <div className="flex items-center justify-between mb-8">
@@ -65,65 +94,70 @@ const Section3 = () => {
           Progress: {completedExercises}/{totalExercises} exercises completed
         </div>
       </div>
-      
+      <div className="mb-4 flex items-center gap-4">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showRomaji}
+            onChange={() => setShowRomaji(r => !r)}
+            className="form-checkbox"
+          />
+          <span className="text-sm">Show Romaji</span>
+        </label>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">Choose an Exercise</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {exercises.map((exercise) => (
-                  <button
-                    key={exercise.id}
-                    onClick={() => handleExerciseChange(exercise.id)}
-                    className={`p-4 rounded-lg border ${
-                      selectedExercise === exercise.id
-                        ? 'bg-blue-100 border-blue-500'
-                        : 'bg-white border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {exercise.name}
-                  </button>
-                ))}
-              </div>
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold mb-4">Choose an Exercise</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {exercises.map((exercise) => (
+                <button
+                  key={exercise.id}
+                  onClick={() => handleExerciseChange(exercise.id)}
+                  className={`p-4 rounded-lg border ${
+                    selectedExercise === exercise.id
+                      ? 'bg-blue-100 border-blue-500'
+                      : 'bg-white border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {exercise.name}
+                </button>
+              ))}
             </div>
-
-            {selectedExercise && (
-              <div className="space-y-6">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-medium mb-2">Prompt:</h3>
-                  <p className="text-gray-700">{prompt}</p>
-                </div>
-
-                <div>
-                  <h3 className="font-medium mb-2">Your Writing:</h3>
-                  <textarea
-                    value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
-                    className="w-full h-48 p-4 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Write your response here..."
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-4">
-                  <button
-                    onClick={() => setUserInput('')}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                  >
-                    Clear
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            )}
+          </div>
+          <div className="space-y-6">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-medium mb-2">Prompt:</h3>
+              <p className="text-gray-700 text-lg mb-1">{prompt}</p>
+              {showRomaji && romajiPrompt && (
+                <p className="text-gray-500 italic text-base">{romajiPrompt}</p>
+              )}
+            </div>
+            <div>
+              <h3 className="font-medium mb-2">Your Writing:</h3>
+              <textarea
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                className="w-full h-48 p-4 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Write your response here..."
+              />
+            </div>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setUserInput('')}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Clear
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Save
+              </button>
+            </div>
           </div>
         </div>
-
         <div>
           <SettingsPanel />
         </div>

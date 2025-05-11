@@ -29,7 +29,7 @@ interface JLPTContent {
 
 const Section7 = () => {
   const { settings } = useApp();
-  const [selectedLevel, setSelectedLevel] = useState<string>('N5');
+  const [selectedLevel, setSelectedLevel] = useState<string>('n5');
   const [romajiMap, setRomajiMap] = useState<{ [key: string]: string }>({});
 
   const jlptContent = {
@@ -120,6 +120,8 @@ const Section7 = () => {
       ]
     }
   };
+
+  const availableLevels = Object.keys(jlptContent);
 
   // Add function to get romaji
   const getRomaji = async (text: string) => {
@@ -264,6 +266,8 @@ const Section7 = () => {
     </div>
   );
 
+  const content = jlptContent[selectedLevel as keyof typeof jlptContent];
+
   return (
     <div className="py-8">
       <div className="flex items-center mb-8">
@@ -276,31 +280,28 @@ const Section7 = () => {
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="mb-6">
           <div className="flex space-x-4 mb-4">
-            <button
-              onClick={() => setSelectedLevel('n5')}
-              className={`px-4 py-2 rounded-lg border ${
-                selectedLevel === 'n5'
-                  ? 'bg-blue-100 border-blue-500'
-                  : 'bg-white border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              N5
-            </button>
-            <button
-              onClick={() => setSelectedLevel('n4')}
-              className={`px-4 py-2 rounded-lg border ${
-                selectedLevel === 'n4'
-                  ? 'bg-blue-100 border-blue-500'
-                  : 'bg-white border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              N4
-            </button>
+            {availableLevels.map(level => (
+              <button
+                key={level}
+                onClick={() => setSelectedLevel(level)}
+                className={`px-4 py-2 rounded-lg border ${
+                  selectedLevel === level
+                    ? 'bg-blue-100 border-blue-500'
+                    : 'bg-white border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {level.toUpperCase()}
+              </button>
+            ))}
           </div>
         </div>
 
         <div className="space-y-8">
-          {renderContent(jlptContent[selectedLevel as keyof typeof jlptContent])}
+          {content ? (
+            renderContent(content)
+          ) : (
+            <div className="text-red-600 font-semibold">This JLPT level is not available yet.</div>
+          )}
         </div>
       </div>
     </div>

@@ -15,7 +15,7 @@ const Navigation = () => {
   const mainLinks = [
     { path: '/section1', name: 'Hiragana & Katakana Quiz' },
     { path: '/section2', name: 'Dictionary' },
-    { path: '/section3', name: 'Writing Practice' },
+    { path: '/writing-practice', name: 'Writing Practice' },
     { path: '/section4', name: 'Kanji Practice' },
     { path: '/section5', name: 'Vocabulary Builder' },
     { path: '/section6', name: 'Reading Practice' },
@@ -42,7 +42,7 @@ const Navigation = () => {
     : 'bg-white text-gray-800 shadow-md';
 
   const linkClasses = (isActive: boolean) => {
-    const baseClasses = 'px-4 py-2 rounded-lg transition-colors duration-200';
+    const baseClasses = 'px-3 py-1.5 text-sm rounded-lg transition-colors duration-200';
     if (isDarkMode) {
       return `${baseClasses} ${
         isActive 
@@ -68,7 +68,7 @@ const Navigation = () => {
               </span>
             </Link>
             <div className="hidden md:block ml-10">
-              <div className="flex items-baseline space-x-4">
+              <div className="flex items-baseline space-x-2">
                 {mainLinks.map((section) => (
                   <Link
                     key={section.path}
@@ -143,7 +143,7 @@ const Navigation = () => {
                     </Link>
                   </div>
                   {/* Toggle bar under Sign up */}
-                  <div className="w-full flex justify-center mt-2">
+                  <div className="w-full flex justify-center mt-2 text-sm">
                     <ThemeToggle />
                   </div>
                 </div>
@@ -228,7 +228,7 @@ const Navigation = () => {
                   Sign up
                 </Link>
                 {/* Toggle bar under Sign up (mobile) */}
-                <div className="w-full flex justify-center mt-2">
+                <div className="w-full flex justify-center mt-2 text-sm">
                   <ThemeToggle />
                 </div>
               </div>

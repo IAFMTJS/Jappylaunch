@@ -1,24 +1,30 @@
-export type KanjiDifficulty = 'easy' | 'medium' | 'hard';
+export type Difficulty = 'easy' | 'medium' | 'hard';
+export type KanjiCategory = 'nature' | 'people' | 'body' | 'numbers' | 'time' | 'position' | 'size' | 'currency';
 
-export type Kanji = {
-  character: string;
+export interface KanjiExample {
+  word: string;
+  reading: string;
   meaning: string;
-  onyomi: string[];
+}
+
+export interface Kanji {
+  character: string;
+  english: string;
   kunyomi: string[];
-  examples: {
-    word: string;
-    reading: string;
-    meaning: string;
-  }[];
-  difficulty: KanjiDifficulty;
-  category: string;
+  onyomi: string[];
+  difficulty: Difficulty;
+  category: KanjiCategory;
   hint?: string;
-};
+  examples?: KanjiExample[];
+  strokeCount: number;
+  radicals: string[];
+  jlptLevel?: 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
+}
 
 export const kanjiList: Kanji[] = [
   {
     character: '日',
-    meaning: 'sun, day',
+    english: 'sun, day',
     onyomi: ['ニチ', 'ジツ'],
     kunyomi: ['ひ', 'か'],
     examples: [
@@ -28,11 +34,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'nature',
-    hint: 'Looks like a sun with rays'
+    hint: 'Looks like a sun with rays',
+    strokeCount: 4,
+    radicals: ['日'],
+    jlptLevel: 'N5'
   },
   {
     character: '月',
-    meaning: 'moon, month',
+    english: 'moon, month',
     onyomi: ['ゲツ', 'ガツ'],
     kunyomi: ['つき'],
     examples: [
@@ -42,11 +51,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'nature',
-    hint: 'Looks like a crescent moon'
+    hint: 'Looks like a crescent moon',
+    strokeCount: 4,
+    radicals: ['月'],
+    jlptLevel: 'N5'
   },
   {
     character: '水',
-    meaning: 'water',
+    english: 'water',
     onyomi: ['スイ'],
     kunyomi: ['みず'],
     examples: [
@@ -56,11 +68,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'nature',
-    hint: 'Looks like flowing water'
+    hint: 'Looks like flowing water',
+    strokeCount: 4,
+    radicals: ['水'],
+    jlptLevel: 'N5'
   },
   {
     character: '火',
-    meaning: 'fire',
+    english: 'fire',
     onyomi: ['カ'],
     kunyomi: ['ひ', 'ほ'],
     examples: [
@@ -70,11 +85,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'nature',
-    hint: 'Looks like flames'
+    hint: 'Looks like flames',
+    strokeCount: 4,
+    radicals: ['火'],
+    jlptLevel: 'N5'
   },
   {
     character: '木',
-    meaning: 'tree, wood',
+    english: 'tree, wood',
     onyomi: ['ボク', 'モク'],
     kunyomi: ['き', 'こ'],
     examples: [
@@ -84,11 +102,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'nature',
-    hint: 'Looks like a tree with branches'
+    hint: 'Looks like a tree with branches',
+    strokeCount: 4,
+    radicals: ['木'],
+    jlptLevel: 'N5'
   },
   {
     character: '金',
-    meaning: 'gold, money',
+    english: 'gold, money',
     onyomi: ['キン', 'コン'],
     kunyomi: ['かね', 'かな'],
     examples: [
@@ -98,11 +119,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'nature',
-    hint: 'Looks like a treasure chest'
+    hint: 'Looks like a treasure chest',
+    strokeCount: 8,
+    radicals: ['金'],
+    jlptLevel: 'N5'
   },
   {
     character: '土',
-    meaning: 'earth, soil',
+    english: 'earth, soil',
     onyomi: ['ド', 'ト'],
     kunyomi: ['つち'],
     examples: [
@@ -112,11 +136,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'nature',
-    hint: 'Looks like soil in a field'
+    hint: 'Looks like soil in a field',
+    strokeCount: 3,
+    radicals: ['土'],
+    jlptLevel: 'N5'
   },
   {
     character: '人',
-    meaning: 'person',
+    english: 'person',
     onyomi: ['ジン', 'ニン'],
     kunyomi: ['ひと'],
     examples: [
@@ -126,11 +153,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'people',
-    hint: 'Looks like a person walking'
+    hint: 'Looks like a person walking',
+    strokeCount: 4,
+    radicals: ['人'],
+    jlptLevel: 'N5'
   },
   {
     character: '口',
-    meaning: 'mouth',
+    english: 'mouth',
     onyomi: ['コウ', 'ク'],
     kunyomi: ['くち'],
     examples: [
@@ -140,11 +170,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'body',
-    hint: 'Looks like an open mouth'
+    hint: 'Looks like an open mouth',
+    strokeCount: 3,
+    radicals: ['口'],
+    jlptLevel: 'N5'
   },
   {
     character: '手',
-    meaning: 'hand',
+    english: 'hand',
     onyomi: ['シュ'],
     kunyomi: ['て'],
     examples: [
@@ -154,11 +187,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'body',
-    hint: 'Looks like a hand with fingers'
+    hint: 'Looks like a hand with fingers',
+    strokeCount: 4,
+    radicals: ['手'],
+    jlptLevel: 'N5'
   },
   {
     character: '目',
-    meaning: 'eye',
+    english: 'eye',
     onyomi: ['モク', 'ボク'],
     kunyomi: ['め'],
     examples: [
@@ -168,11 +204,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'body',
-    hint: 'Looks like an eye with eyelashes'
+    hint: 'Looks like an eye with eyelashes',
+    strokeCount: 4,
+    radicals: ['目'],
+    jlptLevel: 'N5'
   },
   {
     character: '耳',
-    meaning: 'ear',
+    english: 'ear',
     onyomi: ['ジ'],
     kunyomi: ['みみ'],
     examples: [
@@ -182,11 +221,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'body',
-    hint: 'Looks like an ear'
+    hint: 'Looks like an ear',
+    strokeCount: 6,
+    radicals: ['耳'],
+    jlptLevel: 'N5'
   },
   {
     character: '足',
-    meaning: 'foot, leg',
+    english: 'foot, leg',
     onyomi: ['ソク'],
     kunyomi: ['あし', 'た'],
     examples: [
@@ -196,11 +238,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'body',
-    hint: 'Looks like a foot with toes'
+    hint: 'Looks like a foot with toes',
+    strokeCount: 7,
+    radicals: ['足'],
+    jlptLevel: 'N5'
   },
   {
     character: '山',
-    meaning: 'mountain',
+    english: 'mountain',
     onyomi: ['サン'],
     kunyomi: ['やま'],
     examples: [
@@ -210,11 +255,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'nature',
-    hint: 'Looks like three mountain peaks'
+    hint: 'Looks like three mountain peaks',
+    strokeCount: 3,
+    radicals: ['山'],
+    jlptLevel: 'N5'
   },
   {
     character: '川',
-    meaning: 'river',
+    english: 'river',
     onyomi: ['セン'],
     kunyomi: ['かわ'],
     examples: [
@@ -224,11 +272,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'nature',
-    hint: 'Looks like flowing water'
+    hint: 'Looks like flowing water',
+    strokeCount: 3,
+    radicals: ['川'],
+    jlptLevel: 'N5'
   },
   {
     character: '田',
-    meaning: 'rice field',
+    english: 'rice field',
     onyomi: ['デン'],
     kunyomi: ['た'],
     examples: [
@@ -238,11 +289,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'nature',
-    hint: 'Looks like a rice field divided into sections'
+    hint: 'Looks like a rice field divided into sections',
+    strokeCount: 5,
+    radicals: ['田'],
+    jlptLevel: 'N5'
   },
   {
     character: '中',
-    meaning: 'middle, inside',
+    english: 'middle, inside',
     onyomi: ['チュウ'],
     kunyomi: ['なか'],
     examples: [
@@ -252,11 +306,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'position',
-    hint: 'Looks like a line through the middle'
+    hint: 'Looks like a line through the middle',
+    strokeCount: 4,
+    radicals: ['中'],
+    jlptLevel: 'N5'
   },
   {
     character: '大',
-    meaning: 'big, large',
+    english: 'big, large',
     onyomi: ['ダイ', 'タイ'],
     kunyomi: ['おお'],
     examples: [
@@ -266,11 +323,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'size',
-    hint: 'Looks like a person with arms spread wide'
+    hint: 'Looks like a person with arms spread wide',
+    strokeCount: 3,
+    radicals: ['大'],
+    jlptLevel: 'N5'
   },
   {
     character: '小',
-    meaning: 'small',
+    english: 'small',
     onyomi: ['ショウ'],
     kunyomi: ['ちい', 'こ'],
     examples: [
@@ -280,11 +340,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'size',
-    hint: 'Looks like something small'
+    hint: 'Looks like something small',
+    strokeCount: 3,
+    radicals: ['小'],
+    jlptLevel: 'N5'
   },
   {
     character: '上',
-    meaning: 'up, above',
+    english: 'up, above',
     onyomi: ['ジョウ', 'ショウ'],
     kunyomi: ['うえ', 'あ'],
     examples: [
@@ -294,11 +357,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'position',
-    hint: 'Looks like something pointing upward'
+    hint: 'Looks like something pointing upward',
+    strokeCount: 3,
+    radicals: ['上'],
+    jlptLevel: 'N5'
   },
   {
     character: '下',
-    meaning: 'down, below',
+    english: 'down, below',
     onyomi: ['カ', 'ゲ'],
     kunyomi: ['した', 'くだ'],
     examples: [
@@ -308,11 +374,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'position',
-    hint: 'Looks like something pointing downward'
+    hint: 'Looks like something pointing downward',
+    strokeCount: 3,
+    radicals: ['下'],
+    jlptLevel: 'N5'
   },
   {
     character: '一',
-    meaning: 'one',
+    english: 'one',
     onyomi: ['イチ', 'イツ'],
     kunyomi: ['ひと'],
     examples: [
@@ -322,11 +391,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'numbers',
-    hint: 'Just one line'
+    hint: 'Just one line',
+    strokeCount: 1,
+    radicals: ['一'],
+    jlptLevel: 'N5'
   },
   {
     character: '二',
-    meaning: 'two',
+    english: 'two',
     onyomi: ['ニ'],
     kunyomi: ['ふた'],
     examples: [
@@ -336,11 +408,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'numbers',
-    hint: 'Two parallel lines'
+    hint: 'Two parallel lines',
+    strokeCount: 2,
+    radicals: ['二'],
+    jlptLevel: 'N5'
   },
   {
     character: '三',
-    meaning: 'three',
+    english: 'three',
     onyomi: ['サン'],
     kunyomi: ['み'],
     examples: [
@@ -350,11 +425,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'numbers',
-    hint: 'Three parallel lines'
+    hint: 'Three parallel lines',
+    strokeCount: 3,
+    radicals: ['三'],
+    jlptLevel: 'N5'
   },
   {
     character: '四',
-    meaning: 'four',
+    english: 'four',
     onyomi: ['シ'],
     kunyomi: ['よ', 'よん'],
     examples: [
@@ -364,11 +442,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'numbers',
-    hint: 'Looks like a box with a line inside'
+    hint: 'Looks like a box with a line inside',
+    strokeCount: 5,
+    radicals: ['四'],
+    jlptLevel: 'N5'
   },
   {
     character: '五',
-    meaning: 'five',
+    english: 'five',
     onyomi: ['ゴ'],
     kunyomi: ['いつ'],
     examples: [
@@ -378,11 +459,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'numbers',
-    hint: 'Looks like a hand with five fingers'
+    hint: 'Looks like a hand with five fingers',
+    strokeCount: 4,
+    radicals: ['五'],
+    jlptLevel: 'N5'
   },
   {
     character: '六',
-    meaning: 'six',
+    english: 'six',
     onyomi: ['ロク'],
     kunyomi: ['む'],
     examples: [
@@ -392,11 +476,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'numbers',
-    hint: 'Looks like a roof with a line underneath'
+    hint: 'Looks like a roof with a line underneath',
+    strokeCount: 6,
+    radicals: ['六'],
+    jlptLevel: 'N5'
   },
   {
     character: '七',
-    meaning: 'seven',
+    english: 'seven',
     onyomi: ['シチ'],
     kunyomi: ['なな'],
     examples: [
@@ -406,11 +493,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'numbers',
-    hint: 'Looks like a cross with a line'
+    hint: 'Looks like a cross with a line',
+    strokeCount: 4,
+    radicals: ['七'],
+    jlptLevel: 'N5'
   },
   {
     character: '八',
-    meaning: 'eight',
+    english: 'eight',
     onyomi: ['ハチ'],
     kunyomi: ['や'],
     examples: [
@@ -420,11 +510,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'numbers',
-    hint: 'Looks like two lines spreading apart'
+    hint: 'Looks like two lines spreading apart',
+    strokeCount: 5,
+    radicals: ['八'],
+    jlptLevel: 'N5'
   },
   {
     character: '九',
-    meaning: 'nine',
+    english: 'nine',
     onyomi: ['キュウ', 'ク'],
     kunyomi: ['ここの'],
     examples: [
@@ -434,11 +527,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'numbers',
-    hint: 'Looks like a hook'
+    hint: 'Looks like a hook',
+    strokeCount: 9,
+    radicals: ['九'],
+    jlptLevel: 'N5'
   },
   {
     character: '十',
-    meaning: 'ten',
+    english: 'ten',
     onyomi: ['ジュウ', 'ジッ'],
     kunyomi: ['とお'],
     examples: [
@@ -448,11 +544,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'numbers',
-    hint: 'Looks like a plus sign'
+    hint: 'Looks like a plus sign',
+    strokeCount: 4,
+    radicals: ['十'],
+    jlptLevel: 'N5'
   },
   {
     character: '百',
-    meaning: 'hundred',
+    english: 'hundred',
     onyomi: ['ヒャク'],
     kunyomi: ['もも'],
     examples: [
@@ -462,11 +561,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'numbers',
-    hint: 'Looks like a one with a line on top'
+    hint: 'Looks like a one with a line on top',
+    strokeCount: 6,
+    radicals: ['百'],
+    jlptLevel: 'N5'
   },
   {
     character: '千',
-    meaning: 'thousand',
+    english: 'thousand',
     onyomi: ['セン'],
     kunyomi: ['ち'],
     examples: [
@@ -476,11 +578,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'numbers',
-    hint: 'Looks like a person with a line on top'
+    hint: 'Looks like a person with a line on top',
+    strokeCount: 3,
+    radicals: ['千'],
+    jlptLevel: 'N5'
   },
   {
     character: '万',
-    meaning: 'ten thousand',
+    english: 'ten thousand',
     onyomi: ['マン', 'バン'],
     kunyomi: ['よろず'],
     examples: [
@@ -490,11 +595,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'numbers',
-    hint: 'Looks like a box with a line inside'
+    hint: 'Looks like a box with a line inside',
+    strokeCount: 3,
+    radicals: ['万'],
+    jlptLevel: 'N5'
   },
   {
     character: '円',
-    meaning: 'circle, yen',
+    english: 'circle, yen',
     onyomi: ['エン'],
     kunyomi: ['まる'],
     examples: [
@@ -504,11 +612,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'currency',
-    hint: 'Looks like a circle'
+    hint: 'Looks like a circle',
+    strokeCount: 3,
+    radicals: ['円'],
+    jlptLevel: 'N5'
   },
   {
     character: '年',
-    meaning: 'year',
+    english: 'year',
     onyomi: ['ネン'],
     kunyomi: ['とし'],
     examples: [
@@ -518,11 +629,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'time',
-    hint: 'Looks like a person with a line on top'
+    hint: 'Looks like a person with a line on top',
+    strokeCount: 6,
+    radicals: ['年'],
+    jlptLevel: 'N5'
   },
   {
     character: '月',
-    meaning: 'month, moon',
+    english: 'month, moon',
     onyomi: ['ゲツ', 'ガツ'],
     kunyomi: ['つき'],
     examples: [
@@ -532,11 +646,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'time',
-    hint: 'Looks like a crescent moon'
+    hint: 'Looks like a crescent moon',
+    strokeCount: 4,
+    radicals: ['月'],
+    jlptLevel: 'N5'
   },
   {
     character: '日',
-    meaning: 'day, sun',
+    english: 'day, sun',
     onyomi: ['ニチ', 'ジツ'],
     kunyomi: ['ひ', 'か'],
     examples: [
@@ -546,11 +663,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'time',
-    hint: 'Looks like a sun with rays'
+    hint: 'Looks like a sun with rays',
+    strokeCount: 4,
+    radicals: ['日'],
+    jlptLevel: 'N5'
   },
   {
     character: '時',
-    meaning: 'time, hour',
+    english: 'time, hour',
     onyomi: ['ジ'],
     kunyomi: ['とき'],
     examples: [
@@ -560,11 +680,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'time',
-    hint: 'Looks like a sun with a line'
+    hint: 'Looks like a sun with a line',
+    strokeCount: 7,
+    radicals: ['時'],
+    jlptLevel: 'N5'
   },
   {
     character: '分',
-    meaning: 'minute, part',
+    english: 'minute, part',
     onyomi: ['ブン', 'フン'],
     kunyomi: ['わ'],
     examples: [
@@ -574,11 +697,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'time',
-    hint: 'Looks like a knife cutting something'
+    hint: 'Looks like a knife cutting something',
+    strokeCount: 4,
+    radicals: ['分'],
+    jlptLevel: 'N5'
   },
   {
     character: '今',
-    meaning: 'now',
+    english: 'now',
     onyomi: ['コン', 'キン'],
     kunyomi: ['いま'],
     examples: [
@@ -588,11 +714,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'time',
-    hint: 'Looks like a person with a line on top'
+    hint: 'Looks like a person with a line on top',
+    strokeCount: 9,
+    radicals: ['今'],
+    jlptLevel: 'N5'
   },
   {
     character: '先',
-    meaning: 'previous, ahead',
+    english: 'previous, ahead',
     onyomi: ['セン'],
     kunyomi: ['さき'],
     examples: [
@@ -602,11 +731,14 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'time',
-    hint: 'Looks like a person with a line on top'
+    hint: 'Looks like a person with a line on top',
+    strokeCount: 6,
+    radicals: ['先'],
+    jlptLevel: 'N5'
   },
   {
     character: '後',
-    meaning: 'after, behind',
+    english: 'after, behind',
     onyomi: ['ゴ', 'コウ'],
     kunyomi: ['あと', 'うし'],
     examples: [
@@ -616,6 +748,9 @@ export const kanjiList: Kanji[] = [
     ],
     difficulty: 'easy',
     category: 'time',
-    hint: 'Looks like a person with a line on top'
+    hint: 'Looks like a person with a line on top',
+    strokeCount: 6,
+    radicals: ['後'],
+    jlptLevel: 'N5'
   }
 ]; 

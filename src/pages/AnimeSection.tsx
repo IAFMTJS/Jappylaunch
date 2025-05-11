@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useProgress } from '../context/ProgressContext';
+import { useApp } from '../context/AppContext';
+import { kuroshiroInstance } from '../utils/kuroshiro';
 import AnimePhraseCard from '../components/AnimePhraseCard';
 
 interface AnimePhrase {
@@ -163,25 +165,58 @@ const beginnerPhrases: AnimePhrase[] = [
   }
 ];
 
+// Helper: check if string is kana-only (hiragana/katakana)
+const isKanaOnly = (str: string) => /^[\u3040-\u309F\u30A0-\u30FF\u3000-\u303F\uFF66-\uFF9F\s]+$/.test(str);
+
 const AnimeSection: React.FC = () => {
   const { currentUser } = useAuth();
-  const { updateProgress } = useProgress();
+  const { settings } = useApp();
+  const { markItemMastered, setTotalItems } = useProgress();
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
-  const [showRomaji, setShowRomaji] = useState(false);
+  const [showRomaji, setShowRomaji] = useState(settings.showRomaji);
+  const [romajiMap, setRomajiMap] = useState<{ [key: string]: string }>({});
   const [showEnglish, setShowEnglish] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<AnimePhrase['category'] | 'all'>('all');
   const [score, setScore] = useState(0);
 
-  const filteredPhrases = selectedCategory === 'all' 
-    ? beginnerPhrases 
-    : beginnerPhrases.filter(phrase => phrase.category === selectedCategory);
+  // Filter phrases to kana-only
+  const kanaPhrases = useMemo(() =>
+    beginnerPhrases.filter(phrase => isKanaOnly(phrase.japanese)),
+    []
+  );
+
+  const filteredPhrases = useMemo(() =>
+    (selectedCategory === 'all' ? kanaPhrases : kanaPhrases.filter(phrase => phrase.category === selectedCategory)),
+    [kanaPhrases, selectedCategory]
+  );
 
   const currentPhrase = filteredPhrases[currentPhraseIndex];
+
+  // Romaji conversion (memoized)
+  useEffect(() => {
+    let isMounted = true;
+    const convertRomaji = async () => {
+      if (showRomaji && currentPhrase && !romajiMap[currentPhrase.japanese]) {
+        try {
+          const romaji = await kuroshiroInstance.convert(currentPhrase.japanese);
+          if (isMounted) setRomajiMap(prev => ({ ...prev, [currentPhrase.japanese]: romaji }));
+        } catch {
+          if (isMounted) setRomajiMap(prev => ({ ...prev, [currentPhrase.japanese]: '' }));
+        }
+      }
+    };
+    convertRomaji();
+    return () => { isMounted = false; };
+  }, [currentPhrase, showRomaji]);
+
+  // Set total items for progress tracking
+  useEffect(() => {
+    setTotalItems('anime', filteredPhrases.length);
+  }, [filteredPhrases.length, setTotalItems]);
 
   const handleNext = () => {
     if (currentPhraseIndex < filteredPhrases.length - 1) {
       setCurrentPhraseIndex(prev => prev + 1);
-      setShowRomaji(false);
       setShowEnglish(false);
     }
   };
@@ -189,7 +224,6 @@ const AnimeSection: React.FC = () => {
   const handlePrevious = () => {
     if (currentPhraseIndex > 0) {
       setCurrentPhraseIndex(prev => prev - 1);
-      setShowRomaji(false);
       setShowEnglish(false);
     }
   };
@@ -197,19 +231,12 @@ const AnimeSection: React.FC = () => {
   const handleCategoryChange = (category: AnimePhrase['category'] | 'all') => {
     setSelectedCategory(category);
     setCurrentPhraseIndex(0);
-    setShowRomaji(false);
     setShowEnglish(false);
   };
 
   const handlePractice = () => {
-    // Update progress when user practices phrases
-    if (currentUser) {
-      updateProgress('anime', {
-        totalQuestions: score + 1,
-        correctAnswers: score + 1,
-        lastAttempt: new Date().toISOString(),
-        averageTime: 0
-      });
+    if (currentUser && currentPhrase) {
+      markItemMastered('anime', currentPhrase.japanese);
       setScore(prev => prev + 1);
     }
   };
@@ -247,6 +274,18 @@ const AnimeSection: React.FC = () => {
         ))}
       </div>
 
+      <div className="mb-4 flex items-center gap-4 justify-center">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showRomaji}
+            onChange={() => setShowRomaji(r => !r)}
+            className="form-checkbox"
+          />
+          <span className="text-sm">Show Romaji</span>
+        </label>
+      </div>
+
       {/* Phrase Card */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
         <div className="text-center mb-6">
@@ -255,7 +294,7 @@ const AnimeSection: React.FC = () => {
           </h2>
           {showRomaji && (
             <p className="text-lg text-gray-600 dark:text-gray-300 mb-2">
-              {currentPhrase.romaji}
+              {romajiMap[currentPhrase.japanese] || 'Loading...'}
             </p>
           )}
           {showEnglish && (
@@ -276,12 +315,6 @@ const AnimeSection: React.FC = () => {
 
         {/* Controls */}
         <div className="flex justify-center gap-4 mt-6">
-          <button
-            onClick={() => setShowRomaji(!showRomaji)}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
-            {showRomaji ? 'Hide' : 'Show'} Romaji
-          </button>
           <button
             onClick={() => setShowEnglish(!showEnglish)}
             className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"

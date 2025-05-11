@@ -6,9 +6,13 @@ import { useProgress } from '../context/ProgressContext';
 import { kuroshiroInstance } from '../utils/kuroshiro';
 import { CSSTransition } from 'react-transition-group';
 
+// Add type declaration for react-transition-group
+declare module 'react-transition-group';
+
 type Difficulty = 'easy' | 'medium' | 'hard';
 type QuizType = 'multiple-choice' | 'writing';
 type AnswerType = 'hiragana' | 'katakana' | 'romaji';
+type QuizMode = 'setup' | 'quiz' | 'result' | 'complete';
 
 interface QuizSettings {
   category: Category;
@@ -19,12 +23,14 @@ interface QuizSettings {
 }
 
 interface QuizState {
+  mode: QuizMode;
   currentQuestion: number;
   selectedAnswer: number | null;
   showFeedback: boolean;
   isCorrect: boolean | null;
   showCorrect: boolean;
-  mode: 'setup' | 'quiz' | 'result';
+  showResult?: boolean;
+  timeEnded?: Date;
 }
 
 const categories = [
@@ -283,6 +289,7 @@ const Quiz: React.FC = () => {
         const finalScore = Math.round((newScore / questions.length) * 100);
         setQuizState(prev => ({
           ...prev,
+          mode: 'result',
           showResult: true,
           timeEnded: new Date()
         }));
@@ -309,45 +316,27 @@ const Quiz: React.FC = () => {
     checkAnswer(userAnswer.trim());
   }, [userAnswer, checkAnswer]);
 
-  const handleNextQuestion = useCallback(() => {
-    if (quizState.currentQuestion < questions.length - 1) {
-      setQuizState(prev => ({
-        ...prev,
-        currentQuestion: prev.currentQuestion + 1,
-        showFeedback: false,
-        isCorrect: null,
-        showCorrect: false
-      }));
-    } else {
-      // Quiz is complete, calculate final score
-      const finalScore = Math.round((score / questions.length) * 100);
-      const timeEnded = new Date();
-      const timeTaken = timeStarted ? Math.round((timeEnded.getTime() - timeStarted.getTime()) / 1000) : 0;
-
-      // Update progress with quiz results
-      updateProgress(
-        'section1',
-        score,
-        questions.length,
-        {
-          score: finalScore,
-          category: settings.category,
-          difficulty: settings.difficulty,
-          quizType: settings.quizType,
-          timeTaken,
-          date: timeEnded.toISOString(),
-          totalQuestions: questions.length,
-          correctAnswers: score
-        }
-      );
-
-      setQuizState(prev => ({
-        ...prev,
+  const handleNextQuestion = () => {
+    if (!quizState.showFeedback) return; // Prevent skipping questions
+    
+    if (quizState.currentQuestion + 1 >= questions.length) {
+      setQuizState(prev => ({ 
+        ...prev, 
+        mode: 'result',
         showResult: true,
-        timeEnded: timeEnded
+        timeEnded: new Date()
       }));
+      return;
     }
-  }, [quizState.currentQuestion, questions.length, score, settings, timeStarted, updateProgress]);
+
+    setQuizState(prev => ({
+      ...prev,
+      currentQuestion: prev.currentQuestion + 1,
+      showFeedback: false,
+      isCorrect: null,
+      showCorrect: false
+    }));
+  };
 
   const restartQuiz = () => {
     setQuizState({
@@ -429,6 +418,10 @@ const Quiz: React.FC = () => {
               <option value="colors">Colors</option>
               <option value="animals">Animals</option>
               <option value="food">Food</option>
+              <option value="verbs">Verbs</option>
+              <option value="adjectives">Adjectives</option>
+              <option value="adverbs">Adverbs</option>
+              <option value="phrases">Common Phrases</option>
             </select>
           </div>
 
@@ -523,28 +516,24 @@ const Quiz: React.FC = () => {
               Score: {score}/{quizState.currentQuestion + 1}
             </div>
             <div className={`text-sm ${themeClasses.text}`}>
-              {settings.quizType === 'multiple-choice' ? 'Multiple Choice' : 'Writing'} - {settings.difficulty}
+              {settings.difficulty.charAt(0).toUpperCase() + settings.difficulty.slice(1)}
             </div>
           </div>
         </div>
 
         <div className="mb-6">
-          {settings.difficulty === 'hard' ? (
-            <h3 className={`text-3xl font-bold mb-4 ${themeClasses.text}`}>
-              {currentWord.english}
-            </h3>
-          ) : (
-            <>
-              <h3 className={`text-3xl font-bold mb-4 ${themeClasses.text}`}>
-                {appSettings.showKanjiGames ? currentWord.japanese : currentWord.romaji}
-              </h3>
-              {appSettings.showRomajiGames && (
-                <p className={`text-xl text-gray-600 mb-4 ${themeClasses.text}`}>
-                  {romajiCache[currentWord.japanese] || 'Loading...'}
-                </p>
-              )}
-            </>
-          )}
+          <h3 className={`text-3xl font-bold mb-4 ${themeClasses.text}`}>
+            {settings.difficulty === 'easy' ? (
+              <>
+                {currentWord.japanese}
+                <div className="text-xl text-gray-600 mt-2">
+                  {currentWord.romaji}
+                </div>
+              </>
+            ) : (
+              currentWord.japanese
+            )}
+          </h3>
         </div>
 
         {settings.quizType === 'multiple-choice' ? (

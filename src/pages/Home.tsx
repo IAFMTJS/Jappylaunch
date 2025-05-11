@@ -71,34 +71,41 @@ const Home: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="text-center">
-        <h1 className={`text-3xl sm:text-4xl font-bold mb-4 ${themeClasses.text}`}>Welcome to JapVoc</h1>
-        <p className={`text-base sm:text-lg ${themeClasses.text} opacity-75 max-w-2xl mx-auto`}>
-          Your comprehensive Japanese learning companion
-        </p>
-      </div>
-
-      <div className={`${themeClasses.container} rounded-lg shadow-md p-4 sm:p-6`}>
-        <Progress detailed={false} />
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-        {sections.map((section) => (
-          <Link
-            key={section.id}
-            to={section.path}
-            className={`${themeClasses.card} rounded-lg shadow-md p-4 sm:p-6 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg`}
-          >
-            <div className="flex items-center space-x-3 mb-3">
-              <span className="text-2xl sm:text-3xl">{section.icon}</span>
-              <h2 className={`text-base sm:text-lg font-semibold ${themeClasses.text}`}>{section.name}</h2>
-            </div>
-            <p className={`text-sm ${themeClasses.text} opacity-75`}>
-              Click to start learning
-            </p>
+    <div className={`min-h-screen py-8 px-4 ${themeClasses.container}`}>
+      <div className="max-w-4xl mx-auto">
+        <h1 className={`text-4xl font-bold mb-8 ${themeClasses.text}`}>Welcome to JapVoc!</h1>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+          {sections.map((section) => (
+            <Link
+              key={section.id}
+              to={section.path}
+              className={`block rounded-lg shadow-md p-6 ${themeClasses.card} border ${themeClasses.border} hover:shadow-lg transition`}
+            >
+              <div className="flex items-center space-x-3 mb-3">
+                <span className="text-2xl sm:text-3xl">{section.icon}</span>
+                <h2 className={`text-base sm:text-lg font-semibold ${themeClasses.text}`}>{section.name}</h2>
+              </div>
+              <p className={`text-sm ${themeClasses.text} opacity-75`}>
+                Click to start learning
+              </p>
+            </Link>
+          ))}
+          <Link to="/anime" className={`block rounded-lg shadow-md p-6 bg-gradient-to-br from-pink-500 to-purple-600 text-white border-0 hover:shadow-xl transition font-bold text-lg flex flex-col items-center justify-center`}>
+            <span className="text-3xl mb-2">🎌</span>
+            Anime & Manga Phrases
+            <span className="text-sm font-normal mt-1">Learn real phrases from your favorite shows!</span>
           </Link>
-        ))}
+        </div>
+        <div className="text-center">
+          <h1 className={`text-3xl sm:text-4xl font-bold mb-4 ${themeClasses.text}`}>Welcome to JapVoc</h1>
+          <p className={`text-base sm:text-lg ${themeClasses.text} opacity-75 max-w-2xl mx-auto`}>
+            Your comprehensive Japanese learning companion
+          </p>
+        </div>
+
+        <div className={`${themeClasses.container} rounded-lg shadow-md p-4 sm:p-6`}>
+          <Progress detailed={false} />
+        </div>
       </div>
     </div>
   );

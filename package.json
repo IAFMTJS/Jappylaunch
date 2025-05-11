@@ -25,6 +25,7 @@
     "@firebase/firestore-types": "^3.0.3",
     "@firebase/functions-types": "^0.6.3",
     "@types/firebase": "^2.4.32",
+    "@types/react-transition-group": "^4.4.12",
     "assert": "^2.1.0",
     "browserify-zlib": "^0.2.0",
     "buffer": "^6.0.3",
