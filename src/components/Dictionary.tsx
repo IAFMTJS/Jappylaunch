@@ -16,7 +16,7 @@ interface DictionaryProps {
 
 const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
   const { isDarkMode } = useTheme();
-  const { progress, updateProgress, setTotalItems } = useProgress();
+  const { progress, updateProgress, getProgressStatus } = useProgress();
   const { playSound } = useSound();
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -49,10 +49,9 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
       }
       
       setItems(loadedItems);
-      setTotalItems(mode, loadedItems.length);
     };
     loadItems();
-  }, [mode, setTotalItems]);
+  }, [mode]);
 
   // Initialize romaji conversion for all items with improved caching
   const initializeRomaji = useCallback(async (itemsToConvert: DictionaryItem[]) => {
@@ -173,7 +172,8 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
     // Apply filter after search
     filtered = filtered.filter(item => {
       const itemId = 'japanese' in item ? item.japanese : item.character;
-      const itemProgress = progress[mode]?.masteredIds?.has(itemId);
+      const key = `${mode}-${itemId}`;
+      const itemProgress = progress[key]?.correct > 0;
 
       switch (filter) {
         case 'unmarked':
@@ -181,7 +181,7 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
         case 'marked':
           return itemProgress;
         case 'mastered':
-          return itemProgress && progress[mode]?.masteredIds?.has(itemId);
+          return itemProgress && progress[key]?.correct > 0;
         default:
           return true;
       }
@@ -201,8 +201,8 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
         case 'progress':
           const aId = 'japanese' in a ? a.japanese : a.character;
           const bId = 'japanese' in b ? b.japanese : b.character;
-          const aProgress = progress[mode]?.masteredIds?.has(aId) ? 1 : 0;
-          const bProgress = progress[mode]?.masteredIds?.has(bId) ? 1 : 0;
+          const aProgress = progress[`${mode}-${aId}`]?.correct > 0 ? 1 : 0;
+          const bProgress = progress[`${mode}-${bId}`]?.correct > 0 ? 1 : 0;
           return bProgress - aProgress;
         default:
           return 0;
@@ -214,24 +214,16 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
 
   const toggleMarked = (item: DictionaryItem) => {
     const itemId = 'japanese' in item ? item.japanese : item.character;
-    const isMarked = progress[mode]?.masteredIds?.has(itemId);
+    const { isMarked } = getProgressStatus(mode, itemId);
 
-    // Gebruik altijd een nieuwe Set
-    const newMasteredIds = new Set(progress[mode]?.masteredIds);
-    if (isMarked) {
-      newMasteredIds.delete(itemId);
-    } else {
-      newMasteredIds.add(itemId);
-    }
-
-    updateProgress(mode, {
-      masteredIds: newMasteredIds,
-      lastAttempt: new Date().toISOString()
-    });
-
-    playSound(isMarked ? 'incorrect' : 'correct');
-    // Add a toast or log for feedback
-    console.log(isMarked ? 'Unmarked as read' : 'Marked as read');
+    updateProgress(mode, itemId, !isMarked)
+      .then(() => {
+        playSound(isMarked ? 'incorrect' : 'correct');
+        console.log(isMarked ? 'Unmarked as read' : 'Marked as read');
+      })
+      .catch((err) => {
+        console.error('Failed to update progress:', err);
+      });
   };
 
   return (
@@ -239,17 +231,16 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
       {/* Stats section */}
       <div className="mb-6 flex flex-wrap gap-4 text-sm">
         <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-          Total Items: {items.length}
+          Total: {items.length}
         </span>
         <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-          Marked: {items.filter(item => 
-            progress[mode]?.masteredIds?.has('japanese' in item ? item.japanese : item.character)
-          ).length}
+          Marked: {items.filter(item => {
+            const itemId = 'japanese' in item ? item.japanese : item.character;
+            return getProgressStatus(mode, itemId).isMarked;
+          }).length}
         </span>
         <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-          Mastered: {items.filter(item => 
-            progress[mode]?.masteredIds?.has('japanese' in item ? item.japanese : item.character)
-          ).length}
+          Mastered: {items.filter(item => progress[`${mode}-${'japanese' in item ? item.japanese : item.character}`]?.correct > 0).length}
         </span>
         {isRomajiLoading && (
           <span className="text-blue-500">
@@ -331,7 +322,8 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
         {filteredItems.map((item, index) => {
           const itemId = 'japanese' in item ? item.japanese : item.character;
           const itemText = 'japanese' in item ? item.japanese : item.character;
-          const isMarked = progress[mode]?.masteredIds?.has(itemId);
+          const key = `${mode}-${itemId}`;
+          const isMarked = progress[key]?.correct > 0;
           const romaji = romajiMap[itemText] || (isRomajiLoading ? 'Loading...' : itemText);
 
           return (

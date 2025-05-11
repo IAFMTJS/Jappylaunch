@@ -347,6 +347,29 @@ export async function getProgress(userId: string, section?: string): Promise<Pro
   return getByIndex<ProgressItem>('progress', 'userId', userId);
 }
 
+export async function clearProgress(userId: string): Promise<void> {
+  const db = await openDB();
+  const transaction = db.transaction('progress', 'readwrite');
+  const store = transaction.objectStore('progress');
+  const index = store.index('userId');
+  
+  // Get all progress items for the user
+  const items = await new Promise<ProgressItem[]>((resolve, reject) => {
+    const request = index.getAll(userId);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  
+  // Delete all items
+  await Promise.all(items.map(item => 
+    new Promise<void>((resolve, reject) => {
+      const request = store.delete(item.id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    })
+  ));
+}
+
 export async function savePendingProgress(pending: PendingProgressItem): Promise<PendingProgressItem> {
   return addToStore('pending', pending);
 }

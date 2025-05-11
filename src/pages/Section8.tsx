@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useProgress } from '../context/ProgressContext';
 import { useApp } from '../context/AppContext';
+import type { Settings } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import { kuroshiroInstance } from '../utils/kuroshiro';
 
@@ -37,9 +39,39 @@ interface SentenceWord {
   isPlaced: boolean;
 }
 
+interface QuizQuestion {
+  question: string;
+  options: string[];
+  correct: number;
+}
+
+interface QuizGameData extends Array<QuizQuestion> {}
+
+interface AssociationWord {
+  word: string;
+  associations: string[];
+  distractors: string[];
+}
+
+interface AssociationGameData extends Array<AssociationWord> {}
+
+interface SentenceExample {
+  english: string;
+  japanese: string;
+}
+
+interface SentenceGameWord {
+  id: number;
+  word: string;
+  type: 'pronoun' | 'particle' | 'noun' | 'verb' | 'copula' | 'adverb';
+}
+
+interface SentenceGameData extends Array<SentenceGameWord> {}
+
 const Section8 = () => {
   const { theme, isDarkMode } = useTheme();
-  const { updateProgress, settings } = useApp();
+  const { updateProgress } = useProgress();
+  const { settings } = useApp();
   const [selectedGame, setSelectedGame] = useState<string>('matching');
   const [gameState, setGameState] = useState<GameState>({
     isPlaying: false,
@@ -68,7 +100,7 @@ const Section8 = () => {
   const [memoryFeedback, setMemoryFeedback] = useState<string>('');
   const [memoryWin, setMemoryWin] = useState<boolean>(false);
 
-  const sentenceExamples = [
+  const sentenceExamples: SentenceExample[] = [
     { english: 'I am a student.', japanese: 'わたし は がくせい です' },
     { english: 'I go to school every day.', japanese: '毎日 学校 に 行きます' },
     { english: 'I study Japanese.', japanese: '日本語 を 勉強 します' },
@@ -80,6 +112,27 @@ const Section8 = () => {
   const [sentenceAnswer, setSentenceAnswer] = useState<string[]>([]);
   const [sentenceFeedback, setSentenceFeedback] = useState<string>('');
   const [sentenceScore, setSentenceScore] = useState<number>(0);
+
+  const sentenceGameData: SentenceGameData = [
+    { id: 1, word: 'わたし', type: 'pronoun' },
+    { id: 2, word: 'は', type: 'particle' },
+    { id: 3, word: 'がくせい', type: 'noun' },
+    { id: 4, word: 'です', type: 'copula' },
+    { id: 5, word: '毎日', type: 'adverb' },
+    { id: 6, word: '学校', type: 'noun' },
+    { id: 7, word: 'に', type: 'particle' },
+    { id: 8, word: '行きます', type: 'verb' },
+    { id: 9, word: '日本語', type: 'noun' },
+    { id: 10, word: 'を', type: 'particle' },
+    { id: 11, word: '勉強', type: 'noun' },
+    { id: 12, word: 'します', type: 'verb' },
+    { id: 13, word: '朝', type: 'noun' },
+    { id: 14, word: 'コーヒー', type: 'noun' },
+    { id: 15, word: 'のみます', type: 'verb' },
+    { id: 16, word: '明日', type: 'noun' },
+    { id: 17, word: 'すし', type: 'noun' },
+    { id: 18, word: 'たべます', type: 'verb' }
+  ];
 
   const games = [
     { id: 'matching', name: 'Word Matching', description: 'Match Japanese words with their English meanings' },
@@ -117,41 +170,6 @@ const Section8 = () => {
     { id: '24', japanese: 'ジュース', english: 'juice', hiragana: 'ジュース' }
   ];
 
-  const sentenceGameData = [
-    { id: 1, word: 'わたし', type: 'pronoun' },
-    { id: 2, word: 'は', type: 'particle' },
-    { id: 3, word: 'がくせい', type: 'noun' },
-    { id: 4, word: 'です', type: 'copula' },
-    { id: 5, word: '毎日', type: 'adverb' },
-    { id: 6, word: '学校', type: 'noun' },
-    { id: 7, word: 'に', type: 'particle' },
-    { id: 8, word: '行きます', type: 'verb' },
-    { id: 9, word: '今日', type: 'noun' },
-    { id: 10, word: 'から', type: 'particle' },
-    { id: 11, word: '日本語', type: 'noun' },
-    { id: 12, word: 'を', type: 'particle' },
-    { id: 13, word: '勉強', type: 'noun' },
-    { id: 14, word: 'します', type: 'verb' },
-    { id: 15, word: '明日', type: 'noun' },
-    { id: 16, word: 'も', type: 'particle' },
-    { id: 17, word: 'あした', type: 'noun' },
-    { id: 18, word: 'きょう', type: 'noun' },
-    { id: 19, word: 'あさ', type: 'noun' },
-    { id: 20, word: 'よる', type: 'noun' },
-    { id: 21, word: 'みる', type: 'verb' },
-    { id: 22, word: 'きく', type: 'verb' },
-    { id: 23, word: 'たべる', type: 'verb' },
-    { id: 24, word: 'のむ', type: 'verb' },
-    { id: 25, word: 'テレビ', type: 'noun' },
-    { id: 26, word: 'ラジオ', type: 'noun' },
-    { id: 27, word: 'パソコン', type: 'noun' },
-    { id: 28, word: 'カメラ', type: 'noun' },
-    { id: 29, word: 'ピアノ', type: 'noun' },
-    { id: 30, word: 'ギター', type: 'noun' },
-    { id: 31, word: 'コーヒー', type: 'noun' },
-    { id: 32, word: 'ジュース', type: 'noun' }
-  ];
-
   const memoryGameData = [
     { id: 1, content: 'あ', match: 'a' },
     { id: 2, content: 'い', match: 'i' },
@@ -171,149 +189,44 @@ const Section8 = () => {
     { id: 16, content: 'た', match: 'ta' }
   ];
 
-  const quizGameData = [
+  const quizGameData: QuizGameData = [
     {
-      question: 'What is the Japanese word for "book"?',
-      options: ['ほん', 'えんぴつ', 'つくえ', 'いす'],
-      correct: 0
-    },
-    {
-      question: 'How do you say "good morning" in Japanese?',
-      options: ['こんにちは', 'おはようございます', 'こんばんは', 'さようなら'],
+      question: 'What is the Japanese word for "cat"?',
+      options: ['いぬ', 'ねこ', 'とり', 'さかな'],
       correct: 1
     },
     {
-      question: 'What does "水" mean?',
-      options: ['Fire', 'Water', 'Earth', 'Air'],
+      question: 'What is the Japanese word for "dog"?',
+      options: ['ねこ', 'いぬ', 'とり', 'さかな'],
       correct: 1
     },
     {
-      question: 'What is the Japanese word for "mountain"?',
-      options: ['やま', 'かわ', 'うみ', 'そら'],
-      correct: 0
+      question: 'What is the Japanese word for "bird"?',
+      options: ['ねこ', 'いぬ', 'とり', 'さかな'],
+      correct: 2
     },
     {
-      question: 'How do you say "thank you" in Japanese?',
-      options: ['ありがとう', 'すみません', 'おめでとう', 'さようなら'],
-      correct: 0
-    },
-    {
-      question: 'What does "学校" mean?',
-      options: ['School', 'Hospital', 'Library', 'Park'],
-      correct: 0
-    },
-    {
-      question: 'What is the Japanese word for "flower"?',
-      options: ['はな', 'き', 'くさ', 'みどり'],
-      correct: 0
-    },
-    {
-      question: 'How do you say "I am a student" in Japanese?',
-      options: ['わたしはがくせいです', 'わたしはせんせいです', 'わたしはいしゃです', 'わたしはエンジニアです'],
-      correct: 0
-    },
-    {
-      question: 'What does "毎日" mean?',
-      options: ['Every day', 'Sometimes', 'Never', 'Once'],
-      correct: 0
-    },
-    {
-      question: 'What is the Japanese word for "tree"?',
-      options: ['き', 'はな', 'くさ', 'みどり'],
-      correct: 0
-    },
-    {
-      question: 'What is the Japanese word for "rain"?',
-      options: ['あめ', 'くも', 'かぜ', 'ゆき'],
-      correct: 0
-    },
-    {
-      question: 'How do you say "computer" in Japanese?',
-      options: ['パソコン', 'テレビ', 'ラジオ', 'カメラ'],
-      correct: 0
-    },
-    {
-      question: 'What is the Japanese word for "piano"?',
-      options: ['ピアノ', 'ギター', 'バイオリン', 'ドラム'],
-      correct: 0
-    },
-    {
-      question: 'How do you say "coffee" in Japanese?',
-      options: ['コーヒー', 'ジュース', 'おちゃ', 'みず'],
-      correct: 0
-    },
-    {
-      question: 'What is the Japanese word for "morning"?',
-      options: ['あさ', 'よる', 'ひる', 'ゆうがた'],
-      correct: 0
-    },
-    {
-      question: 'How do you say "to eat" in Japanese?',
-      options: ['たべる', 'のむ', 'みる', 'きく'],
-      correct: 0
-    },
-    {
-      question: 'What is the Japanese word for "camera"?',
-      options: ['カメラ', 'テレビ', 'ラジオ', 'パソコン'],
-      correct: 0
-    },
-    {
-      question: 'How do you say "juice" in Japanese?',
-      options: ['ジュース', 'コーヒー', 'おちゃ', 'みず'],
-      correct: 0
+      question: 'What is the Japanese word for "fish"?',
+      options: ['ねこ', 'いぬ', 'とり', 'さかな'],
+      correct: 3
     }
   ];
 
-  const associationGameData = [
+  const associationGameData: AssociationGameData = [
     {
-      word: '食べる',
-      associations: ['ごはん', 'レストラン', 'お箸', 'おいしい', '料理'],
-      distractors: ['学校', '本', '電車', '音楽']
+      word: '音楽',
+      associations: ['歌', '楽器', 'コンサート', '演奏', 'リズム'],
+      distractors: ['食べ物', 'スポーツ', '学校', '仕事']
     },
     {
       word: '学校',
-      associations: ['勉強', '先生', '学生', '教室', '授業'],
-      distractors: ['食べる', '旅行', '音楽', 'スポーツ']
+      associations: ['勉強', '先生', '生徒', '教室', '授業'],
+      distractors: ['音楽', 'スポーツ', '仕事', '遊び']
     },
     {
-      word: '旅行',
-      associations: ['飛行機', 'ホテル', '観光', 'カメラ', '地図'],
-      distractors: ['学校', '仕事', '勉強', '料理']
-    },
-    {
-      word: '音楽',
-      associations: ['ピアノ', 'ギター', '歌', 'コンサート', 'CD'],
-      distractors: ['料理', '勉強', '運動', '仕事']
-    },
-    {
-      word: 'スポーツ',
-      associations: ['サッカー', '野球', 'テニス', '運動', '試合'],
-      distractors: ['勉強', '料理', '音楽', '旅行']
-    },
-    {
-      word: 'テレビ',
-      associations: ['ニュース', 'ドラマ', 'アニメ', 'チャンネル', 'リモコン'],
-      distractors: ['ラジオ', 'パソコン', 'カメラ', 'ピアノ']
-    },
-    {
-      word: 'コーヒー',
-      associations: ['カフェ', 'ミルク', '砂糖', 'カップ', 'ドーナツ'],
-      distractors: ['ジュース', 'おちゃ', 'みず', 'ビール']
-    },
-    {
-      word: 'たべる',
-      associations: ['ごはん', 'レストラン', 'お箸', 'おいしい', '料理'],
-      distractors: ['のむ', 'みる', 'きく', 'あるく']
-    },
-    {
-      word: 'あさ',
-      associations: ['おはよう', '朝ごはん', '新聞', 'テレビ', 'コーヒー'],
-      distractors: ['よる', 'ひる', 'ゆうがた', 'ばん']
-    },
-    {
-      word: 'ピアノ',
-      associations: ['音楽', 'コンサート', '練習', '曲', '先生'],
-      distractors: ['ギター', 'バイオリン', 'ドラム', 'フルート']
+      word: '食べ物',
+      associations: ['料理', 'レストラン', '食事', '味', '栄養'],
+      distractors: ['音楽', 'スポーツ', '学校', '仕事']
     }
   ];
 
@@ -557,7 +470,9 @@ const Section8 = () => {
   };
 
   // Game state management
-  const startGame = () => {
+  const startGame = useCallback(() => {
+    console.log('Starting game:', selectedGame);
+    // Reset game state first
     setGameState({
       isPlaying: true,
       score: 0,
@@ -566,6 +481,7 @@ const Section8 = () => {
       mistakes: 0
     });
 
+    // Initialize the selected game
     switch (selectedGame) {
       case 'memory':
         initializeMemoryGame();
@@ -582,24 +498,59 @@ const Section8 = () => {
       case 'association':
         initializeAssociationGame();
         break;
+      default:
+        console.error('Unknown game type:', selectedGame);
+        setGameState(prev => ({ ...prev, isPlaying: false }));
+        return;
     }
-  };
+  }, [selectedGame, initializeMemoryGame, initializeMatchingGame, initializeSentenceBuilder, initializeQuizGame, initializeAssociationGame]);
 
-  const endGame = () => {
+  const endGame = useCallback(() => {
+    console.log('Ending game:', selectedGame);
+    // Update progress before ending
+    if (gameState.score > 0) {
+      const itemId = `${selectedGame}-${Date.now()}`;
+      updateProgress('section8', itemId, true).catch((err: Error) => {
+        console.error('Failed to update progress:', err);
+      });
+    }
+    
+    // Reset game state
     setGameState(prev => ({ ...prev, isPlaying: false }));
     
-    // Update progress
-    updateProgress('section8', gameState.score, 100, {
-      score: gameState.score,
-      category: selectedGame,
-      difficulty: 'medium',
-      quizType: 'game',
-      timeTaken: 60 - gameState.timeLeft,
-      date: new Date().toISOString(),
-      totalQuestions: 10,
-      correctAnswers: Math.floor(gameState.score / 10)
-    });
-  };
+    // Reset game-specific states
+    switch (selectedGame) {
+      case 'memory':
+        setMemoryCards([]);
+        setMemoryFeedback('');
+        setMemoryWin(false);
+        break;
+      case 'matching':
+        setMatchingPairs([]);
+        break;
+      case 'sentence':
+        setSentenceWords([]);
+        setSentenceDropZone([]);
+        setSentenceFeedback('');
+        break;
+      case 'quiz':
+        setQuizState({
+          currentQuestion: 0,
+          selectedAnswer: null,
+          showFeedback: false,
+          isCorrect: null,
+          showCorrect: false
+        });
+        break;
+      case 'association':
+        setAssociationState({
+          currentWord: '',
+          selectedAssociations: [],
+          correctAssociations: []
+        });
+        break;
+    }
+  }, [selectedGame, gameState.score, updateProgress]);
 
   // Timer effect
   useEffect(() => {
@@ -747,27 +698,56 @@ const Section8 = () => {
   }, [memoryCards, gameState.isPlaying]);
 
   const renderGameContent = () => {
+    if (!gameState.isPlaying) {
+      return (
+        <div className="text-center">
+          <button
+            onClick={startGame}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Start Game
+          </button>
+        </div>
+      );
+    }
+
     switch (selectedGame) {
+      case 'memory':
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {memoryCards.map((card, index) => (
+              <button
+                key={index}
+                onClick={() => handleMemoryCardClick(card.id)}
+                className={`p-4 rounded-lg border ${
+                  card.isMatched ? 'bg-green-100' : card.isFlipped ? 'bg-blue-100' : 'bg-white'
+                } ${settings?.showRomajiGames ? 'text-lg' : 'text-xl'}`}
+                disabled={card.isMatched || memoryFeedback !== ''}
+              >
+                {card.isFlipped || card.isMatched ? card.content : '?'}
+                {settings?.showRomajiGames && (card.isFlipped || card.isMatched) && card.match && (
+                  <span className="block text-sm text-gray-600 mt-1">
+                    {card.match}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        );
       case 'matching':
         return (
-          <div className="grid grid-cols-2 gap-4">
-            {matchingPairs.map((pair) => (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {matchingPairs.map((pair, index) => (
               <button
-                key={pair.id}
+                key={index}
                 onClick={() => handleMatchingPairClick(pair.id)}
-                className={`p-4 rounded-lg border transition-all ${
-                  pair.isMatched
-                    ? 'bg-green-100 border-green-500'
-                    : pair.isSelected
-                    ? 'bg-blue-100 border-blue-500'
-                    : 'bg-white border-gray-300 hover:bg-gray-50'
-                }`}
-                disabled={pair.isMatched || !gameState.isPlaying}
+                className={`p-4 rounded-lg border ${
+                  pair.isMatched ? 'bg-green-100' : pair.isSelected ? 'bg-blue-100' : 'bg-white'
+                } ${settings?.showRomajiGames ? 'text-lg' : 'text-xl'}`}
+                disabled={pair.isMatched}
               >
-                <span className="text-lg">
-                  {settings.showKanjiGames ? pair.japanese : pair.hiragana}
-                </span>
-                {settings.showRomajiGames && (
+                {pair.isSelected ? (settings?.showKanjiGames ? pair.japanese : pair.hiragana) : '?'}
+                {settings?.showRomajiGames && pair.isSelected && (
                   <span className="block text-sm text-gray-600 mt-1">
                     {romajiMap[settings.showKanjiGames ? pair.japanese : pair.hiragana] || 'Loading...'}
                   </span>
@@ -776,189 +756,94 @@ const Section8 = () => {
             ))}
           </div>
         );
-
       case 'sentence':
         return (
-          <div className="space-y-6">
-            <div className="mb-2 text-lg font-semibold">Build this sentence:</div>
-            <div className="mb-4 text-blue-700">{currentSentence.english}</div>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {sentenceChoices.map((word, idx) => (
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {sentenceWords.map((word, index) => (
                 <button
-                  key={idx}
-                  onClick={() => handleSentenceChoice(word, idx)}
-                  className="px-4 py-2 rounded-lg bg-blue-100 text-blue-800 hover:bg-blue-200"
-                  disabled={sentenceFeedback === 'Correct!'}
+                  key={index}
+                  onClick={() => handleSentenceWordDrag(word.id)}
+                  className={`px-4 py-2 rounded-lg border ${
+                    word.isPlaced ? 'bg-gray-100' : 'bg-white'
+                  } ${settings?.showRomajiGames ? 'text-lg' : 'text-xl'}`}
+                  disabled={word.isPlaced}
                 >
-                  {word}
+                  {word.word}
                 </button>
               ))}
             </div>
-            <div className="flex flex-wrap gap-2 mb-4 min-h-[40px]">
-              {sentenceAnswer.map((word, idx) => (
-                <span
-                  key={idx}
-                  className="px-4 py-2 rounded-lg bg-green-100 text-green-800 cursor-pointer"
-                  onClick={() => handleRemoveAnswerWord(idx)}
+            <div className="min-h-[100px] p-4 border rounded-lg bg-gray-50">
+              {sentenceDropZone.map((word, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleSentenceWordDrag(word.id)}
+                  className={`px-4 py-2 rounded-lg border mr-2 mb-2 ${
+                    settings?.showRomajiGames ? 'text-lg' : 'text-xl'
+                  }`}
                 >
-                  {word}
-                </span>
+                  {word.word}
+                </button>
               ))}
-            </div>
-            {sentenceFeedback && (
-              <div className={sentenceFeedback === 'Correct!' ? 'text-green-600' : 'text-red-600'}>
-                {sentenceFeedback}
-              </div>
-            )}
-            <div className="mt-4 flex gap-4 items-center">
-              <button
-                onClick={startNewSentence}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-              >
-                New Sentence
-              </button>
-              <span className="text-lg">Score: {sentenceScore}</span>
             </div>
           </div>
         );
-
-      case 'memory':
+      case 'quiz':
         return (
           <div className="space-y-4">
-            <div className="flex gap-6 items-center">
-              <span className="text-lg">Score: {gameState.score}</span>
-              <span className="text-lg">Mistakes: {gameState.mistakes}</span>
+            <div className="text-xl font-medium">
+              {quizState.currentQuestion < quizGameData.length
+                ? quizGameData[quizState.currentQuestion].question
+                : 'Quiz Complete!'}
             </div>
-            {memoryFeedback && (
-              <div className={memoryFeedback === 'Correct!' ? 'text-green-600' : 'text-red-600'}>
-                {memoryFeedback}
-              </div>
-            )}
-            {memoryWin && (
-              <div className="text-2xl text-green-700 font-bold animate-bounce">You won!</div>
-            )}
-            <div className="grid grid-cols-4 gap-4">
-              {memoryCards.map((card) => (
-                <button
-                  key={card.id}
-                  onClick={() => handleMemoryCardClick(card.id)}
-                  className={`aspect-square rounded-lg transition-all duration-300 border-2
-                    ${card.isMatched ? 'bg-green-100 border-green-500' :
-                      card.isFlipped ? 'bg-blue-100 border-blue-500 scale-105' :
-                      'bg-gray-100 border-gray-300 hover:bg-gray-200'}
-                  `}
-                  disabled={card.isMatched || !gameState.isPlaying}
-                >
-                  <span className={`block text-2xl transition-opacity duration-300 ${card.isFlipped || card.isMatched ? 'opacity-100' : 'opacity-0'}`}>
-                    {settings.showKanjiGames ? card.content : card.match}
-                  </span>
-                  {settings.showRomajiGames && (
-                    <span className="block text-sm text-gray-600 mt-1">
-                      {romajiMap[card.content] || 'Loading...'}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => {
-                initializeMemoryGame();
-                setGameState(prev => ({ ...prev, score: 0, mistakes: 0 }));
-                setMemoryFeedback('');
-                setMemoryWin(false);
-              }}
-              className="mt-4 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-            >
-              New Game
-            </button>
-          </div>
-        );
-
-      case 'quiz':
-        const currentQuestion = quizGameData[quizState.currentQuestion];
-        return (
-          <div className="space-y-6">
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <p className="text-xl font-medium mb-4">{currentQuestion.question}</p>
-              <div className="space-y-3">
-                {currentQuestion.options.map((option, index) => (
+            {quizState.currentQuestion < quizGameData.length && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {quizGameData[quizState.currentQuestion].options.map((option, index) => (
                   <button
                     key={index}
                     onClick={() => handleQuizAnswerSelect(index)}
-                    className={`w-full text-left p-4 rounded-lg transition-all ${
+                    className={`p-4 rounded-lg border ${
                       quizState.selectedAnswer === index
-                        ? index === currentQuestion.correct
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                        : 'bg-white hover:bg-gray-50'
-                    }`}
+                        ? quizState.isCorrect
+                          ? 'bg-green-100'
+                          : 'bg-red-100'
+                        : 'bg-white'
+                    } ${settings?.showRomajiGames ? 'text-lg' : 'text-xl'}`}
                     disabled={quizState.showFeedback}
                   >
                     {option}
                   </button>
                 ))}
               </div>
-              {quizState.showFeedback && (
-                <div className="mt-4">
-                  {quizState.isCorrect ? (
-                    <div className="text-green-700 font-semibold">Correct!</div>
-                  ) : (
-                    <div className="text-red-700 font-semibold">
-                      Incorrect! The correct answer is: <span className="underline">{currentQuestion.options[currentQuestion.correct]}</span>
-                    </div>
-                  )}
-                  <button
-                    onClick={handleNextQuizQuestion}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    Next Question
-                  </button>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         );
-
       case 'association':
-        const currentWordData = associationGameData[0];
-        const allOptions = [...currentWordData.associations, ...currentWordData.distractors]
-          .sort(() => Math.random() - 0.5);
-        
         return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h3 className="text-2xl font-bold mb-4">{currentWordData.word}</h3>
-              <p className="text-gray-600 mb-6">Select words that are commonly associated with this word</p>
+          <div className="space-y-4">
+            <div className="text-xl font-medium">
+              {associationState.currentWord || 'Game Complete!'}
             </div>
-            <div className="flex flex-wrap gap-3">
-              {allOptions.map((word, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleAssociationSelect(word)}
-                  className={`px-4 py-2 rounded-lg transition-all ${
-                    associationState.selectedAssociations.includes(word)
-                      ? currentWordData.associations.includes(word)
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                      : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                  }`}
-                  disabled={
-                    !gameState.isPlaying ||
-                    associationState.selectedAssociations.includes(word)
-                  }
-                >
-                  {settings.showKanjiGames ? word : 'Word ' + (index + 1)}
-                  {settings.showRomajiGames && (
-                    <span className="block text-sm text-gray-600 mt-1">
-                      {romajiMap[word] || 'Loading...'}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
+            {associationState.currentWord && (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {associationState.correctAssociations.map((word, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleAssociationSelect(word)}
+                    className={`p-4 rounded-lg border ${
+                      associationState.selectedAssociations.includes(word)
+                        ? 'bg-green-100'
+                        : 'bg-white'
+                    } ${settings?.showRomajiGames ? 'text-lg' : 'text-xl'}`}
+                    disabled={associationState.selectedAssociations.includes(word)}
+                  >
+                    {word}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         );
-
       default:
         return null;
     }
@@ -1057,96 +942,51 @@ const Section8 = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
-        {/* Render Start buttons for each game when not playing */}
-        {selectedGame === 'sentence' && !gameState.isPlaying && (
+        {!gameState.isPlaying ? (
+          // Show start button when not playing
           <div className="mb-4 flex justify-center">
             <button
-              onClick={() => {
-                console.log('Start Sentence Builder clicked');
-                initializeSentenceBuilder();
-                setGameState(prev => ({ ...prev, isPlaying: true }));
-              }}
+              onClick={startGame}
               className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
             >
-              Start Sentence Builder
+              Start {selectedGame.charAt(0).toUpperCase() + selectedGame.slice(1)} Game
             </button>
           </div>
+        ) : (
+          // Show game content only when playing
+          <>
+            {(() => {
+              console.log('Rendering game content for:', selectedGame);
+              const content = renderGameContent();
+              if (!content) {
+                return (
+                  <div className="text-red-600">
+                    Error: Unable to render game content. (Debug: {selectedGame})
+                  </div>
+                );
+              }
+              return content;
+            })()}
+            
+            <div className="mt-4 flex justify-between items-center">
+              <div className="flex space-x-4">
+                <div className={`text-lg font-medium ${themeClasses.text}`}>
+                  Time: {gameState.timeLeft}s
+                </div>
+                <div className={`text-lg font-medium ${themeClasses.text}`}>
+                  Mistakes: {gameState.mistakes}
+                </div>
+              </div>
+              <button
+                onClick={endGame}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white"
+              >
+                End Game
+              </button>
+            </div>
+          </>
         )}
-        {selectedGame === 'memory' && !gameState.isPlaying && (
-          <div className="mb-4 flex justify-center">
-            <button
-              onClick={() => {
-                console.log('Start Memory Game clicked');
-                initializeMemoryGame();
-                setGameState(prev => ({ ...prev, isPlaying: true }));
-              }}
-              className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
-            >
-              Start Memory Game
-            </button>
-          </div>
-        )}
-        {selectedGame === 'quiz' && !gameState.isPlaying && (
-          <div className="mb-4 flex justify-center">
-            <button
-              onClick={() => {
-                console.log('Start Quiz clicked');
-                initializeQuizGame();
-                setGameState(prev => ({ ...prev, isPlaying: true }));
-              }}
-              className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
-            >
-              Start Quiz
-            </button>
-          </div>
-        )}
-        {selectedGame === 'association' && !gameState.isPlaying && (
-          <div className="mb-4 flex justify-center">
-            <button
-              onClick={() => {
-                console.log('Start Word Association clicked');
-                initializeAssociationGame();
-                setGameState(prev => ({ ...prev, isPlaying: true }));
-              }}
-              className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
-            >
-              Start Word Association
-            </button>
-          </div>
-        )}
-        {/* Always render game content for any selected game, with debug logging and fallback */}
-        {(() => {
-          console.log('renderGameContent called for', selectedGame, 'isPlaying:', gameState.isPlaying);
-          const content = ['sentence', 'memory', 'quiz', 'association'].includes(selectedGame) ? renderGameContent() : null;
-          if (!content) {
-            return <div className="text-red-600">No game content to display. (Debug: {selectedGame}, isPlaying: {String(gameState.isPlaying)})</div>;
-          }
-          return content;
-        })()}
       </div>
-
-      {gameState.isPlaying && (
-        <div className="mt-4 flex justify-between items-center">
-          <div className="flex space-x-4">
-            <div className={`text-lg font-medium ${themeClasses.text}`}>
-              Time: {gameState.timeLeft}s
-            </div>
-            <div className={`text-lg font-medium ${themeClasses.text}`}>
-              Mistakes: {gameState.mistakes}
-            </div>
-          </div>
-          <button
-            onClick={gameState.isPlaying ? endGame : startGame}
-            className={`px-4 py-2 rounded-lg ${
-              gameState.isPlaying
-                ? 'bg-red-600 hover:bg-red-700 text-white'
-                : themeClasses.button.primary
-            }`}
-          >
-            {gameState.isPlaying ? 'End Game' : 'Start Game'}
-          </button>
-        </div>
-      )}
     </div>
   );
 };

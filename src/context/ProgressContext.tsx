@@ -16,6 +16,7 @@ import {
   saveBulkPendingProgress,
   getPendingProgress,
   clearPendingProgress,
+  clearProgress as clearProgressDB,
   saveSettings,
   getSettings,
   createBackup,
@@ -38,6 +39,7 @@ interface ProgressContextType {
   updateProgress: (section: string, itemId: string, correct: boolean) => Promise<void>;
   syncProgress: () => Promise<void>;
   clearProgress: () => Promise<void>;
+  getProgressStatus: (section: string, itemId: string) => { isMarked: boolean; lastAttempted: number | null };
   
   // Settings actions
   updateSettings: (settings: Partial<Settings>) => Promise<void>;
@@ -266,8 +268,39 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         
         // Handle conflicts
         if (conflicts.length > 0) {
-          // TODO: Implement conflict resolution
-          console.warn('[ProgressContext] Conflicts detected:', conflicts);
+          console.log('[ProgressContext] Resolving conflicts:', conflicts);
+          
+          // For each conflict, compare timestamps and keep the most recent version
+          for (const conflict of conflicts) {
+            const localKey = `${conflict.section}-${conflict.itemId}`;
+            const localItem = progress[localKey];
+            
+            if (localItem) {
+              // If local item is more recent, keep it
+              if (localItem.lastAttempted > conflict.lastAttempted) {
+                console.log('[ProgressContext] Keeping local version for:', localKey);
+                await saveProgress(localItem);
+              } else {
+                // If server version is more recent, update local state
+                console.log('[ProgressContext] Using server version for:', localKey);
+                const updatedItem = { ...conflict, status: 'synced' };
+                await saveProgress(updatedItem);
+                setProgress(prev => ({
+                  ...prev,
+                  [localKey]: updatedItem
+                }));
+              }
+            } else {
+              // If no local version exists, use server version
+              console.log('[ProgressContext] Using server version for new item:', localKey);
+              const updatedItem = { ...conflict, status: 'synced' };
+              await saveProgress(updatedItem);
+              setProgress(prev => ({
+                ...prev,
+                [localKey]: updatedItem
+              }));
+            }
+          }
         }
         
         // Update settings with last sync time
@@ -291,7 +324,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } finally {
       setIsSyncing(false);
     }
-  }, [isOnline, isSyncing, pendingProgress, settings]);
+  }, [isOnline, isSyncing, pendingProgress, settings, progress]);
   
   // Clear all progress
   const clearProgress = useCallback(async () => {
@@ -301,7 +334,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Clear from IndexedDB
       await Promise.all([
         clearPendingProgress(DEFAULT_USER_ID),
-        // TODO: Add clearProgress function to IndexedDB utils
+        clearProgressDB(DEFAULT_USER_ID)
       ]);
       
       // Clear local state
@@ -396,6 +429,16 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, []);
   
+  // Get progress status for an item
+  const getProgressStatus = useCallback((section: string, itemId: string) => {
+    const key = `${section}-${itemId}`;
+    const item = progress[key];
+    return {
+      isMarked: item?.correct > 0,
+      lastAttempted: item?.lastAttempted ?? null
+    };
+  }, [progress]);
+  
   const value: ProgressContextType = {
     // Progress state
     progress,
@@ -412,6 +455,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     updateProgress,
     syncProgress,
     clearProgress,
+    getProgressStatus,
     
     // Settings actions
     updateSettings,
