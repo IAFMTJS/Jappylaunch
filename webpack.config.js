@@ -123,7 +123,8 @@ module.exports = (env, argv) => {
         patterns: [
           {
             from: 'public/dict',
-            to: 'dict'
+            to: 'dict',
+            noErrorOnMissing: true
           },
           {
             from: 'public',
