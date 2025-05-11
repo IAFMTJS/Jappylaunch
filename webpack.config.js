@@ -6,6 +6,7 @@ const CompressionPlugin = require('compression-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const CopyPlugin = require('copy-webpack-plugin');
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
@@ -49,7 +50,11 @@ module.exports = (env, argv) => {
           generator: {
             filename: 'static/media/[name].[hash][ext]'
           }
-        }
+        },
+        {
+          test: /\.json$/,
+          type: 'json',
+        },
       ]
     },
     resolve: {
@@ -153,7 +158,8 @@ module.exports = (env, argv) => {
             globOptions: {
               ignore: ['**/index.html', '**/.DS_Store', '**/dict/**']
             }
-          }
+          },
+          { from: 'src/data/romaji-data.json', to: 'romaji-data.json' }
         ]
       }),
       ...(isProduction ? [
