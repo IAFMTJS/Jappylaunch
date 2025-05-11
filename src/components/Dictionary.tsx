@@ -172,16 +172,15 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
     // Apply filter after search
     filtered = filtered.filter(item => {
       const itemId = 'japanese' in item ? item.japanese : item.character;
-      const key = `${mode}-${itemId}`;
-      const itemProgress = progress[key]?.correct > 0;
+      const { isMarked } = getProgressStatus(mode, itemId);
 
       switch (filter) {
         case 'unmarked':
-          return !itemProgress;
+          return !isMarked;
         case 'marked':
-          return itemProgress;
+          return isMarked;
         case 'mastered':
-          return itemProgress && progress[key]?.correct > 0;
+          return isMarked;
         default:
           return true;
       }
@@ -201,16 +200,16 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
         case 'progress':
           const aId = 'japanese' in a ? a.japanese : a.character;
           const bId = 'japanese' in b ? b.japanese : b.character;
-          const aProgress = progress[`${mode}-${aId}`]?.correct > 0 ? 1 : 0;
-          const bProgress = progress[`${mode}-${bId}`]?.correct > 0 ? 1 : 0;
-          return bProgress - aProgress;
+          const aStatus = getProgressStatus(mode, aId);
+          const bStatus = getProgressStatus(mode, bId);
+          return (bStatus.isMarked ? 1 : 0) - (aStatus.isMarked ? 1 : 0);
         default:
           return 0;
       }
     });
 
     setFilteredItems(filtered);
-  }, [items, searchTerm, filter, sortBy, progress, mode]);
+  }, [items, searchTerm, filter, sortBy, mode, getProgressStatus]);
 
   const toggleMarked = (item: DictionaryItem) => {
     const itemId = 'japanese' in item ? item.japanese : item.character;
@@ -240,7 +239,10 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
           }).length}
         </span>
         <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-          Mastered: {items.filter(item => progress[`${mode}-${'japanese' in item ? item.japanese : item.character}`]?.correct > 0).length}
+          Mastered: {items.filter(item => {
+            const itemId = 'japanese' in item ? item.japanese : item.character;
+            return getProgressStatus(mode, itemId).isMarked;
+          }).length}
         </span>
         {isRomajiLoading && (
           <span className="text-blue-500">
@@ -322,8 +324,7 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
         {filteredItems.map((item, index) => {
           const itemId = 'japanese' in item ? item.japanese : item.character;
           const itemText = 'japanese' in item ? item.japanese : item.character;
-          const key = `${mode}-${itemId}`;
-          const isMarked = progress[key]?.correct > 0;
+          const { isMarked } = getProgressStatus(mode, itemId);
           const romaji = romajiMap[itemText] || (isRomajiLoading ? 'Loading...' : itemText);
 
           return (
