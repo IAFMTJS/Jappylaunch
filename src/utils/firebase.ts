@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import type { AuthError } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFirestore, connectFirestoreEmulator, enableIndexedDbPersistence } from 'firebase/firestore';
 import type { FirestoreError } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
@@ -49,9 +49,9 @@ try {
   const functions = getFunctions(app);
   console.log('Firebase Functions initialized');
 
-  // Enable persistence for offline support
+  // Enable persistence for offline support (modular API)
   console.log('Attempting to enable Firestore persistence...');
-  db.enablePersistence()
+  enableIndexedDbPersistence(db)
     .then(() => console.log('Firestore persistence enabled successfully'))
     .catch((err) => {
       console.warn('Firestore persistence setup warning:', {
