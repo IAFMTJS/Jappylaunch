@@ -83,7 +83,6 @@ const Quiz: React.FC = () => {
   const { settings: appSettings } = useApp();
   const { updateProgress, progress } = useProgress();
   const [questions, setQuestions] = useState<typeof quizWords>([]);
-  const [options, setOptions] = useState<string[]>([]);
   const [quizState, setQuizState] = useState<QuizState>({
     mode: 'setup',
     currentQuestion: 0,
@@ -210,11 +209,6 @@ const Quiz: React.FC = () => {
     setBestStreak(0);
     setShowFeedback(false);
     setFeedback(false);
-
-    // Generate options for multiple choice
-    if (settings.quizType === 'multiple-choice' && shuffled.length > 0) {
-      setOptions(generateOptions(shuffled[0], quizWords));
-    }
   }, [settings, generateOptions]);
 
   const handleStartQuiz = () => {
@@ -320,12 +314,6 @@ const Quiz: React.FC = () => {
       selectedAnswer: null
     }));
 
-    // Generate new options for multiple choice
-    if (settings.quizType === 'multiple-choice' && questions[nextQuestionIndex]) {
-      setOptions(generateOptions(questions[nextQuestionIndex], quizWords));
-    }
-
-    // Clear user answer for writing mode
     setUserAnswer('');
   };
 
@@ -351,7 +339,7 @@ const Quiz: React.FC = () => {
 
   // Memoize options generation
   const currentOptions = useMemo(() => {
-    if (settings.quizType === 'multiple-choice' && questions.length > 0) {
+    if (settings.quizType === 'multiple-choice' && questions.length > 0 && questions[quizState.currentQuestion]) {
       return generateOptions(questions[quizState.currentQuestion], quizWords);
     }
     return [];
@@ -553,7 +541,7 @@ const Quiz: React.FC = () => {
                 onClick={() => !quizState.showFeedback && checkAnswer(option)}
                 className={`w-full text-left p-4 rounded-lg transition-all ${
                   quizState.selectedAnswer === index
-                    ? index === currentOptions.indexOf(userAnswer)
+                    ? quizState.isCorrect
                       ? 'bg-green-100 text-green-800'
                       : 'bg-red-100 text-red-800'
                     : 'bg-white hover:bg-gray-50'
