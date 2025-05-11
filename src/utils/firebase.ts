@@ -8,18 +8,17 @@ import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 // Export types at the top level
 export type FirebaseError = AuthError | FirestoreError;
 
-// Your web app's Firebase configuration
-// Replace these with your Firebase project configuration
+// Firebase configuration
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID
+  apiKey: "AIzaSyDxXxXxXxXxXxXxXxXxXxXxXxXxXxXxXx",
+  authDomain: "japvoc-app.firebaseapp.com",
+  projectId: "japvoc-app",
+  storageBucket: "japvoc-app.appspot.com",
+  messagingSenderId: "123456789012",
+  appId: "1:123456789012:web:abcdef1234567890"
 };
 
-// Debug log to check if environment variables are loaded
+// Debug log to check configuration
 console.log('Firebase Config Status:', {
   hasApiKey: !!firebaseConfig.apiKey,
   hasAuthDomain: !!firebaseConfig.authDomain,
@@ -29,15 +28,6 @@ console.log('Firebase Config Status:', {
   hasAppId: !!firebaseConfig.appId,
   environment: process.env.NODE_ENV
 });
-
-// Validate required config
-const requiredFields = ['apiKey', 'authDomain', 'projectId', 'appId'];
-const missingFields = requiredFields.filter(field => !firebaseConfig[field as keyof typeof firebaseConfig]);
-
-if (missingFields.length > 0) {
-  console.error('Missing required Firebase configuration:', missingFields);
-  throw new Error(`Missing required Firebase configuration: ${missingFields.join(', ')}`);
-}
 
 let app;
 let auth;
@@ -56,7 +46,7 @@ try {
   // Enable persistence for offline support
   db.enablePersistence()
     .then(() => console.log('Firestore persistence enabled'))
-    .catch((err: FirestoreError) => {
+    .catch((err) => {
       if (err.code === 'failed-precondition') {
         console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
       } else if (err.code === 'unimplemented') {
@@ -65,33 +55,6 @@ try {
         console.error('Error enabling persistence:', err);
       }
     });
-
-  // Security rules for Firestore
-  // These should be set in the Firebase Console, but here's what they should look like:
-  /*
-  rules_version = '2';
-  service cloud.firestore {
-    match /databases/{database}/documents {
-      // User profiles
-      match /users/{userId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-        allow write: if request.auth != null && request.auth.uid == userId;
-      }
-      
-      // User progress
-      match /progress/{userId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-        allow write: if request.auth != null && request.auth.uid == userId;
-      }
-      
-      // Public data (read-only)
-      match /public/{document=**} {
-        allow read: if request.auth != null;
-        allow write: if false;
-      }
-    }
-  }
-  */
 
   // Development environment setup
   if (process.env.NODE_ENV === 'development') {
