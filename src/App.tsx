@@ -24,6 +24,7 @@ import UpdatePassword from './components/UpdatePassword';
 import ProtectedRoute from './components/ProtectedRoute';
 import SessionWarning from './components/SessionWarning';
 import EmailVerification from './components/EmailVerification';
+import GuestBanner from './components/GuestBanner';
 
 const App = () => {
   useEffect(() => {
@@ -38,6 +39,7 @@ const App = () => {
           <ProgressProvider>
             <Router>
               <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+                <GuestBanner />
                 <Navigation />
                 <main className="flex-1 container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
                   <div className="max-w-7xl mx-auto">
@@ -47,61 +49,19 @@ const App = () => {
                       <Route path="/signup" element={<Signup />} />
                       <Route path="/reset-password" element={<ResetPassword />} />
                       <Route path="/update-password" element={<UpdatePassword />} />
-                      <Route path="/" element={
-                        <ProtectedRoute>
-                          <Home />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/progress" element={
-                        <ProtectedRoute>
-                          <ProgressPage />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/section1" element={
-                        <ProtectedRoute>
-                          <Section1 />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/section2" element={
-                        <ProtectedRoute>
-                          <Section2 />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/section3" element={
-                        <ProtectedRoute>
-                          <Section3 />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/section4" element={
-                        <ProtectedRoute>
-                          <Section4 />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/section5" element={
-                        <ProtectedRoute>
-                          <Section5 />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/section6" element={
-                        <ProtectedRoute>
-                          <Section6 />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/section7" element={
-                        <ProtectedRoute>
-                          <Section7 />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/section8" element={
-                        <ProtectedRoute>
-                          <Section8 />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/anime" element={
-                        <ProtectedRoute>
-                          <AnimeSection />
-                        </ProtectedRoute>
-                      } />
+                      <Route path="/" element={<Home />} />
+                      <Route path="/progress" element={<ProgressPage />} />
+                      <Route path="/section1" element={<Section1 />} />
+                      <Route path="/section2" element={<Section2 />} />
+                      <Route path="/section3" element={<Section3 />} />
+                      <Route path="/section4" element={<Section4 />} />
+                      <Route path="/section5" element={<Section5 />} />
+                      <Route path="/section6" element={<Section6 />} />
+                      <Route path="/section7" element={<Section7 />} />
+                      <Route path="/section8" element={<Section8 />} />
+                      <Route path="/anime" element={<AnimeSection />} />
+                      {/* Example protected route for account/profile */}
+                      {/* <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} /> */}
                     </Routes>
                   </div>
                 </main>
