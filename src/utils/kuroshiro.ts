@@ -51,7 +51,7 @@ const initKuroshiro = async () => {
 };
 
 // Convert multiple texts to romaji in batches
-export const convertBatchToRomaji = async (texts: string[], batchSize: number = 5): Promise<Record<string, string>> => {
+export const convertBatchToRomaji = async (texts: string[], batchSize: number = 20): Promise<Record<string, string>> => {
   console.log('convertBatchToRomaji called with', texts.length, 'texts');
   
   // Initialize if needed
@@ -64,25 +64,31 @@ export const convertBatchToRomaji = async (texts: string[], batchSize: number = 
   const textsToConvert = texts.filter(text => !romajiCache[text]);
   console.log('Found', textsToConvert.length, 'texts that need conversion');
 
-  // Process in batches
+  // Process in larger batches for better performance
   for (let i = 0; i < textsToConvert.length; i += batchSize) {
     const batch = textsToConvert.slice(i, i + batchSize);
     console.log('Processing batch', i / batchSize + 1, 'of', Math.ceil(textsToConvert.length / batchSize));
     
     try {
-      await Promise.all(batch.map(async (text) => {
-        try {
-          console.log('Converting text:', text);
-          const romaji = await kuroshiro.convert(text, { to: 'romaji', mode: 'spaced' });
-          console.log('Conversion successful:', text, '->', romaji);
-          romajiCache[text] = romaji;
-          results[text] = romaji;
-        } catch (error) {
-          console.error('Error converting text to romaji:', text, error);
-          romajiCache[text] = text;
-          results[text] = text;
-        }
-      }));
+      // Process batch in parallel with a concurrency limit
+      const batchResults = await Promise.all(
+        batch.map(async (text) => {
+          try {
+            const romaji = await kuroshiro.convert(text, { to: 'romaji', mode: 'spaced' });
+            romajiCache[text] = romaji;
+            return [text, romaji] as [string, string];
+          } catch (error) {
+            console.error('Error converting text to romaji:', text, error);
+            romajiCache[text] = text;
+            return [text, text] as [string, string];
+          }
+        })
+      );
+
+      // Update results with batch conversions
+      batchResults.forEach(([text, romaji]) => {
+        results[text] = romaji;
+      });
     } catch (error) {
       console.error('Error processing batch:', error);
     }
@@ -141,12 +147,28 @@ const commonWords = [
   'こんにちは', 'さようなら', 'ありがとう', 'すみません', 'おはよう', 'おやすみ',
   // JLPT N5 common words
   '私', 'あなた', '彼', '彼女', '先生', '学生', '会社', '学校', '家', '部屋',
-  '時間', '今日', '明日', '昨日', '年', '月', '日', '時', '分', '秒'
+  '時間', '今日', '明日', '昨日', '年', '月', '日', '時', '分', '秒',
+  // Additional common words
+  '日本語', '英語', '中国語', '韓国語', 'フランス語', 'ドイツ語', 'スペイン語',
+  '大学', '高校', '中学校', '小学校', '幼稚園',
+  '電車', 'バス', 'タクシー', '自転車', '車', '飛行機', '船',
+  '駅', '空港', '港', '病院', '銀行', '郵便局', 'コンビニ',
+  '朝', '昼', '夜', '午前', '午後', '夕方', '夜中',
+  '春', '夏', '秋', '冬', '季節', '天気', '気温',
+  '家族', '父', '母', '兄', '姉', '弟', '妹', '祖父', '祖母',
+  '友達', '恋人', '先生', '生徒', '医者', '看護師', '警察官',
+  '食べ物', '飲み物', '料理', '果物', '野菜', '肉', '魚',
+  '趣味', 'スポーツ', '音楽', '映画', '本', 'ゲーム', '旅行',
+  // Common verbs (additional)
+  '話す', '書く', '読む', '勉強する', '働く', '遊ぶ', '寝る', '起きる',
+  // Common adjectives (additional)
+  '忙しい', '暇', '楽しい', '悲しい', '面白い', 'つまらない', '暑い', '寒い',
+  '暖かい', '涼しい', '甘い', '辛い', '苦い', '酸っぱい', '美味しい', 'まずい'
 ];
 
-// Initialize with common words in the background
+// Initialize with common words in the background with larger batch size
 initKuroshiro().then(() => {
-  convertBatchToRomaji(commonWords, 10)
+  convertBatchToRomaji(commonWords, 30)
     .catch(error => console.error('Error pre-initializing common words:', error));
 });
 

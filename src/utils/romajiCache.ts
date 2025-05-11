@@ -125,12 +125,27 @@ class RomajiCache {
     const result: Record<string, string> = {};
     try {
       console.log('Starting batch get...');
-      for (const key of keys) {
-        const value = await this.db.get(this.storeName, key);
+      const tx = this.db.transaction([this.storeName], 'readonly');
+      const store = tx.objectStore(this.storeName);
+      
+      if (!store) {
+        console.error('Failed to get store');
+        return {};
+      }
+
+      // Get all values in parallel
+      const values = await Promise.all(
+        keys.map(key => store.get(key))
+      );
+
+      // Map results
+      keys.forEach((key: string, index: number) => {
+        const value = values[index];
         if (value) {
           result[key] = value;
         }
-      }
+      });
+
       console.log('Cache batch get complete:', Object.keys(result).length, 'hits out of', keys.length, 'keys');
       return result;
     } catch (error) {
@@ -151,14 +166,17 @@ class RomajiCache {
     try {
       console.log('Starting batch set...');
       const tx = this.db.transaction([this.storeName], 'readwrite');
-      if (!tx || !tx.store) {
-        console.error('Failed to create transaction');
-        throw new Error('Failed to create transaction');
+      const store = tx.objectStore(this.storeName);
+      
+      if (!store) {
+        console.error('Failed to get store');
+        throw new Error('Failed to get store');
       }
 
-      for (const [key, value] of Object.entries(entries)) {
-        await tx.store.put(value, key);
-      }
+      // Set all values in parallel
+      await Promise.all(
+        Object.entries(entries).map(([key, value]) => store.put(value, key))
+      );
       
       await tx.done;
       console.log('Cache batch set complete successfully');
@@ -184,13 +202,92 @@ class RomajiCache {
     await this.initialize();
     try {
       const tx = this.db?.transaction([this.storeName], 'readonly');
-      if (!tx || !tx.store) return { total: 0 };
+      const store = tx?.objectStore(this.storeName);
+      if (!store) return { total: 0 };
       
-      const count = await tx.store.count();
-      return { total: count };
+      const allKeys = await store.getAllKeys();
+      return { total: allKeys.length };
     } catch (error) {
       console.error('Error getting cache stats:', error);
       return { total: 0 };
+    }
+  }
+
+  async getAll(): Promise<Record<string, string>> {
+    await this.initialize();
+    
+    if (!this.db) {
+      console.error('Database not initialized in getAll');
+      return {};
+    }
+
+    try {
+      const tx = this.db.transaction([this.storeName], 'readonly');
+      const store = tx.objectStore(this.storeName);
+      
+      if (!store) {
+        console.error('Failed to get store');
+        return {};
+      }
+
+      const allKeys = await store.getAllKeys();
+      const allValues = await Promise.all(
+        allKeys.map((key: string) => store.get(key))
+      );
+
+      const result: Record<string, string> = {};
+      allKeys.forEach((key: string, index: number) => {
+        const value = allValues[index];
+        if (value) {
+          result[key] = value;
+        }
+      });
+
+      return result;
+    } catch (error) {
+      console.error('Error getting all cached values:', error);
+      return {};
+    }
+  }
+
+  async warmupCache(commonWords: string[]): Promise<void> {
+    await this.initialize();
+    
+    if (!this.db) {
+      console.error('Database not initialized in warmupCache');
+      return;
+    }
+
+    try {
+      // Get all existing cached values
+      const existingCache = await this.getAll();
+      
+      // Filter out words that are already cached
+      const wordsToCache = commonWords.filter(word => !existingCache[word]);
+      
+      if (wordsToCache.length === 0) {
+        console.log('All common words already cached');
+        return;
+      }
+
+      console.log('Warming up cache with', wordsToCache.length, 'words');
+      const tx = this.db.transaction([this.storeName], 'readwrite');
+      const store = tx.objectStore(this.storeName);
+      
+      if (!store) {
+        console.error('Failed to get store');
+        return;
+      }
+
+      // Cache all words in parallel
+      await Promise.all(
+        wordsToCache.map(word => store.put(word, word))
+      );
+
+      await tx.done;
+      console.log('Cache warmup complete');
+    } catch (error) {
+      console.error('Error warming up cache:', error);
     }
   }
 }
