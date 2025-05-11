@@ -42,6 +42,13 @@ module.exports = (env, argv) => {
             'css-loader',
             'postcss-loader'
           ]
+        },
+        {
+          test: /\.(png|svg|jpg|jpeg|gif)$/i,
+          type: 'asset/resource',
+          generator: {
+            filename: 'static/media/[name].[hash][ext]'
+          }
         }
       ]
     },
@@ -84,8 +91,8 @@ module.exports = (env, argv) => {
       ],
       splitChunks: {
         chunks: 'all',
-        minSize: 20000,
-        maxSize: 244000,
+        maxInitialRequests: Infinity,
+        minSize: 0,
         cacheGroups: {
           vendor: {
             test: /[\\/]node_modules[\\/]/,
@@ -93,7 +100,21 @@ module.exports = (env, argv) => {
               const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
               return `vendor.${packageName.replace('@', '')}`;
             },
-            chunks: 'all'
+          },
+          kuromoji: {
+            test: /[\\/]node_modules[\\/](kuromoji|kuroshiro)[\\/]/,
+            name: 'vendor.kuromoji',
+            priority: 10,
+          },
+          firebase: {
+            test: /[\\/]node_modules[\\/]firebase[\\/]/,
+            name: 'vendor.firebase',
+            priority: 10,
+          },
+          recharts: {
+            test: /[\\/]node_modules[\\/]recharts[\\/]/,
+            name: 'vendor.recharts',
+            priority: 10,
           }
         }
       }
@@ -139,7 +160,8 @@ module.exports = (env, argv) => {
         new CompressionPlugin({
           test: /\.(js|css|html|svg)$/,
           algorithm: 'gzip',
-          deleteOriginalAssets: false
+          threshold: 10240,
+          minRatio: 0.8
         }),
         new MiniCssExtractPlugin({
           filename: 'static/css/[name].[contenthash:8].css',
