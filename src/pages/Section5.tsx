@@ -134,12 +134,12 @@ const Section5 = () => {
       const updateRomaji = async () => {
         // Collect all words that need romaji conversion
         const wordsToConvert = categories.flatMap(category => 
-          category.words.map(word => word.japanese)
+          category.words.map(word => word.japanese.trim())
         ).filter(word => !romajiMap[word]);
-
+        console.log('Batching for romaji:', wordsToConvert);
         if (wordsToConvert.length > 0) {
-          // Use batch processing to convert all words at once
           const newRomajiMap = await kuroshiroInstance.convertBatch(wordsToConvert);
+          console.log('Batch result:', newRomajiMap);
           setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
         }
       };
@@ -154,7 +154,7 @@ const Section5 = () => {
           <h3 className="text-lg font-semibold">{word.japanese}</h3>
           {settings.showRomajiVocabulary && (
             <p className="text-gray-500 italic">
-              {romajiMap[word.japanese] || 'Loading...'}
+              {romajiMap[word.japanese.trim()] || 'Loading...'}
             </p>
           )}
           <p className="text-gray-600">{word.english}</p>

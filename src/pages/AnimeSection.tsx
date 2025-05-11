@@ -199,12 +199,12 @@ const AnimeSection: React.FC = () => {
       if (showRomaji && filteredPhrases.length > 0) {
         // Collect all phrases that need romaji conversion
         const textsToConvert = filteredPhrases
-          .map(phrase => phrase.japanese)
+          .map(phrase => phrase.japanese.trim())
           .filter(text => !romajiMap[text]);
-
+        console.log('Batching for romaji:', textsToConvert);
         if (textsToConvert.length > 0) {
-          // Use batch processing to convert all texts at once
           const newRomajiMap = await kuroshiroInstance.convertBatch(textsToConvert);
+          console.log('Batch result:', newRomajiMap);
           if (isMounted) {
             setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
           }
@@ -302,7 +302,7 @@ const AnimeSection: React.FC = () => {
           </h2>
           {showRomaji && (
             <p className="text-lg text-gray-600 dark:text-gray-300 mb-2">
-              {romajiMap[currentPhrase.japanese] || 'Loading...'}
+              {romajiMap[currentPhrase.japanese.trim()] || 'Loading...'}
             </p>
           )}
           {showEnglish && (

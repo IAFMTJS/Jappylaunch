@@ -141,20 +141,16 @@ const Section7 = () => {
     if (settings.showRomajiJLPT) {
       const updateRomaji = async () => {
         const content = jlptContent[selectedLevel as keyof typeof jlptContent];
-        
         // Collect all texts that need romaji conversion
         const textsToConvert = [
-          // Grammar examples
           ...content.grammar.flatMap(grammar => grammar.examples),
-          // Vocabulary words
           ...content.vocabulary.map(vocab => vocab.word),
-          // Reading passages
           ...content.reading.map(reading => reading.passage)
-        ].filter(text => !romajiMap[text]);
-
+        ].map(text => text.trim()).filter(text => !romajiMap[text]);
+        console.log('Batching for romaji:', textsToConvert);
         if (textsToConvert.length > 0) {
-          // Use batch processing to convert all texts at once
           const newRomajiMap = await kuroshiroInstance.convertBatch(textsToConvert);
+          console.log('Batch result:', newRomajiMap);
           setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
         }
       };
@@ -179,7 +175,7 @@ const Section7 = () => {
                     <p className="text-lg">{example}</p>
                     {settings.showRomajiJLPT && (
                       <p className="text-gray-500 italic">
-                        {romajiMap[example] || 'Loading...'}
+                        {romajiMap[example.trim()] || 'Loading...'}
                       </p>
                     )}
                   </div>
@@ -201,7 +197,7 @@ const Section7 = () => {
               <div className="text-gray-700 mt-1">{vocab.meaning}</div>
               {settings.showRomajiJLPT && (
                 <div className="text-gray-500 italic mt-1">
-                  {romajiMap[vocab.word] || 'Loading...'}
+                  {romajiMap[vocab.word.trim()] || 'Loading...'}
                 </div>
               )}
             </div>
@@ -220,7 +216,7 @@ const Section7 = () => {
                 <p className="text-lg leading-relaxed">{reading.passage}</p>
                 {settings.showRomajiJLPT && (
                   <p className="text-gray-500 italic mt-2">
-                    {romajiMap[reading.passage] || 'Loading...'}
+                    {romajiMap[reading.passage.trim()] || 'Loading...'}
                   </p>
                 )}
               </div>

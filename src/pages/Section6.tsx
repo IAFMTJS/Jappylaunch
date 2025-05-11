@@ -78,13 +78,13 @@ const Section6 = () => {
       const updateRomaji = async () => {
         // Collect all texts that need romaji conversion
         const textsToConvert = currentMaterials.flatMap(material => [
-          material.content,
-          ...material.vocabulary
+          material.content.trim(),
+          ...material.vocabulary.map(word => word.trim())
         ]).filter(text => !romajiMap[text]);
-
+        console.log('Batching for romaji:', textsToConvert);
         if (textsToConvert.length > 0) {
-          // Use batch processing to convert all texts at once
           const newRomajiMap = await kuroshiroInstance.convertBatch(textsToConvert);
+          console.log('Batch result:', newRomajiMap);
           setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
         }
       };
@@ -113,7 +113,7 @@ const Section6 = () => {
         <p className="text-lg leading-relaxed">{material.content}</p>
         {settings.showRomajiReading && (
           <p className="text-gray-500 italic mt-2">
-            {romajiMap[material.content] || 'Loading...'}
+            {romajiMap[material.content.trim()] || 'Loading...'}
           </p>
         )}
       </div>
@@ -133,7 +133,7 @@ const Section6 = () => {
               </span>
               {settings.showRomajiReading && (
                 <span className="text-xs text-gray-500 mt-1">
-                  {romajiMap[word] || 'Loading...'}
+                  {romajiMap[word.trim()] || 'Loading...'}
                 </span>
               )}
             </div>
