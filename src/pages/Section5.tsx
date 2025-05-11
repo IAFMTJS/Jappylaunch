@@ -132,19 +132,20 @@ const Section5 = () => {
   useEffect(() => {
     if (settings.showRomajiVocabulary) {
       const updateRomaji = async () => {
-        const newRomajiMap: { [key: string]: string } = {};
-        for (const category of categories) {
-          for (const word of category.words) {
-            if (!romajiMap[word.japanese]) {
-              newRomajiMap[word.japanese] = await getRomaji(word.japanese);
-            }
-          }
+        // Collect all words that need romaji conversion
+        const wordsToConvert = categories.flatMap(category => 
+          category.words.map(word => word.japanese)
+        ).filter(word => !romajiMap[word]);
+
+        if (wordsToConvert.length > 0) {
+          // Use batch processing to convert all words at once
+          const newRomajiMap = await kuroshiroInstance.convertBatch(wordsToConvert);
+          setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
         }
-        setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
       };
       updateRomaji();
     }
-  }, [settings.showRomajiVocabulary]);
+  }, [settings.showRomajiVocabulary, categories]);
 
   const renderWord = (word: Word) => (
     <div className="bg-gray-50 p-4 rounded-lg">

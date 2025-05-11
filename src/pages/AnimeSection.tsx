@@ -192,22 +192,28 @@ const AnimeSection: React.FC = () => {
 
   const currentPhrase = filteredPhrases[currentPhraseIndex];
 
-  // Romaji conversion (memoized)
+  // Romaji conversion with batch processing
   useEffect(() => {
     let isMounted = true;
-    const convertRomaji = async () => {
-      if (showRomaji && currentPhrase && !romajiMap[currentPhrase.japanese]) {
-        try {
-          const romaji = await kuroshiroInstance.convert(currentPhrase.japanese);
-          if (isMounted) setRomajiMap(prev => ({ ...prev, [currentPhrase.japanese]: romaji }));
-        } catch {
-          if (isMounted) setRomajiMap(prev => ({ ...prev, [currentPhrase.japanese]: '' }));
+    const updateRomaji = async () => {
+      if (showRomaji && filteredPhrases.length > 0) {
+        // Collect all phrases that need romaji conversion
+        const textsToConvert = filteredPhrases
+          .map(phrase => phrase.japanese)
+          .filter(text => !romajiMap[text]);
+
+        if (textsToConvert.length > 0) {
+          // Use batch processing to convert all texts at once
+          const newRomajiMap = await kuroshiroInstance.convertBatch(textsToConvert);
+          if (isMounted) {
+            setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
+          }
         }
       }
     };
-    convertRomaji();
+    updateRomaji();
     return () => { isMounted = false; };
-  }, [currentPhrase, showRomaji]);
+  }, [showRomaji, filteredPhrases]);
 
   // Set total items for progress tracking
   useEffect(() => {
@@ -248,41 +254,43 @@ const AnimeSection: React.FC = () => {
       </h1>
 
       {/* Category Filter */}
-      <div className="flex flex-wrap gap-2 mb-6 justify-center">
-        <button
-          onClick={() => handleCategoryChange('all')}
-          className={`px-4 py-2 rounded-full ${
-            selectedCategory === 'all'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-          }`}
-        >
-          All
-        </button>
-        {['greeting', 'emotion', 'action', 'question', 'response'].map(category => (
+      <div className="flex flex-wrap gap-2 mb-6 justify-center px-4">
+        <div className="w-full max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
           <button
-            key={category}
-            onClick={() => handleCategoryChange(category as AnimePhrase['category'])}
-            className={`px-4 py-2 rounded-full capitalize ${
-              selectedCategory === category
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+            onClick={() => handleCategoryChange('all')}
+            className={`px-3 py-2 rounded-lg text-sm sm:text-base transition-colors ${
+              selectedCategory === 'all'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
             }`}
           >
-            {category}
+            All
           </button>
-        ))}
+          {['greeting', 'emotion', 'action', 'question', 'response'].map(category => (
+            <button
+              key={category}
+              onClick={() => handleCategoryChange(category as AnimePhrase['category'])}
+              className={`px-3 py-2 rounded-lg text-sm sm:text-base transition-colors capitalize ${
+                selectedCategory === category
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="mb-4 flex items-center gap-4 justify-center">
-        <label className="flex items-center gap-2 cursor-pointer">
+      <div className="mb-4 flex items-center gap-4 justify-center px-4">
+        <label className="flex items-center gap-2 cursor-pointer bg-gray-100 dark:bg-gray-700 px-4 py-2 rounded-lg transition-colors hover:bg-gray-200 dark:hover:bg-gray-600">
           <input
             type="checkbox"
             checked={showRomaji}
             onChange={() => setShowRomaji(r => !r)}
-            className="form-checkbox"
+            className="form-checkbox h-4 w-4 text-blue-600 transition-colors"
           />
-          <span className="text-sm">Show Romaji</span>
+          <span className="text-sm sm:text-base text-gray-700 dark:text-gray-300">Show Romaji</span>
         </label>
       </div>
 

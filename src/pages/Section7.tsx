@@ -140,30 +140,23 @@ const Section7 = () => {
   useEffect(() => {
     if (settings.showRomajiJLPT) {
       const updateRomaji = async () => {
-        const newRomajiMap: { [key: string]: string } = {};
         const content = jlptContent[selectedLevel as keyof typeof jlptContent];
         
-        // Update grammar examples
-        for (const grammar of content.grammar) {
-          for (const example of grammar.examples) {
-            if (!romajiMap[example]) {
-              newRomajiMap[example] = await getRomaji(example);
-            }
-          }
+        // Collect all texts that need romaji conversion
+        const textsToConvert = [
+          // Grammar examples
+          ...content.grammar.flatMap(grammar => grammar.examples),
+          // Vocabulary words
+          ...content.vocabulary.map(vocab => vocab.word),
+          // Reading passages
+          ...content.reading.map(reading => reading.passage)
+        ].filter(text => !romajiMap[text]);
+
+        if (textsToConvert.length > 0) {
+          // Use batch processing to convert all texts at once
+          const newRomajiMap = await kuroshiroInstance.convertBatch(textsToConvert);
+          setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
         }
-        // Update vocabulary
-        for (const vocab of content.vocabulary) {
-          if (!romajiMap[vocab.word]) {
-            newRomajiMap[vocab.word] = await getRomaji(vocab.word);
-          }
-        }
-        // Update reading passages
-        for (const reading of content.reading) {
-          if (!romajiMap[reading.passage]) {
-            newRomajiMap[reading.passage] = await getRomaji(reading.passage);
-          }
-        }
-        setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
       };
       updateRomaji();
     }

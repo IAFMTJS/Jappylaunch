@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { kuroshiroInstance } from '../utils/kuroshiro';
@@ -16,6 +16,82 @@ const Section6 = () => {
   const [selectedLevel, setSelectedLevel] = useState<string>('beginner');
   const [romajiMap, setRomajiMap] = useState<{ [key: string]: string }>({});
 
+  // Get current materials based on selected type and level
+  const currentMaterials = useMemo(() => {
+    const readingMaterials = {
+      hiragana: {
+        beginner: [
+          {
+            title: 'はじめまして',
+            content: 'わたしは たなか です。にほんじん です。よろしく おねがいします。',
+            translation: 'Nice to meet you. I am Tanaka. I am Japanese. Please be kind to me.',
+            vocabulary: ['はじめまして', 'わたし', 'たなか', 'にほんじん', 'よろしく おねがいします']
+          },
+          {
+            title: 'わたしの いえ',
+            content: 'わたしの いえは ちいさい です。でも、きれい です。にわに はな が あります。',
+            translation: 'My house is small. But it is beautiful. There are flowers in the garden.',
+            vocabulary: ['いえ', 'ちいさい', 'きれい', 'にわ', 'はな']
+          }
+        ],
+        intermediate: [
+          {
+            title: 'まいにちの せいかつ',
+            content: 'まいあさ 6じに おきます。7じに あさごはんを たべます。8じに がっこうに いきます。',
+            translation: 'I wake up at 6 every morning. I eat breakfast at 7. I go to school at 8.',
+            vocabulary: ['まいあさ', 'おきます', 'あさごはん', 'たべます', 'がっこう']
+          }
+        ]
+      },
+      katakana: {
+        beginner: [
+          {
+            title: 'レストランで',
+            content: 'ハンバーガーと コーラを ください。サラダも おねがいします。',
+            translation: 'Please give me a hamburger and cola. I would also like a salad.',
+            vocabulary: ['レストラン', 'ハンバーガー', 'コーラ', 'サラダ']
+          },
+          {
+            title: 'ショッピング',
+            content: 'デパートで シャツと ズボンを かいました。とても たかい です。',
+            translation: 'I bought a shirt and pants at the department store. They are very expensive.',
+            vocabulary: ['ショッピング', 'デパート', 'シャツ', 'ズボン', 'たかい']
+          }
+        ],
+        intermediate: [
+          {
+            title: 'インターネット',
+            content: 'インターネットで ニュースを よみます。メールも おくります。',
+            translation: 'I read news on the internet. I also send emails.',
+            vocabulary: ['インターネット', 'ニュース', 'メール', 'おくります']
+          }
+        ]
+      }
+    };
+
+    return readingMaterials[selectedType as keyof typeof readingMaterials][selectedLevel as keyof typeof readingMaterials.hiragana];
+  }, [selectedType, selectedLevel]);
+
+  // Romaji conversion with batch processing
+  useEffect(() => {
+    if (settings.showRomajiReading) {
+      const updateRomaji = async () => {
+        // Collect all texts that need romaji conversion
+        const textsToConvert = currentMaterials.flatMap(material => [
+          material.content,
+          ...material.vocabulary
+        ]).filter(text => !romajiMap[text]);
+
+        if (textsToConvert.length > 0) {
+          // Use batch processing to convert all texts at once
+          const newRomajiMap = await kuroshiroInstance.convertBatch(textsToConvert);
+          setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
+        }
+      };
+      updateRomaji();
+    }
+  }, [settings.showRomajiReading, selectedType, selectedLevel, currentMaterials]);
+
   const getRomaji = async (text: string) => {
     if (romajiMap[text]) return romajiMap[text];
     try {
@@ -27,26 +103,6 @@ const Section6 = () => {
       return '';
     }
   };
-
-  useEffect(() => {
-    if (settings.showRomajiReading) {
-      const updateRomaji = async () => {
-        const newRomajiMap: { [key: string]: string } = {};
-        for (const material of currentMaterials) {
-          if (!romajiMap[material.content]) {
-            newRomajiMap[material.content] = await getRomaji(material.content);
-          }
-          for (const word of material.vocabulary) {
-            if (!romajiMap[word]) {
-              newRomajiMap[word] = await getRomaji(word);
-            }
-          }
-        }
-        setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
-      };
-      updateRomaji();
-    }
-  }, [settings.showRomajiReading, selectedType, selectedLevel]);
 
   const renderReadingMaterial = (material: ReadingMaterial) => (
     <div className="bg-gray-50 p-6 rounded-lg">
@@ -86,59 +142,6 @@ const Section6 = () => {
       </div>
     </div>
   );
-
-  const readingMaterials = {
-    hiragana: {
-      beginner: [
-        {
-          title: 'はじめまして',
-          content: 'わたしは たなか です。にほんじん です。よろしく おねがいします。',
-          translation: 'Nice to meet you. I am Tanaka. I am Japanese. Please be kind to me.',
-          vocabulary: ['はじめまして', 'わたし', 'たなか', 'にほんじん', 'よろしく おねがいします']
-        },
-        {
-          title: 'わたしの いえ',
-          content: 'わたしの いえは ちいさい です。でも、きれい です。にわに はな が あります。',
-          translation: 'My house is small. But it is beautiful. There are flowers in the garden.',
-          vocabulary: ['いえ', 'ちいさい', 'きれい', 'にわ', 'はな']
-        }
-      ],
-      intermediate: [
-        {
-          title: 'まいにちの せいかつ',
-          content: 'まいあさ 6じに おきます。7じに あさごはんを たべます。8じに がっこうに いきます。',
-          translation: 'I wake up at 6 every morning. I eat breakfast at 7. I go to school at 8.',
-          vocabulary: ['まいあさ', 'おきます', 'あさごはん', 'たべます', 'がっこう']
-        }
-      ]
-    },
-    katakana: {
-      beginner: [
-        {
-          title: 'レストランで',
-          content: 'ハンバーガーと コーラを ください。サラダも おねがいします。',
-          translation: 'Please give me a hamburger and cola. I would also like a salad.',
-          vocabulary: ['レストラン', 'ハンバーガー', 'コーラ', 'サラダ']
-        },
-        {
-          title: 'ショッピング',
-          content: 'デパートで シャツと ズボンを かいました。とても たかい です。',
-          translation: 'I bought a shirt and pants at the department store. They are very expensive.',
-          vocabulary: ['ショッピング', 'デパート', 'シャツ', 'ズボン', 'たかい']
-        }
-      ],
-      intermediate: [
-        {
-          title: 'インターネット',
-          content: 'インターネットで ニュースを よみます。メールも おくります。',
-          translation: 'I read news on the internet. I also send emails.',
-          vocabulary: ['インターネット', 'ニュース', 'メール', 'おくります']
-        }
-      ]
-    }
-  };
-
-  const currentMaterials = readingMaterials[selectedType as keyof typeof readingMaterials][selectedLevel as keyof typeof readingMaterials.hiragana];
 
   return (
     <div className="py-8">
