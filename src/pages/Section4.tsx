@@ -11,7 +11,7 @@ const Section4 = () => {
           <Link to="/" className="text-blue-600 hover:text-blue-800 mr-4">
             ← Back to Home
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Kanji Practice</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Kanji Quiz</h1>
         </div>
       </div>
       
@@ -20,7 +20,7 @@ const Section4 = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <p className="text-gray-600 mb-8">
               Practice Kanji characters with interactive quizzes. Learn meanings, readings, and example words.
-              Choose between meaning, reading, and writing practice modes.
+              Choose between meaning, reading, and kanji practice modes.
             </p>
             <KanjiQuiz />
           </div>

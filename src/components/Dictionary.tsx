@@ -21,6 +21,7 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
   const [items, setItems] = useState<DictionaryItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<DictionaryItem[]>([]);
   const [sortBy, setSortBy] = useState<'japanese' | 'english' | 'progress'>('japanese');
+  const [romajiMap, setRomajiMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     // Load dictionary items based on mode
@@ -124,6 +125,30 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
     setFilteredItems(filtered);
   }, [items, searchTerm, filter, sortBy, progress, mode]);
 
+  // Initialize romaji conversion for all items
+  useEffect(() => {
+    const initializeRomaji = async () => {
+      const textsToConvert = items
+        .filter(item => {
+          const text = 'japanese' in item ? item.japanese : item.character;
+          return !romajiMap[text];
+        })
+        .map(item => 'japanese' in item ? item.japanese : item.character);
+
+      if (textsToConvert.length > 0) {
+        try {
+          const { convertBatchToRomaji } = await import('../utils/kuroshiro');
+          const newRomajiMap = await convertBatchToRomaji(textsToConvert);
+          setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
+        } catch (error) {
+          console.error('Error initializing romaji:', error);
+        }
+      }
+    };
+
+    initializeRomaji();
+  }, [items]);
+
   const toggleMarked = (item: DictionaryItem) => {
     const itemId = 'japanese' in item ? item.japanese : item.character;
     const isMarked = progress[mode]?.masteredIds?.has(itemId);
@@ -140,71 +165,91 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
 
   return (
     <div className="max-w-6xl mx-auto p-4">
-      <div className="mb-6 space-y-4">
+      {/* Stats section */}
+      <div className="mb-6 flex flex-wrap gap-4 text-sm">
+        <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+          Total Items: {items.length}
+        </span>
+        <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+          Marked: {items.filter(item => 
+            progress[mode]?.masteredIds?.has('japanese' in item ? item.japanese : item.character)
+          ).length}
+        </span>
+        <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+          Mastered: {items.filter(item => 
+            progress[mode]?.masteredIds?.has('japanese' in item ? item.japanese : item.character)
+          ).length}
+        </span>
+      </div>
+
+      {/* Filters section */}
+      <div className="mb-6 bg-gray-50 dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <h2 className="text-lg font-semibold mb-4 text-gray-700 dark:text-gray-300">Filters</h2>
         <div className="flex flex-wrap gap-4">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by Japanese, romaji, or English..."
-            className={`flex-1 min-w-[200px] px-4 py-2 rounded-lg border ${
-              isDarkMode 
-                ? 'bg-gray-700 text-white border-gray-600' 
-                : 'bg-white text-gray-800 border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-          />
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Search
+            </label>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by Japanese, romaji, or English..."
+              className={`w-full px-4 py-2 rounded-lg border ${
+                isDarkMode 
+                  ? 'bg-gray-700 text-white border-gray-600' 
+                  : 'bg-white text-gray-800 border-gray-300'
+              } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            />
+          </div>
 
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as FilterType)}
-            className={`px-4 py-2 rounded-lg border ${
-              isDarkMode 
-                ? 'bg-gray-700 text-white border-gray-600' 
-                : 'bg-white text-gray-800 border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-          >
-            <option value="all">All Items</option>
-            <option value="unmarked">Unmarked</option>
-            <option value="marked">Marked</option>
-            <option value="mastered">Mastered</option>
-          </select>
+          <div className="w-48">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Filter by Status
+            </label>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as FilterType)}
+              className={`w-full px-4 py-2 rounded-lg border ${
+                isDarkMode 
+                  ? 'bg-gray-700 text-white border-gray-600' 
+                  : 'bg-white text-gray-800 border-gray-300'
+              } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            >
+              <option value="all">All Items</option>
+              <option value="unmarked">Unmarked</option>
+              <option value="marked">Marked</option>
+              <option value="mastered">Mastered</option>
+            </select>
+          </div>
 
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'japanese' | 'english' | 'progress')}
-            className={`px-4 py-2 rounded-lg border ${
-              isDarkMode 
-                ? 'bg-gray-700 text-white border-gray-600' 
-                : 'bg-white text-gray-800 border-gray-300'
-            } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-          >
-            <option value="japanese">Sort by Japanese</option>
-            <option value="english">Sort by English</option>
-            <option value="progress">Sort by Progress</option>
-          </select>
-        </div>
-
-        <div className="flex gap-2 text-sm">
-          <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-            Total Items: {items.length}
-          </span>
-          <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-            Marked: {items.filter(item => 
-              progress[mode]?.masteredIds?.has('japanese' in item ? item.japanese : item.character)
-            ).length}
-          </span>
-          <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-            Mastered: {items.filter(item => 
-              progress[mode]?.masteredIds?.has('japanese' in item ? item.japanese : item.character)
-            ).length}
-          </span>
+          <div className="w-48">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Sort by
+            </label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'japanese' | 'english' | 'progress')}
+              className={`w-full px-4 py-2 rounded-lg border ${
+                isDarkMode 
+                  ? 'bg-gray-700 text-white border-gray-600' 
+                  : 'bg-white text-gray-800 border-gray-300'
+              } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            >
+              <option value="japanese">Japanese</option>
+              <option value="english">English</option>
+              <option value="progress">Progress</option>
+            </select>
+          </div>
         </div>
       </div>
 
+      {/* Word list */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredItems.map((item, index) => {
           const itemId = 'japanese' in item ? item.japanese : item.character;
           const isMarked = progress[mode]?.masteredIds?.has(itemId);
+          const itemText = 'japanese' in item ? item.japanese : item.character;
 
           return (
             <div
@@ -220,13 +265,11 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
                   <h3 className={`text-xl font-semibold ${
                     isDarkMode ? 'text-white' : 'text-gray-800'
                   }`}>
-                    {'japanese' in item ? item.japanese : item.character}
+                    {itemText}
                   </h3>
-                  {'romaji' in item && item.romaji && (
-                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {item.romaji}
-                    </p>
-                  )}
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {romajiMap[itemText] || 'Loading...'}
+                  </p>
                   {'english' in item && (
                     <p className={`mt-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                       {item.english}

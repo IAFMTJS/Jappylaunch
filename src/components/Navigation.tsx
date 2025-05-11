@@ -13,19 +13,19 @@ const Navigation = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   
   const mainLinks = [
-    { path: '/section1', name: 'Hiragana & Katakana Quiz' },
-    { path: '/section2', name: 'Dictionary' },
-    { path: '/writing-practice', name: 'Writing Practice' },
-    { path: '/section4', name: 'Kanji Practice' },
-    { path: '/section5', name: 'Vocabulary Builder' },
-    { path: '/section6', name: 'Reading Practice' },
-    { path: '/section7', name: 'JLPT Preparation' },
-    { path: '/section8', name: 'Interactive Games' },
+    { path: '/section1', name: 'Hiragana & Katakana Quiz', shortName: 'H&K Quiz' },
+    { path: '/section2', name: 'Dictionary', shortName: 'Dict' },
+    { path: '/writing-practice', name: 'Writing Practice', shortName: 'Write' },
+    { path: '/section4', name: 'Kanji Quiz', shortName: 'Kanji' },
+    { path: '/section5', name: 'Vocabulary Builder', shortName: 'Vocab' },
+    { path: '/section6', name: 'Reading Practice', shortName: 'Read' },
+    { path: '/section7', name: 'JLPT Preparation', shortName: 'JLPT' },
+    { path: '/section8', name: 'Interactive Games', shortName: 'Games' },
   ];
   const extraLinks = [
-    { path: '/anime', name: 'Anime & Manga Phrases' },
-    { path: '/progress-section', name: 'Progress' },
-    { path: '/settings', name: 'Settings' },
+    { path: '/anime', name: 'Anime & Manga Phrases', shortName: 'Anime' },
+    { path: '/progress-section', name: 'Progress', shortName: 'Progress' },
+    { path: '/settings', name: 'Settings', shortName: 'Settings' },
   ];
 
   const handleLogout = async () => {
@@ -74,8 +74,9 @@ const Navigation = () => {
                     key={section.path}
                     to={section.path}
                     className={linkClasses(location.pathname === section.path)}
+                    title={section.name}
                   >
-                    {section.name}
+                    {section.shortName}
                   </Link>
                 ))}
                 {extraLinks.map((link) => (
@@ -83,8 +84,9 @@ const Navigation = () => {
                     key={link.path}
                     to={link.path}
                     className={linkClasses(location.pathname === link.path)}
+                    title={link.name}
                   >
-                    {link.name}
+                    {link.shortName}
                   </Link>
                 ))}
               </div>
