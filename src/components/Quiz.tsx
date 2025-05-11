@@ -5,6 +5,7 @@ import { quizWords, Category } from '../data/quizData';
 import { useProgress } from '../context/ProgressContext';
 import { kuroshiroInstance } from '../utils/kuroshiro';
 import { CSSTransition } from 'react-transition-group';
+import { useSound } from '../context/SoundContext';
 
 // Add type declaration for react-transition-group
 declare module 'react-transition-group';
@@ -79,16 +80,17 @@ const motivationalMessages = {
 
 const Quiz: React.FC = () => {
   const { theme, isDarkMode } = useTheme();
-  const { updateProgress } = useApp();
-  const { updateProgress: updateProgressProgress, progress, updateScoreboard } = useProgress();
   const { settings: appSettings } = useApp();
+  const { updateProgress, progress } = useProgress();
+  const [questions, setQuestions] = useState<typeof quizWords>([]);
+  const [options, setOptions] = useState<string[]>([]);
   const [quizState, setQuizState] = useState<QuizState>({
+    mode: 'setup',
     currentQuestion: 0,
     selectedAnswer: null,
     showFeedback: false,
     isCorrect: null,
-    showCorrect: false,
-    mode: 'setup'
+    showCorrect: false
   });
   const [settings, setSettings] = useState<QuizSettings>({
     category: 'all',
@@ -97,30 +99,20 @@ const Quiz: React.FC = () => {
     quizType: 'multiple-choice',
     answerType: 'romaji'
   });
-  const [score, setScore] = useState(0);
-  const [showResult, setShowResult] = useState(false);
   const [userAnswer, setUserAnswer] = useState('');
-  const [questions, setQuestions] = useState<typeof quizWords>([]);
+  const [score, setScore] = useState(0);
   const [timeStarted, setTimeStarted] = useState<Date | null>(null);
   const [timeEnded, setTimeEnded] = useState<Date | null>(null);
-  const [options, setOptions] = useState<string[]>([]);
-  const { progress: progressData } = useProgress();
   const [currentStreak, setCurrentStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState(false);
   const [romajiCache, setRomajiCache] = useState<Record<string, string>>({});
   const [selectedGame, setSelectedGame] = useState<string>('matching');
-  const [gameState, setGameState] = useState<GameState>({
-    isPlaying: false,
-    score: 0,
-    timeLeft: 60,
-    level: 1,
-    mistakes: 0
-  });
   const inputRef = useRef<HTMLInputElement>(null);
   const [motivation, setMotivation] = useState<string | null>(null);
   const motivationTimeout = useRef<NodeJS.Timeout | null>(null);
+  const { playSound } = useSound();
 
   const getThemeClasses = () => {
     if (isDarkMode) {
@@ -244,70 +236,59 @@ const Quiz: React.FC = () => {
     }
   }, []);
 
+  const getMotivation = (streak: number): string => {
+    if (streak >= 5) return 'Incredible streak! 🌟';
+    if (streak >= 3) return 'Great job! Keep it up! 🎯';
+    if (streak >= 1) return 'Nice! 👍';
+    return 'Keep trying! 💪';
+  };
+
   const checkAnswer = (answer: string) => {
-    const isCorrect = questions[quizState.currentQuestion].english.toLowerCase() === answer.toLowerCase();
+    if (quizState.showFeedback) return;
+
+    const currentWord = questions[quizState.currentQuestion];
+    const isCorrect = answer.toLowerCase().trim() === currentWord.english.toLowerCase().trim();
     const newScore = isCorrect ? score + 1 : score;
     const newStreak = isCorrect ? currentStreak + 1 : 0;
     const newBestStreak = Math.max(bestStreak, newStreak);
-    
+
     setScore(newScore);
-    setCurrentStreak(newStreak);
     setBestStreak(newBestStreak);
     setQuizState(prev => ({
       ...prev,
+      selectedAnswer: currentOptions.indexOf(answer),
       showFeedback: true,
       isCorrect,
       showCorrect: !isCorrect
     }));
+
+    if (isCorrect) {
+      playSound('correct');
+      setMotivation(getMotivation(newStreak));
+    } else {
+      playSound('incorrect');
+      setMotivation(getMotivation(0));
+    }
+
+    // Update progress after each question
+    const section = settings.category === 'hiragana' ? 'hiragana' : 
+                   settings.category === 'katakana' ? 'katakana' : 'section8';
     
-    // Show motivational popup occasionally
-    if (isCorrect && newStreak > 0 && newStreak % 3 === 0) {
-      showMotivation('positive');
-    } else if (!isCorrect && Math.random() < 0.33) {
-      showMotivation('encouragement');
-    }
+    const currentProgress = progress[section] || {
+      totalQuestions: 0,
+      correctAnswers: 0,
+      bestStreak: 0,
+      highScore: 0,
+      lastAttempt: new Date().toISOString()
+    };
 
-    // Update progress based on category
-    if (settings.category === 'hiragana' || settings.category === 'katakana') {
-      const section = settings.category as 'hiragana' | 'katakana';
-      updateScoreboard(section, {
-        bestStreak: newBestStreak,
-        highScore: Math.max(progress[section].highScore, newScore),
-        averageTime: 0 // TODO: Implement time tracking
-      });
-    }
-
-    setTimeout(() => {
-      setShowFeedback(false);
-      if (quizState.currentQuestion < questions.length - 1) {
-        setQuizState(prev => ({
-          ...prev,
-          currentQuestion: prev.currentQuestion + 1,
-          currentStreak: newStreak
-        }));
-      } else {
-        const finalScore = Math.round((newScore / questions.length) * 100);
-        setQuizState(prev => ({
-          ...prev,
-          mode: 'result',
-          showResult: true,
-          timeEnded: new Date()
-        }));
-        
-        // Update quiz stats in AppContext with complete QuizData
-        const timeTaken = timeStarted && new Date() ? (new Date().getTime() - timeStarted.getTime()) / 1000 : 0;
-        updateProgress('section8', questions.length, newScore, {
-          score: finalScore,
-          date: new Date().toISOString(),
-          category: settings.category,
-          difficulty: settings.difficulty,
-          quizType: 'multiple-choice',
-          timeTaken,
-          totalQuestions: questions.length,
-          correctAnswers: newScore
-        });
-      }
-    }, 1000);
+    updateProgress(section, {
+      totalQuestions: currentProgress.totalQuestions + 1,
+      correctAnswers: currentProgress.correctAnswers + (isCorrect ? 1 : 0),
+      bestStreak: Math.max(currentProgress.bestStreak, newBestStreak),
+      highScore: Math.max(currentProgress.highScore, newScore),
+      lastAttempt: new Date().toISOString()
+    });
   };
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
@@ -393,10 +374,10 @@ const Quiz: React.FC = () => {
 
   // Update romaji only when questions change
   useEffect(() => {
-    if (appSettings.showRomajiGames && questions.length > 0) {
+    if (appSettings.showRomaji && questions.length > 0) {
       updateRomajiBatch(questions);
     }
-  }, [questions, appSettings.showRomajiGames, updateRomajiBatch]);
+  }, [questions, appSettings.showRomaji, updateRomajiBatch]);
 
   // Memoize the current word to prevent unnecessary re-renders
   const currentWord = useMemo(() => questions[quizState.currentQuestion], [questions, quizState.currentQuestion]);
@@ -412,16 +393,32 @@ const Quiz: React.FC = () => {
               onChange={(e) => setSettings(prev => ({ ...prev, category: e.target.value as Category }))}
               className={`w-full p-3 rounded-lg border ${themeClasses.input}`}
             >
+              <option value="all">All Categories</option>
               <option value="hiragana">Hiragana</option>
               <option value="katakana">Katakana</option>
-              <option value="numbers">Numbers</option>
-              <option value="colors">Colors</option>
-              <option value="animals">Animals</option>
               <option value="food">Food</option>
+              <option value="animals">Animals</option>
+              <option value="colors">Colors</option>
+              <option value="numbers">Numbers</option>
+              <option value="time">Time</option>
+              <option value="weather">Weather</option>
+              <option value="family">Family</option>
+              <option value="body">Body</option>
+              <option value="clothes">Clothes</option>
+              <option value="school">School</option>
+              <option value="work">Work</option>
+              <option value="travel">Travel</option>
+              <option value="emotions">Emotions</option>
               <option value="verbs">Verbs</option>
               <option value="adjectives">Adjectives</option>
               <option value="adverbs">Adverbs</option>
-              <option value="phrases">Common Phrases</option>
+              <option value="prepositions">Prepositions</option>
+              <option value="conjunctions">Conjunctions</option>
+              <option value="interjections">Interjections</option>
+              <option value="phrases">Phrases</option>
+              <option value="idioms">Idioms</option>
+              <option value="slang">Slang</option>
+              <option value="anime">Anime & Manga</option>
             </select>
           </div>
 
@@ -526,9 +523,11 @@ const Quiz: React.FC = () => {
             {settings.difficulty === 'easy' ? (
               <>
                 {currentWord.japanese}
-                <div className="text-xl text-gray-600 mt-2">
-                  {currentWord.romaji}
-                </div>
+                {appSettings.showRomaji && (
+                  <div className="text-xl text-gray-600 mt-2">
+                    {currentWord.romaji}
+                  </div>
+                )}
               </>
             ) : (
               currentWord.japanese
