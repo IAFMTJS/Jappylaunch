@@ -111,11 +111,9 @@ const Section6 = () => {
       <div className="mb-4">
         <h4 className="font-medium mb-2">Reading:</h4>
         <p className="text-lg leading-relaxed">{material.content}</p>
-        {settings.showRomajiReading && (
-          <p className="text-gray-500 italic mt-2">
-            {romajiMap[material.content.trim()] || 'Loading...'}
-          </p>
-        )}
+        <p className="text-gray-500 italic mt-2">
+          {romajiMap[material.content.trim()] || 'Loading...'}
+        </p>
       </div>
 
       <div className="mb-4">
@@ -131,11 +129,9 @@ const Section6 = () => {
               <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
                 {word}
               </span>
-              {settings.showRomajiReading && (
-                <span className="text-xs text-gray-500 mt-1">
-                  {romajiMap[word.trim()] || 'Loading...'}
-                </span>
-              )}
+              <span className="text-xs text-gray-500 mt-1">
+                {romajiMap[word.trim()] || 'Loading...'}
+              </span>
             </div>
           ))}
         </div>

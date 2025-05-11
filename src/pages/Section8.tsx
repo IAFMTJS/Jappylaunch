@@ -64,6 +64,21 @@ const Section8 = () => {
     correctAssociations: [] as string[]
   });
   const [romajiMap, setRomajiMap] = useState<Record<string, string>>({});
+  const [memoryFeedback, setMemoryFeedback] = useState<string>('');
+  const [memoryWin, setMemoryWin] = useState<boolean>(false);
+
+  const sentenceExamples = [
+    { english: 'I am a student.', japanese: 'わたし は がくせい です' },
+    { english: 'I go to school every day.', japanese: '毎日 学校 に 行きます' },
+    { english: 'I study Japanese.', japanese: '日本語 を 勉強 します' },
+    { english: 'I drink coffee in the morning.', japanese: '朝 コーヒー を のみます' },
+    { english: 'Tomorrow I will eat sushi.', japanese: '明日 すし を たべます' },
+  ];
+  const [currentSentence, setCurrentSentence] = useState(sentenceExamples[0]);
+  const [sentenceChoices, setSentenceChoices] = useState<string[]>([]);
+  const [sentenceAnswer, setSentenceAnswer] = useState<string[]>([]);
+  const [sentenceFeedback, setSentenceFeedback] = useState<string>('');
+  const [sentenceScore, setSentenceScore] = useState<number>(0);
 
   const games = [
     { id: 'matching', name: 'Word Matching', description: 'Match Japanese words with their English meanings' },
@@ -351,31 +366,30 @@ const Section8 = () => {
   // Game action handlers
   const handleMemoryCardClick = (cardId: number) => {
     if (!gameState.isPlaying) return;
-    
+    setMemoryFeedback('');
     setMemoryCards(prev => {
       const flippedCards = prev.filter(card => card.isFlipped && !card.isMatched);
       if (flippedCards.length === 2) return prev;
-      
       const newCards = prev.map(card => {
         if (card.id === cardId && !card.isFlipped && !card.isMatched) {
           return { ...card, isFlipped: true };
         }
         return card;
       });
-
       const newlyFlipped = newCards.filter(card => card.isFlipped && !card.isMatched);
       if (newlyFlipped.length === 2) {
         const [card1, card2] = newlyFlipped;
         if (card1.match === card2.match) {
           setTimeout(() => {
-            setMemoryCards(cards => 
-              cards.map(card => 
+            setMemoryCards(cards =>
+              cards.map(card =>
                 card.id === card1.id || card.id === card2.id
                   ? { ...card, isMatched: true }
                   : card
               )
             );
             setGameState(prev => ({ ...prev, score: prev.score + 10 }));
+            setMemoryFeedback('Correct!');
           }, 500);
         } else {
           setTimeout(() => {
@@ -383,10 +397,10 @@ const Section8 = () => {
               cards.map(card => ({ ...card, isFlipped: false }))
             );
             setGameState(prev => ({ ...prev, mistakes: prev.mistakes + 1 }));
+            setMemoryFeedback('Try again!');
           }, 1000);
         }
       }
-
       return newCards;
     });
   };
@@ -637,6 +651,57 @@ const Section8 = () => {
     }
   }, [settings.showRomajiGames]);
 
+  // Functie om een nieuwe zin te starten
+  const startNewSentence = () => {
+    const example = sentenceExamples[Math.floor(Math.random() * sentenceExamples.length)];
+    setCurrentSentence(example);
+    const words = example.japanese.split(' ');
+    setSentenceChoices(words.sort(() => Math.random() - 0.5));
+    setSentenceAnswer([]);
+    setSentenceFeedback('');
+  };
+
+  // Start een nieuwe zin bij het starten van het spel
+  useEffect(() => {
+    if (selectedGame === 'sentence' && gameState.isPlaying) {
+      startNewSentence();
+    }
+  }, [selectedGame, gameState.isPlaying]);
+
+  // Handler voor het kiezen van een woord
+  const handleSentenceChoice = (word: string, idx: number) => {
+    setSentenceAnswer(ans => [...ans, word]);
+    setSentenceChoices(choices => choices.filter((w, i) => i !== idx));
+  };
+
+  // Handler voor het verwijderen van een woord uit het antwoord
+  const handleRemoveAnswerWord = (idx: number) => {
+    setSentenceChoices(choices => [...choices, sentenceAnswer[idx]]);
+    setSentenceAnswer(ans => ans.filter((w, i) => i !== idx));
+  };
+
+  // Controleer of het antwoord klopt
+  useEffect(() => {
+    if (sentenceAnswer.length === currentSentence.japanese.split(' ').length) {
+      if (sentenceAnswer.join(' ') === currentSentence.japanese) {
+        setSentenceFeedback('Correct!');
+        setSentenceScore(score => score + 1);
+      } else {
+        setSentenceFeedback('Incorrect, try again!');
+      }
+    } else {
+      setSentenceFeedback('');
+    }
+  }, [sentenceAnswer, currentSentence]);
+
+  // Winmelding effect:
+  useEffect(() => {
+    if (gameState.isPlaying && memoryCards.length > 0 && memoryCards.every(card => card.isMatched)) {
+      setMemoryWin(true);
+      setTimeout(() => setMemoryWin(false), 2000);
+    }
+  }, [memoryCards, gameState.isPlaying]);
+
   const renderGameContent = () => {
     switch (selectedGame) {
       case 'matching':
@@ -671,69 +736,97 @@ const Section8 = () => {
       case 'sentence':
         return (
           <div className="space-y-6">
-            <div className="flex flex-wrap gap-2">
-              {sentenceWords.map((word) => (
+            <div className="mb-2 text-lg font-semibold">Build this sentence:</div>
+            <div className="mb-4 text-blue-700">{currentSentence.english}</div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {sentenceChoices.map((word, idx) => (
                 <button
-                  key={word.id}
-                  onClick={() => !word.isPlaced && handleSentenceWordDrag(word.id)}
-                  className={`px-4 py-2 rounded-lg transition-all ${
-                    word.isPlaced
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-blue-100 text-blue-800 hover:bg-blue-200 cursor-move'
-                  }`}
-                  disabled={word.isPlaced || !gameState.isPlaying}
+                  key={idx}
+                  onClick={() => handleSentenceChoice(word, idx)}
+                  className="px-4 py-2 rounded-lg bg-blue-100 text-blue-800 hover:bg-blue-200"
+                  disabled={sentenceFeedback === 'Correct!'}
                 >
-                  {settings.showKanjiGames ? word.word : word.type}
-                  {settings.showRomajiGames && (
-                    <span className="block text-sm text-gray-600 mt-1">
-                      {romajiMap[word.word] || 'Loading...'}
-                    </span>
-                  )}
+                  {word}
                 </button>
               ))}
             </div>
-            <div className="min-h-[100px] border-2 border-dashed border-gray-300 rounded-lg p-4">
-              {sentenceDropZone.map((word, index) => (
+            <div className="flex flex-wrap gap-2 mb-4 min-h-[40px]">
+              {sentenceAnswer.map((word, idx) => (
                 <span
-                  key={index}
-                  className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-lg mr-2 mb-2"
+                  key={idx}
+                  className="px-4 py-2 rounded-lg bg-green-100 text-green-800 cursor-pointer"
+                  onClick={() => handleRemoveAnswerWord(idx)}
                 >
-                  {settings.showKanjiGames ? word.word : word.type}
-                  {settings.showRomajiGames && (
-                    <span className="block text-sm text-gray-600 mt-1">
-                      {romajiMap[word.word] || 'Loading...'}
-                    </span>
-                  )}
+                  {word}
                 </span>
               ))}
+            </div>
+            {sentenceFeedback && (
+              <div className={sentenceFeedback === 'Correct!' ? 'text-green-600' : 'text-red-600'}>
+                {sentenceFeedback}
+              </div>
+            )}
+            <div className="mt-4 flex gap-4 items-center">
+              <button
+                onClick={startNewSentence}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              >
+                New Sentence
+              </button>
+              <span className="text-lg">Score: {sentenceScore}</span>
             </div>
           </div>
         );
 
       case 'memory':
         return (
-          <div className="grid grid-cols-4 gap-4">
-            {memoryCards.map((card) => (
-              <button
-                key={card.id}
-                onClick={() => handleMemoryCardClick(card.id)}
-                className={`aspect-square rounded-lg transition-all ${
-                  card.isMatched
-                    ? 'bg-green-100 border-green-500'
-                    : card.isFlipped
-                    ? 'bg-blue-100 border-blue-500'
-                    : 'bg-gray-100 border-gray-300 hover:bg-gray-200'
-                }`}
-                disabled={card.isMatched || !gameState.isPlaying}
-              >
-                {settings.showKanjiGames ? card.content : card.match}
-                {settings.showRomajiGames && (
-                  <span className="block text-sm text-gray-600 mt-1">
-                    {romajiMap[card.content] || 'Loading...'}
+          <div className="space-y-4">
+            <div className="flex gap-6 items-center">
+              <span className="text-lg">Score: {gameState.score}</span>
+              <span className="text-lg">Mistakes: {gameState.mistakes}</span>
+            </div>
+            {memoryFeedback && (
+              <div className={memoryFeedback === 'Correct!' ? 'text-green-600' : 'text-red-600'}>
+                {memoryFeedback}
+              </div>
+            )}
+            {memoryWin && (
+              <div className="text-2xl text-green-700 font-bold animate-bounce">You won!</div>
+            )}
+            <div className="grid grid-cols-4 gap-4">
+              {memoryCards.map((card) => (
+                <button
+                  key={card.id}
+                  onClick={() => handleMemoryCardClick(card.id)}
+                  className={`aspect-square rounded-lg transition-all duration-300 border-2
+                    ${card.isMatched ? 'bg-green-100 border-green-500' :
+                      card.isFlipped ? 'bg-blue-100 border-blue-500 scale-105' :
+                      'bg-gray-100 border-gray-300 hover:bg-gray-200'}
+                  `}
+                  disabled={card.isMatched || !gameState.isPlaying}
+                >
+                  <span className={`block text-2xl transition-opacity duration-300 ${card.isFlipped || card.isMatched ? 'opacity-100' : 'opacity-0'}`}>
+                    {settings.showKanjiGames ? card.content : card.match}
                   </span>
-                )}
-              </button>
-            ))}
+                  {settings.showRomajiGames && (
+                    <span className="block text-sm text-gray-600 mt-1">
+                      {romajiMap[card.content] || 'Loading...'}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => {
+                initializeMemoryGame();
+                setGameState(prev => ({ ...prev, score: 0, mistakes: 0 }));
+                setMemoryFeedback('');
+                setMemoryWin(false);
+              }}
+              className="mt-4 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+            >
+              New Game
+            </button>
           </div>
         );
 
@@ -920,9 +1013,60 @@ const Section8 = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
+        {selectedGame === 'sentence' && !gameState.isPlaying && (
+          <div className="mb-4 flex justify-center">
+            <button
+              onClick={() => {
+                initializeSentenceGame();
+                setGameState(prev => ({ ...prev, isPlaying: true }));
+              }}
+              className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+            >
+              Start Sentence Builder
+            </button>
+          </div>
+        )}
+        {selectedGame === 'memory' && !gameState.isPlaying && (
+          <div className="mb-4 flex justify-center">
+            <button
+              onClick={() => {
+                initializeMemoryGame();
+                setGameState(prev => ({ ...prev, isPlaying: true }));
+              }}
+              className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+            >
+              Start Memory Game
+            </button>
+          </div>
+        )}
         {selectedGame === 'sentence' && renderGameContent()}
         {selectedGame === 'memory' && renderGameContent()}
-        {selectedGame === 'quiz' && renderGameContent()}
+        {selectedGame === 'quiz' && !gameState.isPlaying && (
+          <div className="mb-4 flex justify-center">
+            <button
+              onClick={() => {
+                initializeQuizGame();
+                setGameState(prev => ({ ...prev, isPlaying: true }));
+              }}
+              className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+            >
+              Start Quiz
+            </button>
+          </div>
+        )}
+        {selectedGame === 'association' && !gameState.isPlaying && (
+          <div className="mb-4 flex justify-center">
+            <button
+              onClick={() => {
+                initializeAssociationGame();
+                setGameState(prev => ({ ...prev, isPlaying: true }));
+              }}
+              className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+            >
+              Start Word Association
+            </button>
+          </div>
+        )}
         {selectedGame === 'association' && renderGameContent()}
       </div>
 

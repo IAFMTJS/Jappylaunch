@@ -162,6 +162,102 @@ const beginnerPhrases: AnimePhrase[] = [
     example: '行こう、ヒナタ (Let\'s go, Hinata) - Naruto inviting Hinata to train together.',
     difficulty: 'beginner',
     category: 'action'
+  },
+  {
+    japanese: "俺はゴン・フリークスだ！",
+    romaji: "Ore wa Gon Furīkusu da!",
+    english: "I am Gon Freecss!",
+    context: "Gon's famous introduction in Hunter x Hunter.",
+    example: "俺はゴン・フリークスだ！ (I am Gon Freecss!) – Gon introducing himself.",
+    difficulty: "beginner",
+    category: "greeting",
+    animeImage: "gon-hxh.JPG",
+    characterName: "Gon Freecss",
+    animeTitle: "Hunter x Hunter"
+  },
+  {
+    japanese: "炭治郎、がんばれ！",
+    romaji: "Tanjiro, ganbare!",
+    english: "Tanjiro, do your best!",
+    context: "A cheering phrase for Tanjiro in Demon Slayer.",
+    example: "炭治郎、がんばれ！ (Tanjiro, do your best!) – Nezuko cheering her brother.",
+    difficulty: "beginner",
+    category: "emotion",
+    animeImage: "tanjiro-demonslayer.JPG",
+    characterName: "Tanjiro Kamado",
+    animeTitle: "Demon Slayer"
+  },
+  {
+    japanese: "ナルト、忍者の道を極めるぞ！",
+    romaji: "Naruto, ninja no michi wo kiwameru zo!",
+    english: "Naruto, I'll master the way of the ninja!",
+    context: "Naruto's determination in Naruto.",
+    example: "ナルト、忍者の道を極めるぞ！ (Naruto, I'll master the way of the ninja!) – Naruto's vow.",
+    difficulty: "beginner",
+    category: "action",
+    animeImage: "naruto.JPG",
+    characterName: "Naruto Uzumaki",
+    animeTitle: "Naruto"
+  },
+  {
+    japanese: "喰種、俺は人間だ。",
+    romaji: "Gūru, ore wa ningen da.",
+    english: "Ghoul, I am human.",
+    context: "Kaneki's famous line in Tokyo Ghoul.",
+    example: "喰種、俺は人間だ。 (Ghoul, I am human.) – Kaneki's declaration.",
+    difficulty: "beginner",
+    category: "emotion",
+    animeImage: "kaneki-tokyoghoul.JPG",
+    characterName: "Kaneki Ken",
+    animeTitle: "Tokyo Ghoul"
+  },
+  {
+    japanese: "風のブレーカー、俺は速いぞ。",
+    romaji: "Kaze no Burēkā, ore wa hayai zo.",
+    english: "Wind Breaker, I am fast.",
+    context: "A phrase inspired by Wind Breaker (placeholder).",
+    example: "風のブレーカー、俺は速いぞ。 (Wind Breaker, I am fast.) – Placeholder quote.",
+    difficulty: "beginner",
+    category: "action",
+    animeImage: "windbreaker.JPG",
+    characterName: "Wind Breaker",
+    animeTitle: "Wind Breaker"
+  },
+  {
+    japanese: "ソロ・レベリング、俺は最強だ。",
+    romaji: "Soro Reberingu, ore wa saikyō da.",
+    english: "Solo Leveling, I am the strongest.",
+    context: "A phrase inspired by Solo Leveling (placeholder).",
+    example: "ソロ・レベリング、俺は最強だ。 (Solo Leveling, I am the strongest.) – Placeholder quote.",
+    difficulty: "beginner",
+    category: "emotion",
+    animeImage: "sololeveling.JPG",
+    characterName: "Sung Jin-Woo",
+    animeTitle: "Solo Leveling"
+  },
+  {
+    japanese: "ヒソカだよ。",
+    romaji: "Hisoka da yo.",
+    english: "I am Hisoka.",
+    context: "Hisoka's introduction in Hunter x Hunter.",
+    example: "ヒソカだよ。 (I am Hisoka.) – Hisoka introducing himself.",
+    difficulty: "beginner",
+    category: "greeting",
+    animeImage: "hisoka-hxh.JPG",
+    characterName: "Hisoka",
+    animeTitle: "Hunter x Hunter"
+  },
+  {
+    japanese: "ヒデ、がんばれ！",
+    romaji: "Hide, ganbare!",
+    english: "Hide, do your best!",
+    context: "A cheering phrase for Hide in Tokyo Ghoul.",
+    example: "ヒデ、がんばれ！ (Hide, do your best!) – cheering for Hide.",
+    difficulty: "beginner",
+    category: "greeting",
+    animeImage: "hide-tokyoghoul.JPG",
+    characterName: "Hide",
+    animeTitle: "Tokyo Ghoul"
   }
 ];
 

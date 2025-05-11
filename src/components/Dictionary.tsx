@@ -216,15 +216,16 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
     const itemId = 'japanese' in item ? item.japanese : item.character;
     const isMarked = progress[mode]?.masteredIds?.has(itemId);
 
-    // Optimistically update UI
+    // Gebruik altijd een nieuwe Set
+    const newMasteredIds = new Set(progress[mode]?.masteredIds);
     if (isMarked) {
-      progress[mode]?.masteredIds?.delete(itemId);
+      newMasteredIds.delete(itemId);
     } else {
-      progress[mode]?.masteredIds?.add(itemId);
+      newMasteredIds.add(itemId);
     }
 
     updateProgress(mode, {
-      masteredIds: new Set(progress[mode]?.masteredIds),
+      masteredIds: newMasteredIds,
       lastAttempt: new Date().toISOString()
     });
 
