@@ -1,12 +1,23 @@
 import { romajiCache } from './romajiCache';
 
 export async function downloadOfflineData() {
-  // Download romaji-data.json
-  const romajiResponse = await fetch('/romaji-data.json');
-  if (!romajiResponse.ok) {
-    throw new Error('Romaji-data (romaji-data.json) kon niet worden opgehaald.');
+  let romajiData: Record<string, string> = {};
+  let romajiResponse: Response | null = null;
+
+  // Try fetching romaji-data.json (with a fallback fetch from /romaji-data.json if the first fetch fails)
+  try {
+    romajiResponse = await fetch("romaji-data.json");
+  } catch (e) {
+    console.warn("Fetching romaji-data.json failed, falling back to /romaji-data.json");
+    romajiResponse = await fetch("/romaji-data.json");
   }
-  const romajiData = await romajiResponse.json();
-  // Sla op in IndexedDB via romajiCache
-  await romajiCache.set('romaji-data', romajiData);
+
+  if (romajiResponse && romajiResponse.ok) {
+    romajiData = await romajiResponse.json();
+  } else {
+    console.warn("Romaji-data (romaji-data.json) kon niet worden opgehaald, using empty fallback.");
+  }
+
+  // Merge fetched romaji data (or an empty object if fetch fails) into romajiCache (via romajiCache.setBatch) so that romaji conversion (via kuroshiro) is available everywhere.
+  await romajiCache.setBatch(romajiData);
 } 
