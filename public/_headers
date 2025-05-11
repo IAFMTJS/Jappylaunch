@@ -1,2 +1,6 @@
 /dict/*.dat
-  Content-Type: application/octet-stream 
+  Content-Type: application/octet-stream
+
+/romaji-data.json
+  Content-Type: application/json
+  Access-Control-Allow-Origin: * 
