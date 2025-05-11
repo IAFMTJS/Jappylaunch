@@ -4,11 +4,15 @@ import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import type { Settings } from '../context/AppContext';
 import { useProgress } from '../context/ProgressContext';
+import { downloadOfflineData } from '../utils/offlineData';
 
 const SettingsPage: React.FC = () => {
   const { theme, isDarkMode, setTheme, toggleDarkMode } = useTheme();
   const { settings, updateSettings } = useApp();
   const { progress: progressData, resetProgress } = useProgress();
+  const [isDownloading, setIsDownloading] = React.useState(false);
+  const [downloadError, setDownloadError] = React.useState<string | null>(null);
+  const [downloadSuccess, setDownloadSuccess] = React.useState(false);
 
   const getThemeClasses = () => {
     const baseClasses = {
@@ -79,6 +83,20 @@ const SettingsPage: React.FC = () => {
       </select>
     </div>
   );
+
+  const handleDownloadOfflineData = async () => {
+    setIsDownloading(true);
+    setDownloadError(null);
+    setDownloadSuccess(false);
+    try {
+      await downloadOfflineData();
+      setDownloadSuccess(true);
+    } catch (err) {
+      setDownloadError('Er is een fout opgetreden bij het downloaden van de offline data.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
@@ -153,6 +171,18 @@ const SettingsPage: React.FC = () => {
                 ],
                 'Set the default difficulty level for exercises'
               )}
+              {/* Download Offline Data Button */}
+              <div className="flex items-center gap-4 mt-2">
+                <button
+                  onClick={handleDownloadOfflineData}
+                  disabled={isDownloading}
+                  className={`px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors ${isDownloading ? 'opacity-60 cursor-not-allowed' : ''}`}
+                >
+                  {isDownloading ? 'Downloading...' : 'Download Offline Data'}
+                </button>
+                {downloadSuccess && <span className="text-green-600 font-semibold">Offline data opgeslagen!</span>}
+                {downloadError && <span className="text-red-600 font-semibold">{downloadError}</span>}
+              </div>
             </div>
           </div>
 
