@@ -1062,6 +1062,7 @@ const Section8 = () => {
           <div className="mb-4 flex justify-center">
             <button
               onClick={() => {
+                console.log('Start Sentence Builder clicked');
                 initializeSentenceBuilder();
                 setGameState(prev => ({ ...prev, isPlaying: true }));
               }}
@@ -1075,6 +1076,7 @@ const Section8 = () => {
           <div className="mb-4 flex justify-center">
             <button
               onClick={() => {
+                console.log('Start Memory Game clicked');
                 initializeMemoryGame();
                 setGameState(prev => ({ ...prev, isPlaying: true }));
               }}
@@ -1088,6 +1090,7 @@ const Section8 = () => {
           <div className="mb-4 flex justify-center">
             <button
               onClick={() => {
+                console.log('Start Quiz clicked');
                 initializeQuizGame();
                 setGameState(prev => ({ ...prev, isPlaying: true }));
               }}
@@ -1101,6 +1104,7 @@ const Section8 = () => {
           <div className="mb-4 flex justify-center">
             <button
               onClick={() => {
+                console.log('Start Word Association clicked');
                 initializeAssociationGame();
                 setGameState(prev => ({ ...prev, isPlaying: true }));
               }}
@@ -1110,8 +1114,15 @@ const Section8 = () => {
             </button>
           </div>
         )}
-        {/* Always render game content for any selected game */}
-        {['sentence', 'memory', 'quiz', 'association'].includes(selectedGame) && renderGameContent()}
+        {/* Always render game content for any selected game, with debug logging and fallback */}
+        {(() => {
+          console.log('renderGameContent called for', selectedGame, 'isPlaying:', gameState.isPlaying);
+          const content = ['sentence', 'memory', 'quiz', 'association'].includes(selectedGame) ? renderGameContent() : null;
+          if (!content) {
+            return <div className="text-red-600">No game content to display. (Debug: {selectedGame}, isPlaying: {String(gameState.isPlaying)})</div>;
+          }
+          return content;
+        })()}
       </div>
 
       {gameState.isPlaying && (
