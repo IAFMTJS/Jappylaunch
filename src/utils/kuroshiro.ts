@@ -8,42 +8,106 @@ const romajiCache: Record<string, string> = {};
 const kuroshiro = new Kuroshiro();
 let initialized = false;
 let initPromise: Promise<void> | null = null;
+let preloadedData: Record<string, string> | null = null;
+
+// Load pre-cached romaji data
+const loadPrecachedData = async (): Promise<void> => {
+  try {
+    console.log('[Kuroshiro] Attempting to load pre-cached romaji data...');
+    // Try to load from cache first
+    const cachedResponse = await caches.match('/romaji-data.json');
+    if (cachedResponse) {
+      console.log('[Kuroshiro] Found romaji data in cache');
+      preloadedData = await cachedResponse.json();
+    } else {
+      console.log('[Kuroshiro] No cached data found, fetching from network');
+      const response = await fetch('/romaji-data.json', {
+        // Add cache control headers
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load pre-cached data: ${response.status} ${response.statusText}`);
+      }
+      
+      preloadedData = await response.json();
+      console.log('[Kuroshiro] Successfully loaded romaji data from network');
+    }
+    
+    if (!preloadedData || Object.keys(preloadedData).length === 0) {
+      throw new Error('Pre-cached data is empty');
+    }
+    
+    console.log('[Kuroshiro] Pre-cached romaji data loaded successfully with', Object.keys(preloadedData).length, 'entries');
+    
+    // Update the cache with preloaded data
+    Object.assign(romajiCache, preloadedData);
+    
+    // Verify some common words are present
+    const testWords = ['猫', '犬', '鳥', '魚', '本'];
+    const missingWords = testWords.filter(word => !preloadedData![word]);
+    if (missingWords.length > 0) {
+      console.warn('[Kuroshiro] Some common words are missing from pre-cached data:', missingWords);
+    }
+  } catch (error) {
+    console.error('[Kuroshiro] Error loading pre-cached data:', error);
+    // Don't throw, but log a warning
+    console.warn('[Kuroshiro] Continuing without pre-cached data');
+  }
+};
 
 // Initialize the analyzer (lazy initialization)
 const initKuroshiro = async () => {
-  console.log('initKuroshiro called, current state:', { initialized, hasInitPromise: !!initPromise });
+  console.log('[Kuroshiro] initKuroshiro called, current state:', { 
+    initialized, 
+    hasInitPromise: !!initPromise,
+    hasPreloadedData: !!preloadedData,
+    cacheSize: Object.keys(romajiCache).length
+  });
   
   if (!initPromise) {
-    console.log('Creating new initialization promise');
+    console.log('[Kuroshiro] Creating new initialization promise');
     initPromise = (async () => {
       if (!initialized) {
         try {
-          console.log('Starting Kuroshiro initialization...');
-          const analyzer = new KuromojiAnalyzer();
-          console.log('KuromojiAnalyzer created, initializing...');
-          await kuroshiro.init(analyzer);
-          console.log('Kuroshiro initialization successful');
+          // Try to load pre-cached data first
+          await loadPrecachedData();
+          
+          // Only initialize Kuroshiro if we don't have pre-cached data
+          if (!preloadedData || Object.keys(preloadedData).length === 0) {
+            console.log('[Kuroshiro] No pre-cached data available, initializing Kuroshiro...');
+            const analyzer = new KuromojiAnalyzer();
+            console.log('[Kuroshiro] KuromojiAnalyzer created, initializing...');
+            await kuroshiro.init(analyzer);
+            console.log('[Kuroshiro] Kuroshiro initialization successful');
+          } else {
+            console.log('[Kuroshiro] Using pre-cached data, skipping Kuroshiro initialization');
+          }
+          
           initialized = true;
         } catch (error) {
-          console.error('Kuroshiro initialization failed:', error);
+          console.error('[Kuroshiro] Initialization failed:', error);
           // Reset initialization state on failure
           initialized = false;
           initPromise = null;
           throw error;
         }
       } else {
-        console.log('Kuroshiro already initialized');
+        console.log('[Kuroshiro] Already initialized');
       }
     })();
   } else {
-    console.log('Using existing initialization promise');
+    console.log('[Kuroshiro] Using existing initialization promise');
   }
   
   try {
     await initPromise;
-    console.log('Initialization promise resolved successfully');
+    console.log('[Kuroshiro] Initialization promise resolved successfully');
   } catch (error) {
-    console.error('Initialization promise failed:', error);
+    console.error('[Kuroshiro] Initialization promise failed:', error);
     throw error;
   }
   
@@ -61,10 +125,27 @@ export const convertBatchToRomaji = async (texts: string[], batchSize: number = 
   }
 
   const results: Record<string, string> = {};
+  
+  // First, check preloaded data
+  if (preloadedData) {
+    texts.forEach(text => {
+      if (preloadedData![text]) {
+        results[text] = preloadedData![text];
+        romajiCache[text] = preloadedData![text];
+      }
+    });
+  }
+
+  // Then check memory cache
   const textsToConvert = texts.filter(text => !romajiCache[text]);
   console.log('Found', textsToConvert.length, 'texts that need conversion');
 
-  // Process in larger batches for better performance
+  if (textsToConvert.length === 0) {
+    console.log('All texts found in cache');
+    return results;
+  }
+
+  // Process remaining texts in batches
   for (let i = 0; i < textsToConvert.length; i += batchSize) {
     const batch = textsToConvert.slice(i, i + batchSize);
     console.log('Processing batch', i / batchSize + 1, 'of', Math.ceil(textsToConvert.length / batchSize));
@@ -107,7 +188,13 @@ export const convertBatchToRomaji = async (texts: string[], batchSize: number = 
 
 // Convert single text to romaji with caching
 export const convertToRomaji = async (text: string): Promise<string> => {
-  // Check cache first
+  // Check preloaded data first
+  if (preloadedData && preloadedData[text]) {
+    romajiCache[text] = preloadedData[text];
+    return preloadedData[text];
+  }
+
+  // Check memory cache
   if (romajiCache[text]) {
     return romajiCache[text];
   }
@@ -179,5 +266,7 @@ export const kuroshiroInstance = {
   getCache: () => ({ ...romajiCache }),
   clearCache: () => {
     Object.keys(romajiCache).forEach(key => delete romajiCache[key]);
-  }
+  },
+  isInitialized: () => initialized,
+  hasPreloadedData: () => !!preloadedData
 }; 
