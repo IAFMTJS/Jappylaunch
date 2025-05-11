@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { quizWords, Category } from '../data/quizData';
@@ -67,7 +67,7 @@ const Quiz: React.FC = () => {
   const [bestStreak, setBestStreak] = useState(0);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState(false);
-  const [romajiMap, setRomajiMap] = useState<Record<string, string>>({});
+  const [romajiCache, setRomajiCache] = useState<Record<string, string>>({});
 
   const getThemeClasses = () => {
     if (isDarkMode) {
@@ -116,7 +116,7 @@ const Quiz: React.FC = () => {
     }
   };
 
-  const themeClasses = getThemeClasses();
+  const themeClasses = useMemo(() => getThemeClasses(), [theme, isDarkMode]);
 
   const generateOptions = useCallback((correctWord: typeof quizWords[0], allWords: typeof quizWords) => {
     // Get other words from the same category and difficulty
@@ -228,16 +228,15 @@ const Quiz: React.FC = () => {
     }, 1000);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!userAnswer.trim()) return;
-
     checkAnswer(userAnswer.trim());
-  };
+  }, [userAnswer, checkAnswer]);
 
-  const handleOptionSelect = (option: string) => {
+  const handleOptionSelect = useCallback((option: string) => {
     checkAnswer(option);
-  };
+  }, [checkAnswer]);
 
   const handleNext = useCallback(() => {
     if (currentQuestion < questions.length - 1) {
@@ -280,32 +279,57 @@ const Quiz: React.FC = () => {
     setQuizState('setup');
   };
 
-  // Function to get romaji for a given text
-  const getRomaji = async (text: string) => {
-    if (romajiMap[text]) return romajiMap[text];
-    try {
-      const romaji = await kuroshiroInstance.convert(text);
-      setRomajiMap(prev => ({ ...prev, [text]: romaji }));
-      return romaji;
-    } catch (error) {
-      console.error('Error converting to romaji:', error);
-      return text;
-    }
-  };
+  // Memoize filtered questions to prevent recalculation
+  const filteredQuestions = useMemo(() => {
+    let filtered = quizWords.filter(word => {
+      const matchesCategory = settings.category === 'all' || word.category === settings.category;
+      return matchesCategory;
+    });
+    return [...filtered].sort(() => Math.random() - 0.5).slice(0, settings.questionCount);
+  }, [settings.category, settings.questionCount]);
 
-  // Update romaji when settings change
-  useEffect(() => {
-    if (appSettings.showRomajiGames) {
-      const updateRomaji = async () => {
-        for (const word of questions) {
-          if (!romajiMap[word.japanese]) {
-            await getRomaji(word.japanese);
+  // Memoize options generation
+  const currentOptions = useMemo(() => {
+    if (settings.quizType === 'multiple-choice' && questions.length > 0) {
+      return generateOptions(questions[currentQuestion], quizWords);
+    }
+    return [];
+  }, [questions, currentQuestion, settings.quizType, generateOptions]);
+
+  // Optimize romaji conversion with batch processing
+  const updateRomajiBatch = useCallback(async (words: typeof quizWords) => {
+    const newWords = words.filter(word => !romajiCache[word.japanese]);
+    if (newWords.length === 0) return;
+
+    const batchSize = 5; // Process in small batches to prevent UI blocking
+    for (let i = 0; i < newWords.length; i += batchSize) {
+      const batch = newWords.slice(i, i + batchSize);
+      const newRomajiMap = { ...romajiCache };
+      
+      await Promise.all(batch.map(async (word) => {
+        if (!newRomajiMap[word.japanese]) {
+          try {
+            newRomajiMap[word.japanese] = await kuroshiroInstance.convert(word.japanese);
+          } catch (error) {
+            console.error('Error converting to romaji:', error);
+            newRomajiMap[word.japanese] = word.japanese;
           }
         }
-      };
-      updateRomaji();
+      }));
+      
+      setRomajiCache(newRomajiMap);
     }
-  }, [questions, appSettings.showRomajiGames]);
+  }, [romajiCache]);
+
+  // Update romaji only when questions change
+  useEffect(() => {
+    if (appSettings.showRomajiGames && questions.length > 0) {
+      updateRomajiBatch(questions);
+    }
+  }, [questions, appSettings.showRomajiGames, updateRomajiBatch]);
+
+  // Memoize the current word to prevent unnecessary re-renders
+  const currentWord = useMemo(() => questions[currentQuestion], [questions, currentQuestion]);
 
   if (quizState === 'setup') {
     return (
@@ -453,8 +477,6 @@ const Quiz: React.FC = () => {
     );
   }
 
-  const currentWord = questions[currentQuestion];
-
   return (
     <div className={`${themeClasses.container} rounded-lg shadow-md p-6`}>
       <div className="mb-6">
@@ -483,7 +505,7 @@ const Quiz: React.FC = () => {
             </h3>
             {appSettings.showRomajiGames && (
               <p className={`text-xl text-gray-600 mb-4 ${themeClasses.text}`}>
-                {romajiMap[currentWord.japanese] || 'Loading...'}
+                {romajiCache[currentWord.japanese] || 'Loading...'}
               </p>
             )}
           </>
@@ -493,7 +515,7 @@ const Quiz: React.FC = () => {
       {!showAnswer ? (
         settings.quizType === 'multiple-choice' ? (
           <div className="space-y-4">
-            {options.map((option, index) => (
+            {currentOptions.map((option, index) => (
               <button
                 key={index}
                 onClick={() => handleOptionSelect(option)}
@@ -562,4 +584,4 @@ const Quiz: React.FC = () => {
   );
 };
 
-export default Quiz; 
+export default React.memo(Quiz); 

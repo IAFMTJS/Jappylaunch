@@ -93,7 +93,8 @@ const Progress: React.FC<ProgressProps> = ({ detailed = false }) => {
     { id: 'section5', name: 'Vocabulary Builder', icon: '📚' },
     { id: 'section6', name: 'Reading Practice', icon: '📖' },
     { id: 'section7', name: 'JLPT Preparation', icon: '🎯' },
-    { id: 'section8', name: 'Interactive Games', icon: '🎮' }
+    { id: 'section8', name: 'Interactive Games', icon: '🎮' },
+    { id: 'anime', name: 'Anime & Manga Phrases', icon: '🎌' }
   ];
 
   const calculateTotalProgress = () => {

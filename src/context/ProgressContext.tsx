@@ -14,6 +14,7 @@ interface ProgressData {
   kanji: SectionProgress;
   hiragana: SectionProgress;
   katakana: SectionProgress;
+  anime: SectionProgress;
 }
 
 interface ProgressContextType {
@@ -52,6 +53,13 @@ const initialProgress: ProgressData = {
     averageTime: 0
   },
   katakana: {
+    totalQuestions: 0,
+    correctAnswers: 0,
+    bestStreak: 0,
+    lastAttempt: '',
+    averageTime: 0
+  },
+  anime: {
     totalQuestions: 0,
     correctAnswers: 0,
     bestStreak: 0,

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useMemo, useCallback, useRef } from 'react';
 
 interface Progress {
   completed: number;
@@ -71,7 +71,18 @@ const defaultProgress: ProgressData = {
   section5: { completed: 0, total: 0 },
   section6: { completed: 0, total: 0 },
   section7: { completed: 0, total: 0 },
-  section8: { completed: 0, total: 0 }
+  section8: { completed: 0, total: 0 },
+  anime: { 
+    completed: 0, 
+    total: 0,
+    quizStats: {
+      totalQuizzes: 0,
+      averageScore: 0,
+      bestScore: 0,
+      lastQuizDate: '',
+      categories: {}
+    }
+  }
 };
 
 export const defaultSettings: Settings = {
@@ -112,7 +123,23 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     return savedSettings ? JSON.parse(savedSettings) : defaultSettings;
   });
 
-  const updateProgress = (
+  // Use refs to store timeouts and prevent memory leaks
+  const progressTimeoutRef = useRef<NodeJS.Timeout>();
+  const settingsTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Improved debouncing with cleanup
+  const debouncedLocalStorageWrite = useCallback((key: string, value: any, timeoutRef: React.MutableRefObject<NodeJS.Timeout | undefined>) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      localStorage.setItem(key, JSON.stringify(value));
+      timeoutRef.current = undefined;
+    }, 300); // Reduced debounce time for better responsiveness
+  }, []);
+
+  // Memoize progress update function
+  const updateProgress = useCallback((
     section: string,
     completed: number,
     total: number,
@@ -121,55 +148,66 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setProgress(prev => {
       const sectionProgress = prev[section] || { 
         completed: 0, 
-        total: 0, 
-        quizStats: defaultProgress.section1.quizStats 
+        total: 0
       };
 
-      const newProgress = {
+      const newProgress: ProgressData = {
         ...prev,
         [section]: {
           ...sectionProgress,
           completed,
           total,
-          quizStats: quizData ? {
-            totalQuizzes: (sectionProgress.quizStats?.totalQuizzes || 0) + 1,
-            averageScore: ((sectionProgress.quizStats?.averageScore || 0) * (sectionProgress.quizStats?.totalQuizzes || 0) + quizData.score) / 
-                         ((sectionProgress.quizStats?.totalQuizzes || 0) + 1),
-            bestScore: Math.max(sectionProgress.quizStats?.bestScore || 0, quizData.score),
-            lastQuizDate: quizData.date,
-            categories: {
-              ...sectionProgress.quizStats?.categories,
-              [quizData.category]: {
-                attempts: (sectionProgress.quizStats?.categories?.[quizData.category]?.attempts || 0) + 1,
-                averageScore: ((sectionProgress.quizStats?.categories?.[quizData.category]?.averageScore || 0) * 
-                             (sectionProgress.quizStats?.categories?.[quizData.category]?.attempts || 0) + quizData.score) / 
-                             ((sectionProgress.quizStats?.categories?.[quizData.category]?.attempts || 0) + 1),
-                bestScore: Math.max(sectionProgress.quizStats?.categories?.[quizData.category]?.bestScore || 0, quizData.score)
+          ...(quizData && {
+            quizStats: {
+              totalQuizzes: (sectionProgress.quizStats?.totalQuizzes || 0) + 1,
+              averageScore: ((sectionProgress.quizStats?.averageScore || 0) * (sectionProgress.quizStats?.totalQuizzes || 0) + quizData.score) / 
+                           ((sectionProgress.quizStats?.totalQuizzes || 0) + 1),
+              bestScore: Math.max(sectionProgress.quizStats?.bestScore || 0, quizData.score),
+              lastQuizDate: quizData.date,
+              categories: {
+                ...sectionProgress.quizStats?.categories,
+                [quizData.category]: {
+                  attempts: (sectionProgress.quizStats?.categories?.[quizData.category]?.attempts || 0) + 1,
+                  averageScore: ((sectionProgress.quizStats?.categories?.[quizData.category]?.averageScore || 0) * 
+                               (sectionProgress.quizStats?.categories?.[quizData.category]?.attempts || 0) + quizData.score) / 
+                               ((sectionProgress.quizStats?.categories?.[quizData.category]?.attempts || 0) + 1),
+                  bestScore: Math.max(sectionProgress.quizStats?.categories?.[quizData.category]?.bestScore || 0, quizData.score)
+                }
               }
             }
-          } : sectionProgress.quizStats
+          })
         }
       };
 
-      localStorage.setItem('appProgress', JSON.stringify(newProgress));
+      debouncedLocalStorageWrite('appProgress', newProgress, progressTimeoutRef);
       return newProgress;
     });
-  };
+  }, [debouncedLocalStorageWrite]);
 
-  const updateSettings = (newSettings: Partial<Settings>) => {
+  // Memoize settings update function
+  const updateSettings = useCallback((newSettings: Partial<Settings>) => {
     setSettings(prev => {
       const updatedSettings = { ...prev, ...newSettings };
-      localStorage.setItem('appSettings', JSON.stringify(updatedSettings));
+      debouncedLocalStorageWrite('appSettings', updatedSettings, settingsTimeoutRef);
       return updatedSettings;
     });
-  };
+  }, [debouncedLocalStorageWrite]);
 
-  const value = {
+  // Cleanup timeouts on unmount
+  React.useEffect(() => {
+    return () => {
+      if (progressTimeoutRef.current) clearTimeout(progressTimeoutRef.current);
+      if (settingsTimeoutRef.current) clearTimeout(settingsTimeoutRef.current);
+    };
+  }, []);
+
+  // Memoize context value
+  const value = useMemo(() => ({
     progress,
     settings,
     updateProgress,
     updateSettings
-  };
+  }), [progress, settings, updateProgress, updateSettings]);
 
   return (
     <AppContext.Provider value={value}>
