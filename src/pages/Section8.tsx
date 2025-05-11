@@ -1057,6 +1057,7 @@ const Section8 = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
+        {/* Render Start buttons for each game when not playing */}
         {selectedGame === 'sentence' && !gameState.isPlaying && (
           <div className="mb-4 flex justify-center">
             <button
@@ -1083,8 +1084,6 @@ const Section8 = () => {
             </button>
           </div>
         )}
-        {selectedGame === 'sentence' && renderGameContent()}
-        {selectedGame === 'memory' && renderGameContent()}
         {selectedGame === 'quiz' && !gameState.isPlaying && (
           <div className="mb-4 flex justify-center">
             <button
@@ -1111,7 +1110,8 @@ const Section8 = () => {
             </button>
           </div>
         )}
-        {selectedGame === 'association' && renderGameContent()}
+        {/* Always render game content for any selected game */}
+        {['sentence', 'memory', 'quiz', 'association'].includes(selectedGame) && renderGameContent()}
       </div>
 
       {gameState.isPlaying && (
