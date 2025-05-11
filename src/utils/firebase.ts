@@ -10,12 +10,12 @@ export type FirebaseError = AuthError | FirestoreError;
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDxXxXxXxXxXxXxXxXxXxXxXxXxXxXxXx",
-  authDomain: "japvoc-app.firebaseapp.com",
-  projectId: "japvoc-app",
-  storageBucket: "japvoc-app.appspot.com",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abcdef1234567890"
+  apiKey: "AIzaSyAj3ekprS0FDdSKLvC1vmfY1J1nhF8k4pE",
+  authDomain: "jappylaunch.firebaseapp.com",
+  projectId: "jappylaunch",
+  storageBucket: "jappylaunch.firebasestorage.app",
+  messagingSenderId: "833726317843",
+  appId: "1:833726317843:web:9dcf49af8b5cf5843946e6"
 };
 
 // Debug log to check configuration
