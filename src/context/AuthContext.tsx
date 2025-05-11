@@ -43,24 +43,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [initError, setInitError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('AuthProvider: Starting authentication state listener...');
     try {
       const unsubscribe = onAuthStateChanged(auth, 
         (user) => {
+          console.log('AuthProvider: Auth state changed:', {
+            hasUser: !!user,
+            email: user?.email,
+            emailVerified: user?.emailVerified,
+            timestamp: new Date().toISOString()
+          });
           setCurrentUser(user);
           setIsEmailVerified(user?.emailVerified ?? false);
           setLoading(false);
           setInitError(null);
         },
         (error) => {
-          console.error('Firebase auth initialization error:', error);
+          console.error('AuthProvider: Firebase auth initialization error:', {
+            error,
+            code: error instanceof Error ? (error as AuthError).code : 'unknown',
+            message: error instanceof Error ? error.message : 'Unknown error',
+            timestamp: new Date().toISOString()
+          });
           setInitError(error instanceof Error ? error.message : 'Unknown error occurred');
           setLoading(false);
         }
       );
 
-      return unsubscribe;
+      console.log('AuthProvider: Auth state listener set up successfully');
+      return () => {
+        console.log('AuthProvider: Cleaning up auth state listener');
+        unsubscribe();
+      };
     } catch (error) {
-      console.error('Firebase auth setup error:', error);
+      console.error('AuthProvider: Critical error setting up auth state listener:', {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      });
       setInitError(error instanceof Error ? error.message : 'Failed to initialize authentication');
       setLoading(false);
     }
@@ -180,17 +201,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   if (loading) {
+    console.log('AuthProvider: Rendering loading screen');
     return <LoadingScreen />;
   }
 
   if (initError) {
+    console.error('AuthProvider: Rendering error screen due to initialization error:', initError);
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
           <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-2">Initialization Error</h2>
           <p className="text-gray-600 dark:text-gray-400">{initError}</p>
           <button 
-            onClick={() => window.location.reload()} 
+            onClick={() => {
+              console.log('AuthProvider: Retry button clicked');
+              window.location.reload();
+            }} 
             className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
           >
             Retry
@@ -200,6 +226,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   }
 
+  console.log('AuthProvider: Rendering children with auth context');
   return (
     <AuthContext.Provider value={value}>
       {children}
