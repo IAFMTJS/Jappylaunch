@@ -1,12 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import type { AuthError } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator, enableIndexedDbPersistence } from 'firebase/firestore';
-import type { FirestoreError } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
-
-// Export types at the top level
-export type FirebaseError = AuthError | FirestoreError;
 
 // Firebase configuration
 const firebaseConfig = {
@@ -30,7 +25,7 @@ console.log('Starting Firebase initialization...', {
 
 let app;
 let auth;
-let db;
+let db: ReturnType<typeof getFirestore>;
 
 try {
   // Initialize Firebase
@@ -53,15 +48,18 @@ try {
   console.log('Attempting to enable Firestore persistence...');
   enableIndexedDbPersistence(db)
     .then(() => console.log('Firestore persistence enabled successfully'))
-    .catch((err) => {
+    .catch((err: unknown) => {
+      const code = typeof err === 'object' && err !== null && 'code' in err ? (err as any).code : undefined;
+      const message = err instanceof Error ? err.message : undefined;
+      const name = typeof err === 'object' && err !== null && 'name' in err ? (err as any).name : undefined;
       console.warn('Firestore persistence setup warning:', {
-        code: err.code,
-        message: err.message,
-        name: err.name
+        code,
+        message,
+        name
       });
-      if (err.code === 'failed-precondition') {
+      if (code === 'failed-precondition') {
         console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-      } else if (err.code === 'unimplemented') {
+      } else if (code === 'unimplemented') {
         console.warn('The current browser does not support persistence.');
       } else {
         console.error('Error enabling persistence:', err);
@@ -96,13 +94,6 @@ try {
   });
   throw error;
 }
-
-export const isFirebaseError = (error: unknown): error is FirebaseError => {
-  return error instanceof Error && (
-    'code' in error && 
-    typeof (error as FirebaseError).code === 'string'
-  );
-};
 
 export { auth, db };
 export default app; 

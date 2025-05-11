@@ -17,6 +17,7 @@ import Section7 from './pages/Section7';
 import Section8 from './pages/Section8';
 import AnimeSection from './pages/AnimeSection';
 import ProgressPage from './pages/ProgressPage';
+import SettingsPage from './pages/Settings';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import ResetPassword from './components/ResetPassword';
@@ -25,6 +26,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import SessionWarning from './components/SessionWarning';
 import EmailVerification from './components/EmailVerification';
 import GuestBanner from './components/GuestBanner';
+import ProgressSection from './pages/ProgressSection';
 
 const App = () => {
   useEffect(() => {
@@ -51,6 +53,8 @@ const App = () => {
                       <Route path="/update-password" element={<UpdatePassword />} />
                       <Route path="/" element={<Home />} />
                       <Route path="/progress" element={<ProgressPage />} />
+                      <Route path="/progress-section" element={<ProgressSection />} />
+                      <Route path="/settings" element={<SettingsPage />} />
                       <Route path="/section1" element={<Section1 />} />
                       <Route path="/section2" element={<Section2 />} />
                       <Route path="/section3" element={<Section3 />} />
