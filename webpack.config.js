@@ -12,26 +12,23 @@ module.exports = (env, argv) => {
     output: {
       path: path.resolve(__dirname, 'build'),
       filename: isProduction ? '[name].[contenthash].js' : '[name].js',
-      clean: true,
+      publicPath: '/'
     },
     module: {
       rules: [
         {
           test: /\.(ts|tsx)$/,
           exclude: /node_modules/,
-          use: 'ts-loader',
+          use: 'ts-loader'
         },
         {
           test: /\.css$/,
-          use: ['style-loader', 'css-loader', 'postcss-loader'],
-        },
-      ],
+          use: ['style-loader', 'css-loader', 'postcss-loader']
+        }
+      ]
     },
     resolve: {
-      extensions: ['.tsx', '.ts', '.js'],
-      alias: {
-        '@': path.resolve(__dirname, 'src'),
-      },
+      extensions: ['.tsx', '.ts', '.js']
     },
     optimization: {
       minimize: isProduction,
@@ -40,14 +37,10 @@ module.exports = (env, argv) => {
           terserOptions: {
             compress: {
               drop_console: isProduction,
-              drop_debugger: isProduction,
-            },
-            mangle: true,
-            output: {
-              comments: false,
-            },
-          },
-        }),
+              drop_debugger: isProduction
+            }
+          }
+        })
       ],
       splitChunks: {
         chunks: 'all',
@@ -57,10 +50,10 @@ module.exports = (env, argv) => {
           vendor: {
             test: /[\\/]node_modules[\\/]/,
             name: 'vendors',
-            chunks: 'all',
-          },
-        },
-      },
+            chunks: 'all'
+          }
+        }
+      }
     },
     plugins: [
       ...(isProduction ? [
@@ -70,36 +63,42 @@ module.exports = (env, argv) => {
           stringArrayEncoding: ['base64'],
           stringArrayThreshold: 0.75,
           identifierNamesGenerator: 'hexadecimal',
-          compact: true,
-          controlFlowFlattening: true,
-          controlFlowFlatteningThreshold: 0.75,
+          debugProtection: true,
+          debugProtectionInterval: 1000,
+          disableConsoleOutput: true,
+          selfDefending: true,
           deadCodeInjection: true,
           deadCodeInjectionThreshold: 0.4,
-          debugProtection: true,
-          debugProtectionInterval: true,
-          disableConsoleOutput: true,
+          controlFlowFlattening: true,
+          controlFlowFlatteningThreshold: 0.75,
           numbersToExpressions: true,
-          renameGlobals: false,
-          selfDefending: true,
           simplify: true,
+          shuffleStringArray: true,
           splitStrings: true,
-          splitStringsChunkLength: 10,
+          stringArrayWrappersCount: 2,
+          stringArrayWrappersType: 'function',
+          stringArrayWrappersParametersMaxCount: 4,
+          stringArrayWrappersChainedCalls: true,
+          stringArrayEncoding: ['base64'],
           transformObjectKeys: true,
-          unicodeEscapeSequence: false,
+          unicodeEscapeSequence: false
         }),
         new CompressionPlugin({
-          algorithm: 'gzip',
           test: /\.(js|css|html|svg)$/,
-          threshold: 10240,
-          minRatio: 0.8,
-        }),
-      ] : []),
+          algorithm: 'gzip'
+        })
+      ] : [])
     ],
+    devServer: {
+      historyApiFallback: true,
+      hot: true,
+      port: 3000
+    },
     devtool: isProduction ? false : 'source-map',
     performance: {
       hints: isProduction ? 'warning' : false,
       maxEntrypointSize: 512000,
-      maxAssetSize: 512000,
-    },
+      maxAssetSize: 512000
+    }
   };
 }; 
