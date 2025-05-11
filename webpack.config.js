@@ -126,28 +126,6 @@ module.exports = (env, argv) => {
         ]
       }),
       ...(isProduction ? [
-        new WebpackObfuscator({
-          rotateStringArray: true,
-          stringArray: true,
-          stringArrayEncoding: ['base64'],
-          stringArrayThreshold: 0.75,
-          identifierNamesGenerator: 'hexadecimal',
-          debugProtection: false,
-          disableConsoleOutput: true,
-          selfDefending: false,
-          deadCodeInjection: false,
-          controlFlowFlattening: false,
-          numbersToExpressions: false,
-          simplify: true,
-          shuffleStringArray: true,
-          splitStrings: false,
-          stringArrayWrappersCount: 1,
-          stringArrayWrappersType: 'function',
-          stringArrayWrappersParametersMaxCount: 2,
-          stringArrayWrappersChainedCalls: false,
-          transformObjectKeys: false,
-          unicodeEscapeSequence: false
-        }),
         new CompressionPlugin({
           test: /\.(js|css|html|svg)$/,
           algorithm: 'gzip',
