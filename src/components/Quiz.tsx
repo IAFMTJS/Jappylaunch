@@ -1,12 +1,12 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { quizWords, Category } from '../data/quizData';
 import { useProgress } from '../context/ProgressContext';
 import { kuroshiroInstance } from '../utils/kuroshiro';
+import { CSSTransition } from 'react-transition-group';
 
 type Difficulty = 'easy' | 'medium' | 'hard';
-type QuizState = 'setup' | 'in-progress' | 'complete';
 type QuizType = 'multiple-choice' | 'writing';
 type AnswerType = 'hiragana' | 'katakana' | 'romaji';
 
@@ -16,6 +16,15 @@ interface QuizSettings {
   questionCount: number;
   quizType: QuizType;
   answerType?: AnswerType; // Only used for hard difficulty
+}
+
+interface QuizState {
+  currentQuestion: number;
+  selectedAnswer: number | null;
+  showFeedback: boolean;
+  isCorrect: boolean | null;
+  showCorrect: boolean;
+  mode: 'setup' | 'quiz' | 'result';
 }
 
 const categories = [
@@ -40,12 +49,41 @@ const categories = [
   { id: 'all', name: 'All Categories' }
 ] as const;
 
+const motivationalMessages = {
+  positive: [
+    "Great job!",
+    "You're on fire!",
+    "Amazing streak!",
+    "Keep it up!",
+    "Impressive!",
+    "You're crushing it!",
+    "Fantastic!",
+    "Superb!"
+  ],
+  encouragement: [
+    "Keep going!",
+    "You can do it!",
+    "Don't give up!",
+    "Stay focused!",
+    "Almost there!",
+    "Try again!",
+    "Believe in yourself!"
+  ]
+};
+
 const Quiz: React.FC = () => {
   const { theme, isDarkMode } = useTheme();
   const { updateProgress } = useApp();
-  const { updateProgress: updateProgressProgress } = useProgress();
+  const { updateProgress: updateProgressProgress, progress, updateScoreboard } = useProgress();
   const { settings: appSettings } = useApp();
-  const [quizState, setQuizState] = useState<QuizState>('setup');
+  const [quizState, setQuizState] = useState<QuizState>({
+    currentQuestion: 0,
+    selectedAnswer: null,
+    showFeedback: false,
+    isCorrect: null,
+    showCorrect: false,
+    mode: 'setup'
+  });
   const [settings, setSettings] = useState<QuizSettings>({
     category: 'all',
     difficulty: 'easy',
@@ -53,21 +91,30 @@ const Quiz: React.FC = () => {
     quizType: 'multiple-choice',
     answerType: 'romaji'
   });
-  const [currentQuestion, setCurrentQuestion] = useState(0);
   const [score, setScore] = useState(0);
-  const [showAnswer, setShowAnswer] = useState(false);
+  const [showResult, setShowResult] = useState(false);
   const [userAnswer, setUserAnswer] = useState('');
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [questions, setQuestions] = useState<typeof quizWords>([]);
   const [timeStarted, setTimeStarted] = useState<Date | null>(null);
   const [timeEnded, setTimeEnded] = useState<Date | null>(null);
   const [options, setOptions] = useState<string[]>([]);
-  const { progress } = useProgress();
+  const { progress: progressData } = useProgress();
   const [currentStreak, setCurrentStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState(false);
   const [romajiCache, setRomajiCache] = useState<Record<string, string>>({});
+  const [selectedGame, setSelectedGame] = useState<string>('matching');
+  const [gameState, setGameState] = useState<GameState>({
+    isPlaying: false,
+    score: 0,
+    timeLeft: 60,
+    level: 1,
+    mistakes: 0
+  });
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [motivation, setMotivation] = useState<string | null>(null);
+  const motivationTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const getThemeClasses = () => {
     if (isDarkMode) {
@@ -150,11 +197,15 @@ const Quiz: React.FC = () => {
       .slice(0, settings.questionCount);
     
     setQuestions(shuffled);
-    setCurrentQuestion(0);
-    setScore(0);
-    setShowAnswer(false);
-    setUserAnswer('');
-    setIsCorrect(null);
+    setQuizState(prev => ({
+      ...prev,
+      currentQuestion: 0,
+      score: 0,
+      showFeedback: false,
+      isCorrect: null,
+      showCorrect: false,
+      mode: 'quiz'
+    }));
     setTimeStarted(new Date());
     setTimeEnded(null);
     setCurrentStreak(0);
@@ -174,11 +225,21 @@ const Quiz: React.FC = () => {
       return;
     }
     generateQuiz();
-    setQuizState('in-progress');
   };
 
+  const showMotivation = useCallback((type: 'positive' | 'encouragement') => {
+    // 30% chance to show a popup
+    if (Math.random() < 0.3) {
+      const messages = motivationalMessages[type];
+      const message = messages[Math.floor(Math.random() * messages.length)];
+      setMotivation(message);
+      if (motivationTimeout.current) clearTimeout(motivationTimeout.current);
+      motivationTimeout.current = setTimeout(() => setMotivation(null), 2000);
+    }
+  }, []);
+
   const checkAnswer = (answer: string) => {
-    const isCorrect = questions[currentQuestion].english.toLowerCase() === answer.toLowerCase();
+    const isCorrect = questions[quizState.currentQuestion].english.toLowerCase() === answer.toLowerCase();
     const newScore = isCorrect ? score + 1 : score;
     const newStreak = isCorrect ? currentStreak + 1 : 0;
     const newBestStreak = Math.max(bestStreak, newStreak);
@@ -186,34 +247,48 @@ const Quiz: React.FC = () => {
     setScore(newScore);
     setCurrentStreak(newStreak);
     setBestStreak(newBestStreak);
-    setShowFeedback(true);
-    setFeedback(isCorrect);
+    setQuizState(prev => ({
+      ...prev,
+      showFeedback: true,
+      isCorrect,
+      showCorrect: !isCorrect
+    }));
     
+    // Show motivational popup occasionally
+    if (isCorrect && newStreak > 0 && newStreak % 3 === 0) {
+      showMotivation('positive');
+    } else if (!isCorrect && Math.random() < 0.33) {
+      showMotivation('encouragement');
+    }
+
     // Update progress based on category
     if (settings.category === 'hiragana' || settings.category === 'katakana') {
       const section = settings.category as 'hiragana' | 'katakana';
-      updateProgressProgress(section, {
-        totalQuestions: (progress[section].totalQuestions || 0) + 1,
-        correctAnswers: (progress[section].correctAnswers || 0) + (isCorrect ? 1 : 0),
+      updateScoreboard(section, {
         bestStreak: newBestStreak,
-        lastAttempt: new Date().toISOString(),
+        highScore: Math.max(progress[section].highScore, newScore),
         averageTime: 0 // TODO: Implement time tracking
       });
     }
 
     setTimeout(() => {
       setShowFeedback(false);
-      if (currentQuestion < questions.length - 1) {
-        setCurrentQuestion(prev => prev + 1);
-        setCurrentStreak(newStreak);
+      if (quizState.currentQuestion < questions.length - 1) {
+        setQuizState(prev => ({
+          ...prev,
+          currentQuestion: prev.currentQuestion + 1,
+          currentStreak: newStreak
+        }));
       } else {
         const finalScore = Math.round((newScore / questions.length) * 100);
-        setQuizState('complete');
-        const endTime = new Date();
-        setTimeEnded(endTime);
+        setQuizState(prev => ({
+          ...prev,
+          showResult: true,
+          timeEnded: new Date()
+        }));
         
         // Update quiz stats in AppContext with complete QuizData
-        const timeTaken = timeStarted && endTime ? (endTime.getTime() - timeStarted.getTime()) / 1000 : 0;
+        const timeTaken = timeStarted && new Date() ? (new Date().getTime() - timeStarted.getTime()) / 1000 : 0;
         updateProgress('section8', questions.length, newScore, {
           score: finalScore,
           date: new Date().toISOString(),
@@ -234,19 +309,15 @@ const Quiz: React.FC = () => {
     checkAnswer(userAnswer.trim());
   }, [userAnswer, checkAnswer]);
 
-  const handleOptionSelect = useCallback((option: string) => {
-    checkAnswer(option);
-  }, [checkAnswer]);
-
-  const handleNext = useCallback(() => {
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
-      setShowAnswer(false);
-      setUserAnswer('');
-      setIsCorrect(null);
-      if (settings.quizType === 'multiple-choice') {
-        setOptions(generateOptions(questions[currentQuestion + 1], quizWords));
-      }
+  const handleNextQuestion = useCallback(() => {
+    if (quizState.currentQuestion < questions.length - 1) {
+      setQuizState(prev => ({
+        ...prev,
+        currentQuestion: prev.currentQuestion + 1,
+        showFeedback: false,
+        isCorrect: null,
+        showCorrect: false
+      }));
     } else {
       // Quiz is complete, calculate final score
       const finalScore = Math.round((score / questions.length) * 100);
@@ -270,13 +341,23 @@ const Quiz: React.FC = () => {
         }
       );
 
-      setQuizState('complete');
-      setTimeEnded(timeEnded);
+      setQuizState(prev => ({
+        ...prev,
+        showResult: true,
+        timeEnded: timeEnded
+      }));
     }
-  }, [currentQuestion, questions.length, score, settings, timeStarted, updateProgress]);
+  }, [quizState.currentQuestion, questions.length, score, settings, timeStarted, updateProgress]);
 
   const restartQuiz = () => {
-    setQuizState('setup');
+    setQuizState({
+      currentQuestion: 0,
+      selectedAnswer: null,
+      showFeedback: false,
+      isCorrect: null,
+      showCorrect: false,
+      mode: 'setup'
+    });
   };
 
   // Memoize filtered questions to prevent recalculation
@@ -291,10 +372,10 @@ const Quiz: React.FC = () => {
   // Memoize options generation
   const currentOptions = useMemo(() => {
     if (settings.quizType === 'multiple-choice' && questions.length > 0) {
-      return generateOptions(questions[currentQuestion], quizWords);
+      return generateOptions(questions[quizState.currentQuestion], quizWords);
     }
     return [];
-  }, [questions, currentQuestion, settings.quizType, generateOptions]);
+  }, [quizState.currentQuestion, questions, settings.quizType, generateOptions]);
 
   // Optimize romaji conversion with batch processing
   const updateRomajiBatch = useCallback(async (words: typeof quizWords) => {
@@ -329,13 +410,11 @@ const Quiz: React.FC = () => {
   }, [questions, appSettings.showRomajiGames, updateRomajiBatch]);
 
   // Memoize the current word to prevent unnecessary re-renders
-  const currentWord = useMemo(() => questions[currentQuestion], [questions, currentQuestion]);
+  const currentWord = useMemo(() => questions[quizState.currentQuestion], [questions, quizState.currentQuestion]);
 
-  if (quizState === 'setup') {
-    return (
-      <div className={`${themeClasses.container} rounded-lg shadow-md p-6`}>
-        <h2 className={`text-2xl font-bold mb-6 ${themeClasses.text}`}>Quiz Setup</h2>
-        
+  const renderQuizContent = () => {
+    if (quizState.mode === 'setup') {
+      return (
         <div className="space-y-6">
           <div>
             <label className={`block mb-2 ${themeClasses.text}`}>Select Category:</label>
@@ -344,23 +423,12 @@ const Quiz: React.FC = () => {
               onChange={(e) => setSettings(prev => ({ ...prev, category: e.target.value as Category }))}
               className={`w-full p-3 rounded-lg border ${themeClasses.input}`}
             >
-              {categories.map(category => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className={`block mb-2 ${themeClasses.text}`}>Select Quiz Type:</label>
-            <select
-              value={settings.quizType}
-              onChange={(e) => setSettings(prev => ({ ...prev, quizType: e.target.value as QuizType }))}
-              className={`w-full p-3 rounded-lg border ${themeClasses.input}`}
-            >
-              <option value="multiple-choice">Multiple Choice</option>
-              <option value="writing">Writing</option>
+              <option value="hiragana">Hiragana</option>
+              <option value="katakana">Katakana</option>
+              <option value="numbers">Numbers</option>
+              <option value="colors">Colors</option>
+              <option value="animals">Animals</option>
+              <option value="food">Food</option>
             </select>
           </div>
 
@@ -382,7 +450,7 @@ const Quiz: React.FC = () => {
               <label className={`block mb-2 ${themeClasses.text}`}>Answer Type:</label>
               <select
                 value={settings.answerType}
-                onChange={(e) => setSettings(prev => ({ ...prev, answerType: e.target.value as 'hiragana' | 'katakana' | 'romaji' }))}
+                onChange={(e) => setSettings(prev => ({ ...prev, answerType: e.target.value as AnswerType }))}
                 className={`w-full p-3 rounded-lg border ${themeClasses.input}`}
               >
                 <option value="hiragana">Hiragana</option>
@@ -413,115 +481,86 @@ const Quiz: React.FC = () => {
             Start Quiz
           </button>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (quizState === 'complete') {
-    const timeSpent = timeEnded && timeStarted 
-      ? Math.round((timeEnded.getTime() - timeStarted.getTime()) / 1000)
-      : 0;
-    const minutes = Math.floor(timeSpent / 60);
-    const seconds = timeSpent % 60;
-    const accuracy = Math.round((score / questions.length) * 100);
+    if (quizState.mode === 'result') {
+      const timeSpent = timeEnded && timeStarted 
+        ? Math.round((timeEnded.getTime() - timeStarted.getTime()) / 1000)
+        : 0;
+      const minutes = Math.floor(timeSpent / 60);
+      const seconds = timeSpent % 60;
+      const accuracy = Math.round((score / questions.length) * 100);
 
+      return (
+        <div className="text-center">
+          <h2 className={`text-2xl font-bold mb-4 ${themeClasses.text}`}>Quiz Complete!</h2>
+          <div className={`text-xl mb-4 ${themeClasses.text}`}>
+            Score: {score}/{questions.length}
+          </div>
+          <div className={`text-lg mb-6 ${themeClasses.text}`}>
+            Best Streak: {bestStreak}
+          </div>
+          <button
+            onClick={restartQuiz}
+            className={`px-6 py-3 rounded-lg ${themeClasses.button.primary}`}
+          >
+            Try Again
+          </button>
+        </div>
+      );
+    }
+
+    const currentQuestionData = questions[quizState.currentQuestion];
     return (
-      <div className={`${themeClasses.container} rounded-lg shadow-md p-6`}>
-        <h2 className={`text-2xl font-bold mb-6 ${themeClasses.text}`}>Quiz Complete!</h2>
-        
-        <div className="space-y-4">
-          <div className={`text-xl ${themeClasses.text}`}>
-            <p>Score: {score} out of {questions.length}</p>
-            <p>Accuracy: {accuracy}%</p>
-            <p>Time: {minutes}m {seconds}s</p>
+      <div className="space-y-6">
+        <div className="mb-6">
+          <div className="text-sm text-gray-600 mb-4">
+            Question {quizState.currentQuestion + 1} of {questions.length}
           </div>
-
-          <div className="space-y-2">
-            <button
-              onClick={restartQuiz}
-              className={`w-full p-3 rounded-lg ${themeClasses.button.primary}`}
-            >
-              Try Again
-            </button>
-            <button
-              onClick={() => {
-                setSettings(prev => ({
-                  ...prev,
-                  category: 'all'
-                }));
-                restartQuiz();
-              }}
-              className={`w-full p-3 rounded-lg ${themeClasses.button.secondary}`}
-            >
-              Change Category
-            </button>
+          <div className="flex justify-between items-center">
+            <div className={`text-sm ${themeClasses.text}`}>
+              Score: {score}/{quizState.currentQuestion + 1}
+            </div>
+            <div className={`text-sm ${themeClasses.text}`}>
+              {settings.quizType === 'multiple-choice' ? 'Multiple Choice' : 'Writing'} - {settings.difficulty}
+            </div>
           </div>
         </div>
-      </div>
-    );
-  }
 
-  if (questions.length === 0) {
-    return (
-      <div className={`${themeClasses.container} rounded-lg shadow-md p-6`}>
-        <p className={`${themeClasses.text}`}>
-          No questions available for the selected category and difficulty. Please try different settings.
-        </p>
-        <button
-          onClick={restartQuiz}
-          className={`mt-4 p-3 rounded-lg ${themeClasses.button.primary}`}
-        >
-          Back to Setup
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className={`${themeClasses.container} rounded-lg shadow-md p-6`}>
-      <div className="mb-6">
-        <div className="text-sm text-gray-600 mb-4">
-          Question {currentQuestion + 1} of {questions.length}
-        </div>
-        <div className="flex justify-between items-center">
-          <div className={`text-sm ${themeClasses.text}`}>
-            Score: {score}/{currentQuestion + 1}
-          </div>
-          <div className={`text-sm ${themeClasses.text}`}>
-            {settings.quizType === 'multiple-choice' ? 'Multiple Choice' : 'Writing'} - {settings.difficulty}
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-6">
-        {settings.difficulty === 'hard' ? (
-          <h3 className={`text-3xl font-bold mb-4 ${themeClasses.text}`}>
-            {currentWord.english}
-          </h3>
-        ) : (
-          <>
+        <div className="mb-6">
+          {settings.difficulty === 'hard' ? (
             <h3 className={`text-3xl font-bold mb-4 ${themeClasses.text}`}>
-              {appSettings.showKanjiGames ? currentWord.japanese : currentWord.romaji}
+              {currentWord.english}
             </h3>
-            {appSettings.showRomajiGames && (
-              <p className={`text-xl text-gray-600 mb-4 ${themeClasses.text}`}>
-                {romajiCache[currentWord.japanese] || 'Loading...'}
-              </p>
-            )}
-          </>
-        )}
-      </div>
+          ) : (
+            <>
+              <h3 className={`text-3xl font-bold mb-4 ${themeClasses.text}`}>
+                {appSettings.showKanjiGames ? currentWord.japanese : currentWord.romaji}
+              </h3>
+              {appSettings.showRomajiGames && (
+                <p className={`text-xl text-gray-600 mb-4 ${themeClasses.text}`}>
+                  {romajiCache[currentWord.japanese] || 'Loading...'}
+                </p>
+              )}
+            </>
+          )}
+        </div>
 
-      {!showAnswer ? (
-        settings.quizType === 'multiple-choice' ? (
-          <div className="space-y-4">
+        {settings.quizType === 'multiple-choice' ? (
+          <div className="space-y-3">
             {currentOptions.map((option, index) => (
               <button
                 key={index}
-                onClick={() => handleOptionSelect(option)}
-                className={`w-full p-3 rounded-lg text-left ${
-                  themeClasses.button.secondary
+                onClick={() => !quizState.showFeedback && checkAnswer(option)}
+                className={`w-full text-left p-4 rounded-lg transition-all ${
+                  quizState.selectedAnswer === index
+                    ? index === currentOptions.indexOf(userAnswer)
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                    : 'bg-white hover:bg-gray-50'
                 }`}
+                disabled={quizState.showFeedback}
               >
                 {option}
               </button>
@@ -533,53 +572,55 @@ const Quiz: React.FC = () => {
               type="text"
               value={userAnswer}
               onChange={(e) => setUserAnswer(e.target.value)}
-              placeholder="Enter the English meaning..."
               className={`w-full p-3 rounded-lg border ${themeClasses.input}`}
-              autoFocus
+              placeholder="Type your answer..."
+              disabled={quizState.showFeedback}
+              ref={inputRef}
             />
             <button
               type="submit"
               className={`w-full p-3 rounded-lg ${themeClasses.button.primary}`}
+              disabled={quizState.showFeedback}
             >
               Check Answer
             </button>
           </form>
-        )
-      ) : (
-        <div className="space-y-4">
-          <div className={`p-4 rounded-lg ${
-            feedback ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-          }`}>
-            <p className="text-xl font-semibold mb-2">
-              {feedback ? 'Correct! 🎉' : 'Incorrect 😕'}
-            </p>
-            {settings.difficulty === 'hard' ? (
-              <>
-                <p className="mb-2">
-                  The correct answer is: {currentWord.japanese}
-                </p>
-              </>
+        )}
+
+        {quizState.showFeedback && (
+          <div className="mt-4">
+            {quizState.isCorrect ? (
+              <div className="text-green-700 font-semibold">Correct!</div>
             ) : (
-              <>
-                <p className="mb-2">
-                  The correct answer is: {currentWord.english}
-                </p>
-                {currentWord.hint && (
-                  <p className="text-sm opacity-75">
-                    Hint: {currentWord.hint}
-                  </p>
-                )}
-              </>
+              <div className="text-red-700 font-semibold">
+                Incorrect! The correct answer is: <span className="underline">{currentWord.english}</span>
+              </div>
             )}
+            <button
+              onClick={handleNextQuestion}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              {quizState.currentQuestion < questions.length - 1 ? 'Next Question' : 'Finish Quiz'}
+            </button>
           </div>
-          <button
-            onClick={handleNext}
-            className={`w-full p-3 rounded-lg ${themeClasses.button.primary}`}
-          >
-            {currentQuestion < questions.length - 1 ? 'Next Question' : 'Finish Quiz'}
-          </button>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className={`${themeClasses.container} rounded-lg shadow-md p-6`}>
+      <CSSTransition
+        in={!!motivation}
+        timeout={300}
+        classNames="motivation-popup"
+        unmountOnExit
+      >
+        <div className="fixed top-8 left-1/2 transform -translate-x-1/2 z-50 bg-yellow-100 border border-yellow-400 text-yellow-800 px-6 py-3 rounded-lg shadow-lg text-xl font-bold animate-bounce">
+          {motivation}
         </div>
-      )}
+      </CSSTransition>
+      {renderQuizContent()}
     </div>
   );
 };
