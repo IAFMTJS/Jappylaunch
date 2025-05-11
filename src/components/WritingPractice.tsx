@@ -10,6 +10,7 @@ import { Kanji, kanjiList } from '../data/kanjiData';
 type WritingMode = 'hiragana' | 'katakana';
 type Difficulty = 'easy' | 'medium' | 'hard';
 type PracticeType = 'copy' | 'convert' | 'translate';
+type InputMode = 'draw' | 'type';
 type StrokeType = 'horizontal' | 'vertical' | 'diagonal' | 'curve';
 
 interface StrokeFeedback {
@@ -141,6 +142,7 @@ interface PracticeState {
   showAnimation: boolean;
   strokePoints?: { x: number; y: number }[];
   displayMode: 'japanese' | 'romaji' | 'english';
+  inputMode: InputMode;
 }
 
 const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, onComplete }) => {
@@ -154,6 +156,7 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [practiceType, setPracticeType] = useState<PracticeType>('copy');
   const [requireTranslation, setRequireTranslation] = useState(false);
+  const [inputMode, setInputMode] = useState<InputMode>('type');
   const [state, setState] = useState<PracticeState>({
     currentWord: null,
     userInput: '',
@@ -170,7 +173,8 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
     strokeFeedback: null,
     showStrokeGuide: true,
     showAnimation: false,
-    displayMode: 'japanese'
+    displayMode: 'japanese',
+    inputMode: 'type'
   });
 
   const getStrokeOrder = (word: PracticeItem): StrokeType[] | null => {
@@ -236,13 +240,13 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
   const getDisplayMode = (): 'japanese' | 'romaji' | 'english' => {
     switch (practiceType) {
       case 'copy':
-        return 'japanese';
+        return settings.showRomaji ? 'romaji' : 'japanese';
       case 'convert':
         return Math.random() < 0.5 ? 'japanese' : 'romaji';
       case 'translate':
         return Math.random() < 0.5 ? 'japanese' : 'english';
       default:
-        return 'japanese';
+        return settings.showRomaji ? 'romaji' : 'japanese';
     }
   };
 
@@ -327,11 +331,42 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
     return '';
   };
 
+  const validateInput = (input: string, expected: string, displayMode: 'japanese' | 'romaji' | 'english'): boolean => {
+    const normalizedInput = input.trim().toLowerCase();
+    const normalizedExpected = expected.trim().toLowerCase();
+
+    // If displaying romaji, accept both romaji and Japanese input
+    if (displayMode === 'romaji') {
+      // Check if input matches expected romaji
+      if (normalizedInput === normalizedExpected) return true;
+
+      // If input is Japanese, convert it to romaji and compare
+      const currentWord = state.currentWord;
+      if (currentWord && isQuizWord(currentWord)) {
+        return normalizedInput === currentWord.japanese.toLowerCase();
+      } else if (currentWord && isPracticeContentItem(currentWord)) {
+        return normalizedInput === currentWord.japanese.toLowerCase();
+      }
+    }
+
+    // If displaying Japanese, only accept Japanese input
+    if (displayMode === 'japanese') {
+      return normalizedInput === normalizedExpected;
+    }
+
+    // For English display mode, only accept English input
+    if (displayMode === 'english') {
+      return normalizedInput === normalizedExpected;
+    }
+
+    return false;
+  };
+
   const checkAnswer = () => {
     if (!state.currentWord) return;
 
     const expectedInput = getExpectedInput(state.currentWord, state.displayMode);
-    const isCorrect = state.userInput.trim().toLowerCase() === expectedInput.toLowerCase();
+    const isCorrect = validateInput(state.userInput, expectedInput, state.displayMode);
     
     let isTranslationCorrect = true;
     if (requireTranslation && state.currentWord) {
@@ -646,6 +681,19 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
           <option value="translate">Translate (Japanese ↔ English)</option>
         </select>
 
+        <select
+          value={inputMode}
+          onChange={(e) => setInputMode(e.target.value as InputMode)}
+          className={`px-4 py-2 rounded-lg ${
+            isDarkMode 
+              ? 'bg-gray-700 text-white border-gray-600' 
+              : 'bg-white text-gray-800 border-gray-300'
+          } border focus:outline-none focus:ring-2 focus:ring-blue-500`}
+        >
+          <option value="type">Type Answer</option>
+          <option value="draw">Draw Characters</option>
+        </select>
+
         <label className="flex items-center space-x-2">
           <input
             type="checkbox"
@@ -681,21 +729,6 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
             Show Animation
           </span>
         </label>
-
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={state.displayMode === 'romaji'}
-            onChange={(e) => setState(prev => ({ 
-              ...prev, 
-              displayMode: e.target.checked ? 'romaji' : 'japanese'
-            }))}
-            className="form-checkbox h-5 w-5 text-blue-600"
-          />
-          <span className={isDarkMode ? 'text-white' : 'text-gray-800'}>
-            Show Romaji
-          </span>
-        </label>
       </div>
 
       <div className="text-center mb-8">
@@ -704,12 +737,12 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
             <div className="text-4xl font-bold mb-4">
               {getDisplayText(state.currentWord, state.displayMode)}
             </div>
-            {state.showStrokeGuide && getStrokeOrder(state.currentWord) && (
+            {inputMode === 'draw' && state.showStrokeGuide && getStrokeOrder(state.currentWord) && (
               <div className="text-sm text-gray-500 mb-2">
                 Follow the stroke order guide
               </div>
             )}
-            {state.strokeFeedback && (
+            {inputMode === 'draw' && state.strokeFeedback && (
               <div className={`text-sm ${state.strokeFeedback.isCorrect ? 'text-green-500' : 'text-red-500'}`}>
                 {state.strokeFeedback.message}
               </div>
@@ -720,73 +753,75 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
-          <div className={`p-4 rounded-lg ${
-            isDarkMode ? 'bg-gray-800' : 'bg-white'
-          } shadow-md`}>
-            <h2 className={`text-xl font-semibold mb-2 ${
-              isDarkMode ? 'text-white' : 'text-gray-800'
-            }`}>
-              {state.currentWord && getDisplayText(state.currentWord, state.displayMode)}
-            </h2>
-            <div className="space-y-4">
-              <input
-                type="text"
-                value={state.userInput}
-                onChange={(e) => setState(prev => ({ ...prev, userInput: e.target.value }))}
-                placeholder={
-                  practiceType === 'copy'
-                    ? "Copy the text above..." 
-                    : practiceType === 'convert'
-                      ? state.displayMode === 'romaji' 
-                        ? "Enter the Japanese text..."
-                        : "Enter the romaji..."
-                      : "Enter the Japanese translation..."
-                }
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDarkMode 
-                    ? 'bg-gray-700 text-white border-gray-600' 
-                    : 'bg-white text-gray-800 border-gray-300'
-                } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-              />
-              
-              {(practiceType === 'convert' || practiceType === 'translate') && (
+          {inputMode === 'type' ? (
+            <div className={`p-4 rounded-lg ${
+              isDarkMode ? 'bg-gray-800' : 'bg-white'
+            } shadow-md`}>
+              <h2 className={`text-xl font-semibold mb-2 ${
+                isDarkMode ? 'text-white' : 'text-gray-800'
+              }`}>
+                {state.currentWord && getDisplayText(state.currentWord, state.displayMode)}
+              </h2>
+              <div className="space-y-4">
                 <input
                   type="text"
-                  value={state.translationInput}
-                  onChange={(e) => setState(prev => ({ ...prev, translationInput: e.target.value }))}
-                  placeholder="Enter the English translation..."
+                  value={state.userInput}
+                  onChange={(e) => setState(prev => ({ ...prev, userInput: e.target.value }))}
+                  placeholder={
+                    practiceType === 'copy'
+                      ? "Enter the text above..." 
+                      : practiceType === 'convert'
+                        ? state.displayMode === 'romaji' 
+                          ? "Enter the Japanese text or romaji..."
+                          : "Enter the romaji..."
+                        : "Enter the Japanese translation..."
+                  }
                   className={`w-full px-4 py-2 rounded-lg border ${
                     isDarkMode 
                       ? 'bg-gray-700 text-white border-gray-600' 
                       : 'bg-white text-gray-800 border-gray-300'
                   } focus:outline-none focus:ring-2 focus:ring-blue-500`}
                 />
-              )}
+                
+                {(practiceType === 'convert' || practiceType === 'translate') && (
+                  <input
+                    type="text"
+                    value={state.translationInput}
+                    onChange={(e) => setState(prev => ({ ...prev, translationInput: e.target.value }))}
+                    placeholder="Enter the English translation..."
+                    className={`w-full px-4 py-2 rounded-lg border ${
+                      isDarkMode 
+                        ? 'bg-gray-700 text-white border-gray-600' 
+                        : 'bg-white text-gray-800 border-gray-300'
+                    } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  />
+                )}
+              </div>
             </div>
-          </div>
-
-          <div className="relative">
-            <canvas
-              ref={canvasRef}
-              width={300}
-              height={300}
-              className={`border-2 rounded-lg ${
-                isDarkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-300 bg-white'
-              }`}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-            />
-            <button
-              onClick={clearCanvas}
-              className={`absolute top-2 right-2 px-2 py-1 rounded ${
-                isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-800'
-              }`}
-            >
-              Clear
-            </button>
-          </div>
+          ) : (
+            <div className="relative">
+              <canvas
+                ref={canvasRef}
+                width={300}
+                height={300}
+                className={`border-2 rounded-lg ${
+                  isDarkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-300 bg-white'
+                }`}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+              />
+              <button
+                onClick={clearCanvas}
+                className={`absolute top-2 right-2 px-2 py-1 rounded ${
+                  isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-800'
+                }`}
+              >
+                Clear
+              </button>
+            </div>
+          )}
 
           <div className="flex gap-4 justify-center">
             <button

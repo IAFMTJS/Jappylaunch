@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import KanjiPractice from '../components/Kanji';
+import KanjiQuiz from '../components/KanjiQuiz';
 import SettingsPanel from '../components/Settings';
 
 const Section4 = () => {
@@ -19,9 +19,10 @@ const Section4 = () => {
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow-md p-6">
             <p className="text-gray-600 mb-8">
-              Practice Kanji characters with flashcards and quizzes. Learn meanings, readings, and example words.
+              Practice Kanji characters with interactive quizzes. Learn meanings, readings, and example words.
+              Choose between meaning, reading, and writing practice modes.
             </p>
-            <KanjiPractice />
+            <KanjiQuiz />
           </div>
         </div>
         <div>
