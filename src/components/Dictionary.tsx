@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useProgress } from '../context/ProgressContext';
-import { QuizWord } from '../data/quizData';
-import { Kanji } from '../data/kanjiData';
+import { QuizWord, quizWords } from '../data/quizData';
+import { Kanji, kanjiList } from '../data/kanjiData';
 import { useSound } from '../context/SoundContext';
 
 type DictionaryItem = QuizWord | Kanji;
@@ -14,7 +14,7 @@ interface DictionaryProps {
 
 const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
   const { isDarkMode } = useTheme();
-  const { progress, updateProgress } = useProgress();
+  const { progress, updateProgress, setTotalItems } = useProgress();
   const { playSound } = useSound();
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -25,24 +25,65 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
   useEffect(() => {
     // Load dictionary items based on mode
     const loadItems = async () => {
-      // This would be replaced with actual data loading
-      const loadedItems: DictionaryItem[] = [];
+      let loadedItems: DictionaryItem[] = [];
+      
+      switch (mode) {
+        case 'hiragana':
+          loadedItems = quizWords.filter(item => 
+            item.isHiragana && 
+            item.japanese.match(/^[\u3040-\u309F]+$/) // Only hiragana characters
+          );
+          break;
+        case 'katakana':
+          loadedItems = quizWords.filter(item => 
+            item.isKatakana && 
+            item.japanese.match(/^[\u30A0-\u30FF]+$/) // Only katakana characters
+          );
+          break;
+        case 'kanji':
+          loadedItems = kanjiList;
+          break;
+      }
+      
       setItems(loadedItems);
+      setTotalItems(mode, loadedItems.length);
     };
     loadItems();
-  }, [mode]);
+  }, [mode, setTotalItems]);
 
   useEffect(() => {
     // Filter and sort items
     let filtered = items.filter(item => {
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = 
-        ('japanese' in item ? item.japanese : item.character).toLowerCase().includes(searchLower) ||
-        ('english' in item ? item.english.toLowerCase().includes(searchLower) : false) ||
-        ('romaji' in item ? item.romaji?.toLowerCase().includes(searchLower) : false);
+      const searchLower = searchTerm.toLowerCase().trim();
+      if (!searchLower) return true;
 
-      if (!matchesSearch) return false;
+      // Search in Japanese text
+      const japaneseText = 'japanese' in item ? item.japanese : item.character;
+      if (japaneseText.toLowerCase().includes(searchLower)) return true;
 
+      // Search in English text
+      if ('english' in item && item.english.toLowerCase().includes(searchLower)) return true;
+
+      // Search in romaji
+      if ('romaji' in item && item.romaji?.toLowerCase().includes(searchLower)) return true;
+
+      // Search in meanings for kanji
+      if ('meanings' in item && Array.isArray(item.meanings) && 
+          item.meanings.some((meaning: string) => meaning.toLowerCase().includes(searchLower))) {
+        return true;
+      }
+
+      // Search in readings for kanji
+      if ('readings' in item && Array.isArray(item.readings) && 
+          item.readings.some((reading: string) => reading.toLowerCase().includes(searchLower))) {
+        return true;
+      }
+
+      return false;
+    });
+
+    // Apply filter after search
+    filtered = filtered.filter(item => {
       const itemId = 'japanese' in item ? item.japanese : item.character;
       const itemProgress = progress[mode]?.masteredIds?.has(itemId);
 
@@ -62,14 +103,18 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'japanese':
-          return ('japanese' in a ? a.japanese : a.character)
-            .localeCompare('japanese' in b ? b.japanese : b.character);
+          const aText = 'japanese' in a ? a.japanese : a.character;
+          const bText = 'japanese' in b ? b.japanese : b.character;
+          return aText.localeCompare(bText, 'ja');
         case 'english':
-          return ('english' in a ? a.english : '')
-            .localeCompare('english' in b ? b.english : '');
+          const aEng = 'english' in a ? a.english : '';
+          const bEng = 'english' in b ? b.english : '';
+          return aEng.localeCompare(bEng);
         case 'progress':
-          const aProgress = progress[mode]?.masteredIds?.has('japanese' in a ? a.japanese : a.character) ? 1 : 0;
-          const bProgress = progress[mode]?.masteredIds?.has('japanese' in b ? b.japanese : b.character) ? 1 : 0;
+          const aId = 'japanese' in a ? a.japanese : a.character;
+          const bId = 'japanese' in b ? b.japanese : b.character;
+          const aProgress = progress[mode]?.masteredIds?.has(aId) ? 1 : 0;
+          const bProgress = progress[mode]?.masteredIds?.has(bId) ? 1 : 0;
           return bProgress - aProgress;
         default:
           return 0;
