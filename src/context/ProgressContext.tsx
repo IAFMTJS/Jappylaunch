@@ -47,6 +47,15 @@ const ProgressContext = createContext<ProgressContextType>({
   updateProgress: () => {}
 });
 
+// Add these type definitions at the top
+type FirestoreSectionProgress = Omit<SectionProgress, 'masteredIds'> & {
+  masteredIds: string[];
+};
+
+type FirestoreProgressData = {
+  [key: string]: FirestoreSectionProgress;
+};
+
 export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
   const isAuthenticated = !!currentUser;
@@ -61,17 +70,46 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const fetchProgress = async () => {
         const userDoc = await getDoc(doc(typedDb, 'progress', currentUser.uid));
         if (userDoc.exists()) {
-          setProgress(userDoc.data() as ProgressData);
+          const data = userDoc.data() as FirestoreProgressData;
+          // Convert arrays back to Sets for in-memory use
+          const convertedData: ProgressData = Object.entries(data).reduce((acc, [key, value]) => ({
+            ...acc,
+            [key]: {
+              ...value,
+              masteredIds: new Set(value.masteredIds)
+            }
+          }), {});
+          setProgress(convertedData);
         } else {
           // If no progress in Firebase, save current local progress to Firebase
-          await setDoc(doc(typedDb, 'progress', currentUser.uid), progress);
+          const dataToSave: FirestoreProgressData = Object.entries(progress).reduce((acc, [key, value]) => ({
+            ...acc,
+            [key]: {
+              ...value,
+              masteredIds: Array.from(value.masteredIds)
+            }
+          }), {});
+          await setDoc(doc(typedDb, 'progress', currentUser.uid), dataToSave);
         }
       };
       fetchProgress();
     } else {
       // If not authenticated, load from localStorage
       const savedProgress = localStorage.getItem('progress');
-      setProgress(savedProgress ? JSON.parse(savedProgress) : {});
+      if (savedProgress) {
+        const parsed = JSON.parse(savedProgress) as FirestoreProgressData;
+        // Convert arrays back to Sets for in-memory use
+        const convertedData: ProgressData = Object.entries(parsed).reduce((acc, [key, value]) => ({
+          ...acc,
+          [key]: {
+            ...value,
+            masteredIds: new Set(value.masteredIds)
+          }
+        }), {});
+        setProgress(convertedData);
+      } else {
+        setProgress({});
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, currentUser]);
@@ -79,20 +117,41 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Save progress to Firebase or localStorage on change
   useEffect(() => {
     if (isAuthenticated && currentUser) {
-      setDoc(doc(typedDb, 'progress', currentUser.uid), progress);
+      // Convert Sets to arrays before saving to Firebase
+      const dataToSave: FirestoreProgressData = Object.entries(progress).reduce((acc, [key, value]) => ({
+        ...acc,
+        [key]: {
+          ...value,
+          masteredIds: Array.from(value.masteredIds)
+        }
+      }), {});
+      setDoc(doc(typedDb, 'progress', currentUser.uid), dataToSave);
     } else {
-      localStorage.setItem('progress', JSON.stringify(progress));
+      // Convert Sets to arrays before saving to localStorage
+      const dataToSave: FirestoreProgressData = Object.entries(progress).reduce((acc, [key, value]) => ({
+        ...acc,
+        [key]: {
+          ...value,
+          masteredIds: Array.from(value.masteredIds)
+        }
+      }), {});
+      localStorage.setItem('progress', JSON.stringify(dataToSave));
     }
   }, [progress, isAuthenticated, currentUser]);
 
   const markItemMastered = (section: string, itemId: string) => {
-    setProgress(prev => ({
-      ...prev,
-      [section]: {
-        ...(prev[section] || defaultSectionProgress),
-        masteredIds: new Set([...(prev[section]?.masteredIds || []), itemId])
-      }
-    }));
+    setProgress(prev => {
+      const currentSection = prev[section] || defaultSectionProgress;
+      const newMasteredIds = new Set(currentSection.masteredIds);
+      newMasteredIds.add(itemId);
+      return {
+        ...prev,
+        [section]: {
+          ...currentSection,
+          masteredIds: newMasteredIds
+        }
+      };
+    });
   };
 
   const setTotalItems = (section: string, total: number) => {
