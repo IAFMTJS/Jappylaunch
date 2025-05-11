@@ -34,15 +34,13 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
       
       switch (mode) {
         case 'hiragana':
-          loadedItems = quizWords.filter(item => 
-            item.isHiragana && 
-            item.japanese.match(/^[\u3040-\u309F]+$/) // Only hiragana characters
+          loadedItems = quizWords.filter(item =>
+            /[\u3040-\u309F]/.test(item.japanese) // Contains any hiragana
           );
           break;
         case 'katakana':
-          loadedItems = quizWords.filter(item => 
-            item.isKatakana && 
-            item.japanese.match(/^[\u30A0-\u30FF]+$/) // Only katakana characters
+          loadedItems = quizWords.filter(item =>
+            /[\u30A0-\u30FF]/.test(item.japanese) // Contains any katakana
           );
           break;
         case 'kanji':
@@ -218,14 +216,21 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
     const itemId = 'japanese' in item ? item.japanese : item.character;
     const isMarked = progress[mode]?.masteredIds?.has(itemId);
 
+    // Optimistically update UI
+    if (isMarked) {
+      progress[mode]?.masteredIds?.delete(itemId);
+    } else {
+      progress[mode]?.masteredIds?.add(itemId);
+    }
+
     updateProgress(mode, {
-      masteredIds: isMarked 
-        ? new Set([...Array.from(progress[mode]?.masteredIds || []).filter(id => id !== itemId)])
-        : new Set([...Array.from(progress[mode]?.masteredIds || []), itemId]),
+      masteredIds: new Set(progress[mode]?.masteredIds),
       lastAttempt: new Date().toISOString()
     });
 
     playSound(isMarked ? 'incorrect' : 'correct');
+    // Add a toast or log for feedback
+    console.log(isMarked ? 'Unmarked as read' : 'Marked as read');
   };
 
   return (

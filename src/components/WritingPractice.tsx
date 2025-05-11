@@ -238,16 +238,17 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
   };
 
   const getDisplayMode = (): 'japanese' | 'romaji' | 'english' => {
-    switch (practiceType) {
-      case 'copy':
-        return settings.showRomaji ? 'romaji' : 'japanese';
-      case 'convert':
-        return Math.random() < 0.5 ? 'japanese' : 'romaji';
-      case 'translate':
-        return Math.random() < 0.5 ? 'japanese' : 'english';
-      default:
-        return settings.showRomaji ? 'romaji' : 'japanese';
+    if (difficulty === 'easy') {
+      return 'japanese'; // Always show in hiragana/katakana
     }
+    if (difficulty === 'medium') {
+      // Randomly show in romaji or japanese
+      return Math.random() < 0.5 ? 'japanese' : 'romaji';
+    }
+    if (difficulty === 'hard') {
+      return 'english'; // Always show in English
+    }
+    return 'japanese';
   };
 
   const getFilteredWords = (): PracticeItem[] => {
@@ -334,29 +335,31 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
   const validateInput = (input: string, expected: string, displayMode: 'japanese' | 'romaji' | 'english'): boolean => {
     const normalizedInput = input.trim().toLowerCase();
     const normalizedExpected = expected.trim().toLowerCase();
+    const currentWord = state.currentWord;
 
-    // If displaying romaji, accept both romaji and Japanese input
-    if (displayMode === 'romaji') {
-      // Check if input matches expected romaji
-      if (normalizedInput === normalizedExpected) return true;
+    if (!currentWord) return false;
 
-      // If input is Japanese, convert it to romaji and compare
-      const currentWord = state.currentWord;
-      if (currentWord && isQuizWord(currentWord)) {
+    if (difficulty === 'easy') {
+      // Vraag is in hiragana/katakana, antwoord mag alles zijn
+      return (
+        normalizedInput === currentWord.japanese.toLowerCase() ||
+        normalizedInput === (currentWord.romaji || '').toLowerCase()
+      );
+    }
+
+    if (difficulty === 'medium') {
+      if (state.displayMode === 'romaji') {
+        // Vraag is romaji, verwacht hiragana/katakana
         return normalizedInput === currentWord.japanese.toLowerCase();
-      } else if (currentWord && isPracticeContentItem(currentWord)) {
-        return normalizedInput === currentWord.japanese.toLowerCase();
+      } else {
+        // Vraag is hiragana/katakana, verwacht romaji
+        return normalizedInput === (currentWord.romaji || '').toLowerCase();
       }
     }
 
-    // If displaying Japanese, only accept Japanese input
-    if (displayMode === 'japanese') {
-      return normalizedInput === normalizedExpected;
-    }
-
-    // For English display mode, only accept English input
-    if (displayMode === 'english') {
-      return normalizedInput === normalizedExpected;
+    if (difficulty === 'hard') {
+      // Vraag is Engels, verwacht Japans (hiragana, katakana of kanji)
+      return normalizedInput === currentWord.japanese.toLowerCase();
     }
 
     return false;

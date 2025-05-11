@@ -45,7 +45,10 @@ const AnimePhraseCard: React.FC<AnimePhraseCardProps> = ({
     }
   };
 
-  const imageUrl = animeImage || getDefaultImage(category);
+  let imageUrl = animeImage || getDefaultImage(category);
+  if (animeImage && !animeImage.startsWith('http')) {
+    imageUrl = `/anime/${animeImage}`;
+  }
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
