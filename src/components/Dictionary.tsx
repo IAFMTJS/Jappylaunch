@@ -64,20 +64,29 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
     setRomajiError(null);
 
     try {
+      console.log('Starting romaji initialization for', itemsToConvert.length, 'items');
+      
       // Get all texts that need conversion
       const textsToConvert = itemsToConvert
         .map(item => 'japanese' in item ? item.japanese : item.character);
 
       // Try to get cached romaji first
+      console.log('Fetching cached romaji...');
       const cachedRomaji = await romajiCache.getBatch(textsToConvert);
+      console.log('Found', Object.keys(cachedRomaji).length, 'cached items');
       
-      // Update state with cached values
-      setRomajiMap(prev => ({ ...prev, ...cachedRomaji }));
+      // Update state with cached values immediately
+      if (Object.keys(cachedRomaji).length > 0) {
+        console.log('Updating state with cached values');
+        setRomajiMap(prev => ({ ...prev, ...cachedRomaji }));
+      }
 
       // Find texts that weren't in cache
       const uncachedTexts = textsToConvert.filter(text => !cachedRomaji[text]);
+      console.log('Found', uncachedTexts.length, 'uncached items');
 
       if (uncachedTexts.length === 0) {
+        console.log('All items were cached, finishing initialization');
         setIsRomajiLoading(false);
         return;
       }
@@ -88,7 +97,10 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
 
       for (let i = 0; i < uncachedTexts.length; i += batchSize) {
         const batch = uncachedTexts.slice(i, i + batchSize);
+        console.log('Converting batch', i / batchSize + 1, 'of', Math.ceil(uncachedTexts.length / batchSize));
+        
         const batchResults = await kuroshiroInstance.convertBatch(batch);
+        console.log('Batch conversion complete, caching results');
         
         // Cache the new conversions
         await romajiCache.setBatch(batchResults);
@@ -101,6 +113,8 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
         // Update state after each batch to show progress
         setRomajiMap(newRomajiMap);
       }
+
+      console.log('Romaji initialization complete');
     } catch (error) {
       console.error('Error initializing romaji:', error);
       setRomajiError('Failed to load romaji. Please try refreshing the page.');
@@ -109,14 +123,22 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
     }
   }, [romajiMap]);
 
-  // Preload romaji for all items when the component mounts
+  // Preload romaji for all items when the component mounts or items change
   useEffect(() => {
+    let isMounted = true;
+
     const preloadRomaji = async () => {
-      if (items.length > 0) {
+      if (items.length > 0 && isMounted) {
+        console.log('Starting romaji preload for', items.length, 'items');
         await initializeRomaji(items);
       }
     };
+
     preloadRomaji();
+
+    return () => {
+      isMounted = false;
+    };
   }, [items, initializeRomaji]);
 
   useEffect(() => {
@@ -226,6 +248,7 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
         {isRomajiLoading && (
           <span className="text-blue-500">
             Loading romaji... {Object.keys(romajiMap).length}/{items.length} cached
+            {Object.keys(romajiMap).length > 0 && ` (${Math.round((Object.keys(romajiMap).length / items.length) * 100)}%)`}
           </span>
         )}
         {romajiError && (

@@ -13,33 +13,79 @@ class RomajiCache {
   private storeName = 'romaji' as const;
   private version = 1;
   private isInitialized = false;
+  private initPromise: Promise<void> | null = null;
 
   async initialize() {
-    if (this.isInitialized) return;
+    console.log('RomajiCache.initialize called, current state:', { 
+      isInitialized: this.isInitialized, 
+      hasDb: !!this.db,
+      hasInitPromise: !!this.initPromise 
+    });
+
+    if (this.isInitialized) {
+      console.log('RomajiCache already initialized');
+      return;
+    }
+
+    if (!this.initPromise) {
+      console.log('Creating new RomajiCache initialization promise');
+      this.initPromise = (async () => {
+        try {
+          console.log('Opening IndexedDB...');
+          this.db = await openDB<RomajiDBSchema>(this.dbName, this.version, {
+            upgrade(db, oldVersion, newVersion) {
+              console.log('Upgrading database from version', oldVersion, 'to', newVersion);
+              if (!db.objectStoreNames.contains('romaji')) {
+                console.log('Creating romaji store...');
+                db.createObjectStore('romaji');
+                console.log('Romaji store created successfully');
+              }
+            },
+            blocked() {
+              console.warn('Database upgrade blocked by another tab');
+            },
+            blocking() {
+              console.warn('This tab is blocking another tab from upgrading the database');
+            },
+            terminated() {
+              console.warn('Database connection terminated');
+            }
+          });
+          
+          console.log('IndexedDB opened successfully');
+          this.isInitialized = true;
+          console.log('RomajiCache initialization complete');
+        } catch (error) {
+          console.error('Failed to initialize RomajiCache:', error);
+          this.isInitialized = false;
+          this.initPromise = null;
+          throw error;
+        }
+      })();
+    } else {
+      console.log('Using existing RomajiCache initialization promise');
+    }
 
     try {
-      console.log('Initializing IndexedDB cache...');
-      this.db = await openDB<RomajiDBSchema>(this.dbName, this.version, {
-        upgrade(db) {
-          console.log('Upgrading database...');
-          if (!db.objectStoreNames.contains('romaji')) {
-            console.log('Creating romaji store...');
-            db.createObjectStore('romaji');
-          }
-        },
-      });
-      this.isInitialized = true;
-      console.log('IndexedDB cache initialized successfully');
+      await this.initPromise;
+      console.log('RomajiCache initialization promise resolved successfully');
     } catch (error) {
-      console.error('Failed to initialize IndexedDB cache:', error);
+      console.error('RomajiCache initialization promise failed:', error);
       throw error;
     }
   }
 
   async get(key: string): Promise<string | undefined> {
+    console.log('RomajiCache.get called for key:', key);
     await this.initialize();
+    
+    if (!this.db) {
+      console.error('Database not initialized in get');
+      return undefined;
+    }
+
     try {
-      const value = await this.db?.get(this.storeName, key);
+      const value = await this.db.get(this.storeName, key);
       console.log('Cache get:', key, value ? 'hit' : 'miss');
       return value;
     } catch (error) {
@@ -49,10 +95,18 @@ class RomajiCache {
   }
 
   async set(key: string, value: string): Promise<void> {
+    console.log('RomajiCache.set called for key:', key);
     await this.initialize();
+    
+    if (!this.db) {
+      console.error('Database not initialized in set');
+      throw new Error('Database not initialized');
+    }
+
     try {
-      console.log('Cache set:', key);
-      await this.db?.put(this.storeName, value, key);
+      console.log('Setting cache value...');
+      await this.db.put(this.storeName, value, key);
+      console.log('Cache set successful for key:', key);
     } catch (error) {
       console.error('Error setting cache:', error);
       throw error;
@@ -60,18 +114,24 @@ class RomajiCache {
   }
 
   async getBatch(keys: string[]): Promise<Record<string, string>> {
+    console.log('RomajiCache.getBatch called for', keys.length, 'keys');
     await this.initialize();
-    const result: Record<string, string> = {};
     
+    if (!this.db) {
+      console.error('Database not initialized in getBatch');
+      return {};
+    }
+
+    const result: Record<string, string> = {};
     try {
-      console.log('Cache batch get for', keys.length, 'keys');
+      console.log('Starting batch get...');
       for (const key of keys) {
-        const value = await this.db?.get(this.storeName, key);
+        const value = await this.db.get(this.storeName, key);
         if (value) {
           result[key] = value;
         }
       }
-      console.log('Cache batch get complete:', Object.keys(result).length, 'hits');
+      console.log('Cache batch get complete:', Object.keys(result).length, 'hits out of', keys.length, 'keys');
       return result;
     } catch (error) {
       console.error('Error in batch get:', error);
@@ -80,13 +140,20 @@ class RomajiCache {
   }
 
   async setBatch(entries: Record<string, string>): Promise<void> {
+    console.log('RomajiCache.setBatch called for', Object.keys(entries).length, 'entries');
     await this.initialize();
+    
+    if (!this.db) {
+      console.error('Database not initialized in setBatch');
+      throw new Error('Database not initialized');
+    }
+
     try {
-      console.log('Cache batch set for', Object.keys(entries).length, 'entries');
-      const tx = this.db?.transaction([this.storeName], 'readwrite');
+      console.log('Starting batch set...');
+      const tx = this.db.transaction([this.storeName], 'readwrite');
       if (!tx || !tx.store) {
         console.error('Failed to create transaction');
-        return;
+        throw new Error('Failed to create transaction');
       }
 
       for (const [key, value] of Object.entries(entries)) {
@@ -94,7 +161,7 @@ class RomajiCache {
       }
       
       await tx.done;
-      console.log('Cache batch set complete');
+      console.log('Cache batch set complete successfully');
     } catch (error) {
       console.error('Error in batch set:', error);
       throw error;

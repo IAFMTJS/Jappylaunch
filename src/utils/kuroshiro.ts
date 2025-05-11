@@ -11,41 +11,81 @@ let initPromise: Promise<void> | null = null;
 
 // Initialize the analyzer (lazy initialization)
 const initKuroshiro = async () => {
+  console.log('initKuroshiro called, current state:', { initialized, hasInitPromise: !!initPromise });
+  
   if (!initPromise) {
+    console.log('Creating new initialization promise');
     initPromise = (async () => {
       if (!initialized) {
-        await kuroshiro.init(new KuromojiAnalyzer());
-        initialized = true;
+        try {
+          console.log('Starting Kuroshiro initialization...');
+          const analyzer = new KuromojiAnalyzer();
+          console.log('KuromojiAnalyzer created, initializing...');
+          await kuroshiro.init(analyzer);
+          console.log('Kuroshiro initialization successful');
+          initialized = true;
+        } catch (error) {
+          console.error('Kuroshiro initialization failed:', error);
+          // Reset initialization state on failure
+          initialized = false;
+          initPromise = null;
+          throw error;
+        }
+      } else {
+        console.log('Kuroshiro already initialized');
       }
     })();
+  } else {
+    console.log('Using existing initialization promise');
   }
+  
+  try {
+    await initPromise;
+    console.log('Initialization promise resolved successfully');
+  } catch (error) {
+    console.error('Initialization promise failed:', error);
+    throw error;
+  }
+  
   return initPromise;
 };
 
 // Convert multiple texts to romaji in batches
 export const convertBatchToRomaji = async (texts: string[], batchSize: number = 5): Promise<Record<string, string>> => {
+  console.log('convertBatchToRomaji called with', texts.length, 'texts');
+  
   // Initialize if needed
   if (!initialized) {
+    console.log('Kuroshiro not initialized, initializing...');
     await initKuroshiro();
   }
 
   const results: Record<string, string> = {};
   const textsToConvert = texts.filter(text => !romajiCache[text]);
+  console.log('Found', textsToConvert.length, 'texts that need conversion');
 
   // Process in batches
   for (let i = 0; i < textsToConvert.length; i += batchSize) {
     const batch = textsToConvert.slice(i, i + batchSize);
-    await Promise.all(batch.map(async (text) => {
-      try {
-        const romaji = await kuroshiro.convert(text, { to: 'romaji', mode: 'spaced' });
-        romajiCache[text] = romaji;
-        results[text] = romaji;
-      } catch (error) {
-        console.error('Error converting to romaji:', error);
-        romajiCache[text] = text;
-        results[text] = text;
-      }
-    }));
+    console.log('Processing batch', i / batchSize + 1, 'of', Math.ceil(textsToConvert.length / batchSize));
+    
+    try {
+      await Promise.all(batch.map(async (text) => {
+        try {
+          console.log('Converting text:', text);
+          const romaji = await kuroshiro.convert(text, { to: 'romaji', mode: 'spaced' });
+          console.log('Conversion successful:', text, '->', romaji);
+          romajiCache[text] = romaji;
+          results[text] = romaji;
+        } catch (error) {
+          console.error('Error converting text to romaji:', text, error);
+          romajiCache[text] = text;
+          results[text] = text;
+        }
+      }));
+    } catch (error) {
+      console.error('Error processing batch:', error);
+    }
   }
 
   // Add cached results
@@ -55,6 +95,7 @@ export const convertBatchToRomaji = async (texts: string[], batchSize: number = 
     }
   });
 
+  console.log('Batch conversion complete, returning', Object.keys(results).length, 'results');
   return results;
 };
 
