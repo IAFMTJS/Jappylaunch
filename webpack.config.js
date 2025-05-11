@@ -5,6 +5,7 @@ const TerserPlugin = require('terser-webpack-plugin');
 const CompressionPlugin = require('compression-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
@@ -36,7 +37,11 @@ module.exports = (env, argv) => {
         },
         {
           test: /\.css$/,
-          use: ['style-loader', 'css-loader', 'postcss-loader']
+          use: [
+            isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
+            'css-loader',
+            'postcss-loader'
+          ]
         }
       ]
     },
@@ -117,10 +122,14 @@ module.exports = (env, argv) => {
       new CopyWebpackPlugin({
         patterns: [
           {
+            from: 'public/dict',
+            to: 'dict'
+          },
+          {
             from: 'public',
             to: '.',
             globOptions: {
-              ignore: ['**/index.html', '**/.DS_Store']
+              ignore: ['**/index.html', '**/.DS_Store', '**/dict/**']
             }
           }
         ]
@@ -130,6 +139,10 @@ module.exports = (env, argv) => {
           test: /\.(js|css|html|svg)$/,
           algorithm: 'gzip',
           deleteOriginalAssets: false
+        }),
+        new MiniCssExtractPlugin({
+          filename: 'static/css/[name].[contenthash:8].css',
+          chunkFilename: 'static/css/[name].[contenthash:8].chunk.css'
         })
       ] : [])
     ],
