@@ -1,8 +1,8 @@
 const path = require('path');
+const webpack = require('webpack');
 const WebpackObfuscator = require('webpack-obfuscator');
 const TerserPlugin = require('terser-webpack-plugin');
 const CompressionPlugin = require('compression-webpack-plugin');
-const webpack = require('webpack');
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
@@ -41,7 +41,8 @@ module.exports = (env, argv) => {
     resolve: {
       extensions: ['.tsx', '.ts', '.js', '.jsx'],
       alias: {
-        '@': path.resolve(__dirname, 'src')
+        '@': path.resolve(__dirname, 'src'),
+        'process': 'process/browser.js'
       },
       fallback: {
         "path": require.resolve("path-browserify"),
@@ -91,6 +92,10 @@ module.exports = (env, argv) => {
       }
     },
     plugins: [
+      new webpack.ProvidePlugin({
+        process: 'process/browser.js',
+        Buffer: ['buffer', 'Buffer']
+      }),
       ...(isProduction ? [
         new WebpackObfuscator({
           rotateStringArray: true,
@@ -119,11 +124,7 @@ module.exports = (env, argv) => {
           algorithm: 'gzip',
           deleteOriginalAssets: false
         })
-      ] : []),
-      new webpack.ProvidePlugin({
-        Buffer: ['buffer', 'Buffer'],
-        process: 'process/browser'
-      })
+      ] : [])
     ],
     devServer: {
       historyApiFallback: true,
