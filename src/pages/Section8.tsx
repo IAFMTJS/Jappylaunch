@@ -4,6 +4,15 @@ import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import { kuroshiroInstance } from '../utils/kuroshiro';
 
+interface WordPair {
+  id: string;
+  japanese: string;
+  english: string;
+  hiragana: string;
+  isMatched?: boolean;
+  isSelected?: boolean;
+}
+
 interface GameState {
   isPlaying: boolean;
   score: number;
@@ -13,20 +22,12 @@ interface GameState {
 }
 
 interface Card {
-  id: number;
+  id: string;
   content: string;
-  match: string;
+  type: string;
   isFlipped: boolean;
   isMatched: boolean;
-}
-
-interface WordPair {
-  id: number;
-  japanese: string;
-  english: string;
-  isMatched: boolean;
-  isSelected: boolean;
-  hiragana: string;
+  match?: string;
 }
 
 interface SentenceWord {
@@ -89,31 +90,31 @@ const Section8 = () => {
   ];
 
   // Game data
-  const matchingGameData = [
-    { id: 1, japanese: '猫', english: 'cat', hiragana: 'ねこ' },
-    { id: 2, japanese: '犬', english: 'dog', hiragana: 'いぬ' },
-    { id: 3, japanese: '鳥', english: 'bird', hiragana: 'とり' },
-    { id: 4, japanese: '魚', english: 'fish', hiragana: 'さかな' },
-    { id: 5, japanese: '本', english: 'book', hiragana: 'ほん' },
-    { id: 6, japanese: '水', english: 'water', hiragana: 'みず' },
-    { id: 7, japanese: '山', english: 'mountain', hiragana: 'やま' },
-    { id: 8, japanese: '川', english: 'river', hiragana: 'かわ' },
-    { id: 9, japanese: '空', english: 'sky', hiragana: 'そら' },
-    { id: 10, japanese: '海', english: 'sea', hiragana: 'うみ' },
-    { id: 11, japanese: '花', english: 'flower', hiragana: 'はな' },
-    { id: 12, japanese: '木', english: 'tree', hiragana: 'き' },
-    { id: 13, japanese: 'あめ', english: 'rain', hiragana: 'あめ' },
-    { id: 14, japanese: 'くも', english: 'cloud', hiragana: 'くも' },
-    { id: 15, japanese: 'かみ', english: 'paper', hiragana: 'かみ' },
-    { id: 16, japanese: 'みず', english: 'water', hiragana: 'みず' },
-    { id: 17, japanese: 'テレビ', english: 'TV', hiragana: 'テレビ' },
-    { id: 18, japanese: 'ラジオ', english: 'radio', hiragana: 'ラジオ' },
-    { id: 19, japanese: 'パソコン', english: 'computer', hiragana: 'パソコン' },
-    { id: 20, japanese: 'カメラ', english: 'camera', hiragana: 'カメラ' },
-    { id: 21, japanese: 'ピアノ', english: 'piano', hiragana: 'ピアノ' },
-    { id: 22, japanese: 'ギター', english: 'guitar', hiragana: 'ギター' },
-    { id: 23, japanese: 'コーヒー', english: 'coffee', hiragana: 'コーヒー' },
-    { id: 24, japanese: 'ジュース', english: 'juice', hiragana: 'ジュース' }
+  const matchingGameData: WordPair[] = [
+    { id: '1', japanese: '猫', english: 'cat', hiragana: 'ねこ' },
+    { id: '2', japanese: '犬', english: 'dog', hiragana: 'いぬ' },
+    { id: '3', japanese: '鳥', english: 'bird', hiragana: 'とり' },
+    { id: '4', japanese: '魚', english: 'fish', hiragana: 'さかな' },
+    { id: '5', japanese: '本', english: 'book', hiragana: 'ほん' },
+    { id: '6', japanese: '水', english: 'water', hiragana: 'みず' },
+    { id: '7', japanese: '山', english: 'mountain', hiragana: 'やま' },
+    { id: '8', japanese: '川', english: 'river', hiragana: 'かわ' },
+    { id: '9', japanese: '空', english: 'sky', hiragana: 'そら' },
+    { id: '10', japanese: '海', english: 'sea', hiragana: 'うみ' },
+    { id: '11', japanese: '花', english: 'flower', hiragana: 'はな' },
+    { id: '12', japanese: '木', english: 'tree', hiragana: 'き' },
+    { id: '13', japanese: 'あめ', english: 'rain', hiragana: 'あめ' },
+    { id: '14', japanese: 'くも', english: 'cloud', hiragana: 'くも' },
+    { id: '15', japanese: 'かみ', english: 'paper', hiragana: 'かみ' },
+    { id: '16', japanese: 'みず', english: 'water', hiragana: 'みず' },
+    { id: '17', japanese: 'テレビ', english: 'TV', hiragana: 'テレビ' },
+    { id: '18', japanese: 'ラジオ', english: 'radio', hiragana: 'ラジオ' },
+    { id: '19', japanese: 'パソコン', english: 'computer', hiragana: 'パソコン' },
+    { id: '20', japanese: 'カメラ', english: 'camera', hiragana: 'カメラ' },
+    { id: '21', japanese: 'ピアノ', english: 'piano', hiragana: 'ピアノ' },
+    { id: '22', japanese: 'ギター', english: 'guitar', hiragana: 'ギター' },
+    { id: '23', japanese: 'コーヒー', english: 'coffee', hiragana: 'コーヒー' },
+    { id: '24', japanese: 'ジュース', english: 'juice', hiragana: 'ジュース' }
   ];
 
   const sentenceGameData = [
@@ -317,26 +318,68 @@ const Section8 = () => {
   ];
 
   // Game initialization functions
+  const initializeSentenceBuilder = useCallback(() => {
+    console.log('Initializing sentence builder...');
+    try {
+      const example = sentenceExamples[Math.floor(Math.random() * sentenceExamples.length)];
+      setCurrentSentence(example);
+      const words = example.japanese.split(' ');
+      setSentenceChoices(words.sort(() => Math.random() - 0.5));
+      setSentenceAnswer([]);
+      setSentenceFeedback('');
+      setSentenceScore(0);
+      console.log('Sentence builder initialized successfully');
+    } catch (error) {
+      console.error('Error initializing sentence builder:', error);
+      setSentenceFeedback('Error initializing game. Please try again.');
+    }
+  }, [sentenceExamples]);
+
   const initializeMemoryGame = useCallback(() => {
-    const cards = [...memoryGameData, ...memoryGameData]
-      .map((card, index) => ({
-        ...card,
-        id: index,
-        isFlipped: false,
-        isMatched: false
-      }))
-      .sort(() => Math.random() - 0.5);
-    setMemoryCards(cards);
-  }, []);
+    console.log('Initializing memory game...');
+    try {
+      // Create pairs of cards
+      const pairs = matchingGameData.map(item => [
+        { 
+          id: `${item.id}-japanese`, 
+          content: item.japanese, 
+          type: 'japanese', 
+          isFlipped: false, 
+          isMatched: false,
+          match: item.hiragana
+        },
+        { 
+          id: `${item.id}-hiragana`, 
+          content: item.hiragana, 
+          type: 'hiragana', 
+          isFlipped: false, 
+          isMatched: false,
+          match: item.japanese
+        }
+      ]).flat();
+
+      // Shuffle the cards
+      const shuffled = pairs.sort(() => Math.random() - 0.5);
+      setMemoryCards(shuffled);
+      setMemoryFeedback('');
+      setMemoryWin(false);
+      console.log('Memory game initialized successfully with', shuffled.length, 'cards');
+    } catch (error) {
+      console.error('Error initializing memory game:', error);
+      setMemoryFeedback('Error initializing game. Please try again.');
+    }
+  }, [matchingGameData]);
 
   const initializeMatchingGame = useCallback(() => {
-    const pairs = matchingGameData
-      .map(pair => ({ ...pair, isMatched: false, isSelected: false }))
-      .sort(() => Math.random() - 0.5);
+    const pairs = matchingGameData.map(item => ({
+      ...item,
+      isMatched: false,
+      isSelected: false
+    }));
     setMatchingPairs(pairs);
-  }, []);
+  }, [matchingGameData]);
 
-  const initializeSentenceGame = useCallback(() => {
+  const initializeSentenceGameData = useCallback(() => {
     const words = sentenceGameData
       .map(word => ({ ...word, isPlaced: false }))
       .sort(() => Math.random() - 0.5);
@@ -364,7 +407,7 @@ const Section8 = () => {
   }, []);
 
   // Game action handlers
-  const handleMemoryCardClick = (cardId: number) => {
+  const handleMemoryCardClick = (cardId: string) => {
     if (!gameState.isPlaying) return;
     setMemoryFeedback('');
     setMemoryCards(prev => {
@@ -405,7 +448,7 @@ const Section8 = () => {
     });
   };
 
-  const handleMatchingPairClick = (pairId: number) => {
+  const handleMatchingPairClick = (pairId: string) => {
     if (!gameState.isPlaying) return;
     
     setMatchingPairs(prev => {
@@ -531,7 +574,7 @@ const Section8 = () => {
         initializeMatchingGame();
         break;
       case 'sentence':
-        initializeSentenceGame();
+        initializeSentenceBuilder();
         break;
       case 'quiz':
         initializeQuizGame();
@@ -611,40 +654,41 @@ const Section8 = () => {
     }
   };
 
+  // Initialize games when component mounts
+  useEffect(() => {
+    console.log('Section8 component mounted, initializing games...');
+    initializeSentenceBuilder();
+    initializeMemoryGame();
+    initializeMatchingGame();
+  }, [initializeSentenceBuilder, initializeMemoryGame, initializeMatchingGame]);
+
   // Update romaji when settings change
   useEffect(() => {
     if (settings.showRomajiGames) {
+      console.log('Updating romaji for games...');
       const updateRomaji = async () => {
-        // Update romaji for sentence game
-        for (const word of sentenceGameData) {
-          if (!romajiMap[word.word]) {
-            await getRomaji(word.word);
-          }
-        }
-        // Update romaji for memory game
-        for (const card of memoryGameData) {
-          if (!romajiMap[card.content]) {
-            await getRomaji(card.content);
-          }
-        }
-        // Update romaji for quiz game
-        for (const question of quizGameData) {
-          for (const option of question.options) {
-            if (!romajiMap[option]) {
-              await getRomaji(option);
-            }
-          }
-        }
-        // Update romaji for association game
-        for (const item of associationGameData) {
-          if (!romajiMap[item.word]) {
-            await getRomaji(item.word);
-          }
-          for (const word of [...item.associations, ...item.distractors]) {
+        try {
+          // Update romaji for sentence game
+          const sentenceWords = sentenceExamples.flatMap(example => example.japanese.split(' '));
+          for (const word of sentenceWords) {
             if (!romajiMap[word]) {
               await getRomaji(word);
             }
           }
+
+          // Update romaji for memory game
+          for (const item of matchingGameData) {
+            if (!romajiMap[item.japanese]) {
+              await getRomaji(item.japanese);
+            }
+            if (!romajiMap[item.hiragana]) {
+              await getRomaji(item.hiragana);
+            }
+          }
+
+          console.log('Romaji update complete');
+        } catch (error) {
+          console.error('Error updating romaji:', error);
         }
       };
       updateRomaji();
@@ -1017,7 +1061,7 @@ const Section8 = () => {
           <div className="mb-4 flex justify-center">
             <button
               onClick={() => {
-                initializeSentenceGame();
+                initializeSentenceBuilder();
                 setGameState(prev => ({ ...prev, isPlaying: true }));
               }}
               className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"

@@ -171,7 +171,7 @@ const beginnerPhrases: AnimePhrase[] = [
     example: "俺はゴン・フリークスだ！ (I am Gon Freecss!) – Gon introducing himself.",
     difficulty: "beginner",
     category: "greeting",
-    animeImage: "gon-hxh.JPG",
+    animeImage: "/anime/gon-hxh.JPG",
     characterName: "Gon Freecss",
     animeTitle: "Hunter x Hunter"
   },
@@ -183,7 +183,7 @@ const beginnerPhrases: AnimePhrase[] = [
     example: "炭治郎、がんばれ！ (Tanjiro, do your best!) – Nezuko cheering her brother.",
     difficulty: "beginner",
     category: "emotion",
-    animeImage: "tanjiro-demonslayer.JPG",
+    animeImage: "/anime/tanjiro-demonslayer.JPG",
     characterName: "Tanjiro Kamado",
     animeTitle: "Demon Slayer"
   },
@@ -195,7 +195,7 @@ const beginnerPhrases: AnimePhrase[] = [
     example: "ナルト、忍者の道を極めるぞ！ (Naruto, I'll master the way of the ninja!) – Naruto's vow.",
     difficulty: "beginner",
     category: "action",
-    animeImage: "naruto.JPG",
+    animeImage: "/anime/naruto.JPG",
     characterName: "Naruto Uzumaki",
     animeTitle: "Naruto"
   },

@@ -1,4 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { deleteDB } from 'idb';
 
 interface RomajiDBSchema extends DBSchema {
   romaji: {
@@ -22,8 +23,8 @@ class RomajiCache {
       hasInitPromise: !!this.initPromise 
     });
 
-    if (this.isInitialized) {
-      console.log('RomajiCache already initialized');
+    if (this.isInitialized && this.db) {
+      console.log('RomajiCache already initialized and database exists');
       return;
     }
 
@@ -32,6 +33,14 @@ class RomajiCache {
       this.initPromise = (async () => {
         try {
           console.log('Opening IndexedDB...');
+          // Clear any existing database to ensure fresh start
+          try {
+            await deleteDB(this.dbName);
+            console.log('Cleared existing database');
+          } catch (e) {
+            console.log('No existing database to clear');
+          }
+
           this.db = await openDB<RomajiDBSchema>(this.dbName, this.version, {
             upgrade(db, oldVersion, newVersion) {
               console.log('Upgrading database from version', oldVersion, 'to', newVersion);
@@ -49,6 +58,8 @@ class RomajiCache {
             },
             terminated() {
               console.warn('Database connection terminated');
+              this.isInitialized = false;
+              this.db = null;
             }
           });
           
@@ -58,6 +69,7 @@ class RomajiCache {
         } catch (error) {
           console.error('Failed to initialize RomajiCache:', error);
           this.isInitialized = false;
+          this.db = null;
           this.initPromise = null;
           throw error;
         }
