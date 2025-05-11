@@ -310,13 +310,23 @@ const Quiz: React.FC = () => {
       return;
     }
 
+    const nextQuestionIndex = quizState.currentQuestion + 1;
     setQuizState(prev => ({
       ...prev,
-      currentQuestion: prev.currentQuestion + 1,
+      currentQuestion: nextQuestionIndex,
       showFeedback: false,
       isCorrect: null,
-      showCorrect: false
+      showCorrect: false,
+      selectedAnswer: null
     }));
+
+    // Generate new options for multiple choice
+    if (settings.quizType === 'multiple-choice' && questions[nextQuestionIndex]) {
+      setOptions(generateOptions(questions[nextQuestionIndex], quizWords));
+    }
+
+    // Clear user answer for writing mode
+    setUserAnswer('');
   };
 
   const restartQuiz = () => {
