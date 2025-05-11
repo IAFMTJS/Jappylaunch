@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const PASSWORD_REQUIREMENTS = {
   minLength: 8,
@@ -79,97 +79,94 @@ export default function Signup() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 via-white to-pink-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create your account
-          </h2>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{error}</div>
-            </div>
-          )}
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email-address" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
-                  passwordErrors.length > 0 ? 'border-red-300' : 'border-gray-300'
-                } placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm`}
-                placeholder="Password"
-                value={password}
-                onChange={handlePasswordChange}
-              />
-            </div>
-            <div>
-              <label htmlFor="password-confirm" className="sr-only">
-                Confirm Password
-              </label>
-              <input
-                id="password-confirm"
-                name="password-confirm"
-                type="password"
-                autoComplete="new-password"
-                required
-                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
-                  password !== passwordConfirm ? 'border-red-300' : 'border-gray-300'
-                } placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm`}
-                placeholder="Confirm Password"
-                value={passwordConfirm}
-                onChange={(e) => setPasswordConfirm(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {passwordErrors.length > 0 && (
-            <div className="rounded-md bg-yellow-50 p-4">
-              <div className="text-sm text-yellow-700">
-                <h4 className="font-medium">Password Requirements:</h4>
-                <ul className="list-disc list-inside mt-1">
-                  {passwordErrors.map((error, index) => (
-                    <li key={index}>{error}</li>
-                  ))}
-                </ul>
+        <div className="bg-white dark:bg-gray-800 shadow-xl rounded-2xl p-8 flex flex-col items-center">
+          <h2 className="text-3xl font-extrabold text-indigo-700 dark:text-indigo-300 mb-2 text-center">Create your account</h2>
+          <p className="text-gray-500 dark:text-gray-400 text-center mb-6">Sign up to start your Japanese learning journey!</p>
+          <form className="w-full space-y-6" onSubmit={handleSubmit}>
+            {error && (
+              <div className="rounded-md bg-red-50 dark:bg-red-900 p-4 mb-2">
+                <div className="text-sm text-red-700 dark:text-red-200">{error}</div>
+              </div>
+            )}
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="email-address" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Email address</label>
+                <input
+                  id="email-address"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-400 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Password</label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  className="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-400 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="Password"
+                  value={password}
+                  onChange={handlePasswordChange}
+                />
+                {passwordErrors.length > 0 && (
+                  <ul className="mt-2 text-xs text-red-600 dark:text-red-300 list-disc list-inside">
+                    {passwordErrors.map((err, idx) => (
+                      <li key={idx}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <label htmlFor="password-confirm" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Confirm Password</label>
+                <input
+                  id="password-confirm"
+                  name="password-confirm"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  className="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-700 placeholder-gray-400 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="Confirm password"
+                  value={passwordConfirm}
+                  onChange={(e) => setPasswordConfirm(e.target.value)}
+                />
               </div>
             </div>
-          )}
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading || passwordErrors.length > 0 || password !== passwordConfirm}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-            >
-              {loading ? 'Creating account...' : 'Sign up'}
-            </button>
-          </div>
-        </form>
+            <div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                    </svg>
+                    Creating account...
+                  </span>
+                ) : (
+                  'Sign up'
+                )}
+              </button>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                <Link to="/login" className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors">Already have an account?</Link>
+              </div>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
