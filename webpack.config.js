@@ -11,15 +11,25 @@ module.exports = (env, argv) => {
     entry: './src/index.tsx',
     output: {
       path: path.resolve(__dirname, 'build'),
-      filename: isProduction ? '[name].[contenthash].js' : '[name].js',
-      publicPath: '/'
+      filename: isProduction ? 'static/js/[name].[contenthash:8].js' : 'static/js/[name].js',
+      chunkFilename: isProduction ? 'static/js/[name].[contenthash:8].chunk.js' : 'static/js/[name].chunk.js',
+      publicPath: '/',
+      clean: true
     },
     module: {
       rules: [
         {
           test: /\.(ts|tsx)$/,
           exclude: /node_modules/,
-          use: 'ts-loader'
+          use: {
+            loader: 'ts-loader',
+            options: {
+              transpileOnly: true,
+              compilerOptions: {
+                module: 'esnext'
+              }
+            }
+          }
         },
         {
           test: /\.css$/,
@@ -28,7 +38,10 @@ module.exports = (env, argv) => {
       ]
     },
     resolve: {
-      extensions: ['.tsx', '.ts', '.js']
+      extensions: ['.tsx', '.ts', '.js', '.jsx'],
+      alias: {
+        '@': path.resolve(__dirname, 'src')
+      }
     },
     optimization: {
       minimize: isProduction,
@@ -38,8 +51,12 @@ module.exports = (env, argv) => {
             compress: {
               drop_console: isProduction,
               drop_debugger: isProduction
+            },
+            format: {
+              comments: false
             }
-          }
+          },
+          extractComments: false
         })
       ],
       splitChunks: {
@@ -49,7 +66,10 @@ module.exports = (env, argv) => {
         cacheGroups: {
           vendor: {
             test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
+            name(module) {
+              const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
+              return `vendor.${packageName.replace('@', '')}`;
+            },
             chunks: 'all'
           }
         }
@@ -63,42 +83,45 @@ module.exports = (env, argv) => {
           stringArrayEncoding: ['base64'],
           stringArrayThreshold: 0.75,
           identifierNamesGenerator: 'hexadecimal',
-          debugProtection: true,
-          debugProtectionInterval: 1000,
+          debugProtection: false,
           disableConsoleOutput: true,
-          selfDefending: true,
-          deadCodeInjection: true,
-          deadCodeInjectionThreshold: 0.4,
-          controlFlowFlattening: true,
-          controlFlowFlatteningThreshold: 0.75,
-          numbersToExpressions: true,
+          selfDefending: false,
+          deadCodeInjection: false,
+          controlFlowFlattening: false,
+          numbersToExpressions: false,
           simplify: true,
           shuffleStringArray: true,
-          splitStrings: true,
-          stringArrayWrappersCount: 2,
+          splitStrings: false,
+          stringArrayWrappersCount: 1,
           stringArrayWrappersType: 'function',
-          stringArrayWrappersParametersMaxCount: 4,
-          stringArrayWrappersChainedCalls: true,
-          stringArrayEncoding: ['base64'],
-          transformObjectKeys: true,
+          stringArrayWrappersParametersMaxCount: 2,
+          stringArrayWrappersChainedCalls: false,
+          transformObjectKeys: false,
           unicodeEscapeSequence: false
         }),
         new CompressionPlugin({
           test: /\.(js|css|html|svg)$/,
-          algorithm: 'gzip'
+          algorithm: 'gzip',
+          deleteOriginalAssets: false
         })
       ] : [])
     ],
     devServer: {
       historyApiFallback: true,
       hot: true,
-      port: 3000
+      port: 3000,
+      static: {
+        directory: path.join(__dirname, 'public')
+      }
     },
     devtool: isProduction ? false : 'source-map',
     performance: {
       hints: isProduction ? 'warning' : false,
       maxEntrypointSize: 512000,
       maxAssetSize: 512000
+    },
+    stats: {
+      errorDetails: true
     }
   };
 }; 
