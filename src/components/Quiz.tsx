@@ -237,7 +237,7 @@ const Quiz: React.FC = () => {
     return 'Keep trying! 💪';
   };
 
-  const checkAnswer = (answer: string) => {
+  const checkAnswer = (answer: string, selectedIndex: number) => {
     if (quizState.showFeedback) return;
 
     const currentWord = questions[quizState.currentQuestion];
@@ -250,7 +250,7 @@ const Quiz: React.FC = () => {
     setBestStreak(newBestStreak);
     setQuizState(prev => ({
       ...prev,
-      selectedAnswer: currentOptions.indexOf(answer),
+      selectedAnswer: selectedIndex,
       showFeedback: true,
       isCorrect,
       showCorrect: !isCorrect
@@ -288,7 +288,7 @@ const Quiz: React.FC = () => {
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!userAnswer.trim()) return;
-    checkAnswer(userAnswer.trim());
+    checkAnswer(userAnswer.trim(), -1); // -1 for writing mode
   }, [userAnswer, checkAnswer]);
 
   const handleNextQuestion = () => {
@@ -538,7 +538,7 @@ const Quiz: React.FC = () => {
             {currentOptions.map((option, index) => (
               <button
                 key={index}
-                onClick={() => !quizState.showFeedback && checkAnswer(option)}
+                onClick={() => !quizState.showFeedback && checkAnswer(option, index)}
                 className={`w-full text-left p-4 rounded-lg transition-all ${
                   quizState.selectedAnswer === index
                     ? quizState.isCorrect
