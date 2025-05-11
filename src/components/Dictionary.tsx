@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useProgress } from '../context/ProgressContext';
 import { QuizWord, quizWords } from '../data/quizData';
@@ -16,42 +16,153 @@ interface DictionaryProps {
 
 const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
   const { isDarkMode } = useTheme();
-  const { progress, updateProgress, getProgressStatus } = useProgress();
+  const { updateProgress, getProgressStatus, syncProgress } = useProgress();
   const { playSound } = useSound();
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [items, setItems] = useState<DictionaryItem[]>([]);
-  const [filteredItems, setFilteredItems] = useState<DictionaryItem[]>([]);
   const [sortBy, setSortBy] = useState<'japanese' | 'english' | 'progress'>('japanese');
   const [romajiMap, setRomajiMap] = useState<Record<string, string>>({});
   const [isRomajiLoading, setIsRomajiLoading] = useState(false);
   const [romajiError, setRomajiError] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // Load dictionary items based on mode
   useEffect(() => {
     const loadItems = async () => {
-      let loadedItems: DictionaryItem[] = [];
-      
-      switch (mode) {
-        case 'hiragana':
-          loadedItems = quizWords.filter(item =>
-            /[\u3040-\u309F]/.test(item.japanese) // Contains any hiragana
-          );
-          break;
-        case 'katakana':
-          loadedItems = quizWords.filter(item =>
-            /[\u30A0-\u30FF]/.test(item.japanese) // Contains any katakana
-          );
-          break;
-        case 'kanji':
-          loadedItems = kanjiList;
-          break;
+      try {
+        let loadedItems: DictionaryItem[] = [];
+        
+        switch (mode) {
+          case 'hiragana':
+            loadedItems = quizWords.filter(item =>
+              /[\u3040-\u309F]/.test(item.japanese)
+            );
+            break;
+          case 'katakana':
+            loadedItems = quizWords.filter(item =>
+              /[\u30A0-\u30FF]/.test(item.japanese)
+            );
+            break;
+          case 'kanji':
+            loadedItems = kanjiList;
+            break;
+        }
+        
+        setItems(loadedItems);
+      } catch (error) {
+        console.error('Error loading items:', error);
       }
-      
-      setItems(loadedItems);
     };
     loadItems();
   }, [mode]);
+
+  // Memoize the getProgressStatus function
+  const getItemStatus = useCallback((itemId: string) => {
+    try {
+      return getProgressStatus(mode, itemId);
+    } catch (error) {
+      console.error('Error getting item status:', error);
+      return { isMarked: false, lastAttempted: null };
+    }
+  }, [mode, getProgressStatus]);
+
+  // Memoize filtered and sorted items
+  const filteredAndSortedItems = useMemo(() => {
+    if (!items) return [];
+
+    try {
+      let filtered = items.filter(item => {
+        const itemText = 'japanese' in item ? item.japanese : (item as Kanji).character;
+        const searchLower = searchTerm.toLowerCase().trim();
+        
+        // Search in all relevant fields
+        const matchesSearch = 
+          !searchLower ||
+          itemText.toLowerCase().includes(searchLower) ||
+          item.english.toLowerCase().includes(searchLower) ||
+          ('romaji' in item && item.romaji?.toLowerCase().includes(searchLower)) ||
+          ('onyomi' in item && (item as Kanji).onyomi.some(reading => reading.toLowerCase().includes(searchLower))) ||
+          ('kunyomi' in item && (item as Kanji).kunyomi.some(reading => reading.toLowerCase().includes(searchLower)));
+
+        if (!matchesSearch) return false;
+
+        const status = getItemStatus(itemText);
+        
+        switch (filter) {
+          case 'marked':
+            return status.isMarked;
+          case 'unmarked':
+            return !status.isMarked;
+          case 'mastered':
+            return status.isMarked;
+          default:
+            return true;
+        }
+      });
+
+      return filtered.sort((a, b) => {
+        const aText = 'japanese' in a ? a.japanese : (a as Kanji).character;
+        const bText = 'japanese' in b ? b.japanese : (b as Kanji).character;
+
+        switch (sortBy) {
+          case 'japanese':
+            return aText.localeCompare(bText, 'ja');
+          case 'english':
+            return a.english.localeCompare(b.english);
+          case 'progress': {
+            const statusA = getItemStatus(aText);
+            const statusB = getItemStatus(bText);
+            if (statusA.isMarked === statusB.isMarked) {
+              const timeA = statusA.lastAttempted ?? 0;
+              const timeB = statusB.lastAttempted ?? 0;
+              return timeB - timeA;
+            }
+            return statusA.isMarked ? -1 : 1;
+          }
+          default:
+            return 0;
+        }
+      });
+    } catch (error) {
+      console.error('Error filtering/sorting items:', error);
+      return items;
+    }
+  }, [items, searchTerm, filter, sortBy, getItemStatus]);
+
+  // Memoize stats calculation
+  const stats = useMemo(() => {
+    if (!items) return { total: 0, marked: 0, mastered: 0 };
+    
+    try {
+      return items.reduce((acc, item) => {
+        const itemText = 'japanese' in item ? item.japanese : (item as Kanji).character;
+        const status = getItemStatus(itemText);
+        return {
+          total: acc.total + 1,
+          marked: acc.marked + (status.isMarked ? 1 : 0),
+          mastered: acc.mastered + (status.isMarked ? 1 : 0)
+        };
+      }, { total: 0, marked: 0, mastered: 0 });
+    } catch (error) {
+      console.error('Error calculating stats:', error);
+      return { total: items.length, marked: 0, mastered: 0 };
+    }
+  }, [items, getItemStatus]);
+
+  const toggleMarked = useCallback(async (itemId: string) => {
+    try {
+      const currentStatus = getItemStatus(itemId);
+      await updateProgress(mode, itemId, !currentStatus.isMarked);
+      playSound(!currentStatus.isMarked ? 'correct' : 'incorrect');
+      
+      if (isOnline) {
+        await syncProgress();
+      }
+    } catch (error) {
+      console.error('Error toggling marked status:', error);
+    }
+  }, [mode, updateProgress, syncProgress, isOnline, getItemStatus, playSound]);
 
   // Initialize romaji conversion for all items with improved caching
   const initializeRomaji = useCallback(async (itemsToConvert: DictionaryItem[]) => {
@@ -138,111 +249,18 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
     };
   }, [items, initializeRomaji]);
 
-  useEffect(() => {
-    // Filter and sort items
-    let filtered = items.filter(item => {
-      const searchLower = searchTerm.toLowerCase().trim();
-      if (!searchLower) return true;
-
-      // Search in Japanese text
-      const japaneseText = 'japanese' in item ? item.japanese : item.character;
-      if (japaneseText.toLowerCase().includes(searchLower)) return true;
-
-      // Search in English text
-      if ('english' in item && item.english.toLowerCase().includes(searchLower)) return true;
-
-      // Search in romaji
-      if ('romaji' in item && item.romaji?.toLowerCase().includes(searchLower)) return true;
-
-      // Search in meanings for kanji
-      if ('meanings' in item && Array.isArray(item.meanings) && 
-          item.meanings.some((meaning: string) => meaning.toLowerCase().includes(searchLower))) {
-        return true;
-      }
-
-      // Search in readings for kanji
-      if ('readings' in item && Array.isArray(item.readings) && 
-          item.readings.some((reading: string) => reading.toLowerCase().includes(searchLower))) {
-        return true;
-      }
-
-      return false;
-    });
-
-    // Apply filter after search
-    filtered = filtered.filter(item => {
-      const itemId = 'japanese' in item ? item.japanese : item.character;
-      const { isMarked } = getProgressStatus(mode, itemId);
-
-      switch (filter) {
-        case 'unmarked':
-          return !isMarked;
-        case 'marked':
-          return isMarked;
-        case 'mastered':
-          return isMarked;
-        default:
-          return true;
-      }
-    });
-
-    // Sort items
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'japanese':
-          const aText = 'japanese' in a ? a.japanese : a.character;
-          const bText = 'japanese' in b ? b.japanese : b.character;
-          return aText.localeCompare(bText, 'ja');
-        case 'english':
-          const aEng = 'english' in a ? a.english : '';
-          const bEng = 'english' in b ? b.english : '';
-          return aEng.localeCompare(bEng);
-        case 'progress':
-          const aId = 'japanese' in a ? a.japanese : a.character;
-          const bId = 'japanese' in b ? b.japanese : b.character;
-          const aStatus = getProgressStatus(mode, aId);
-          const bStatus = getProgressStatus(mode, bId);
-          return (bStatus.isMarked ? 1 : 0) - (aStatus.isMarked ? 1 : 0);
-        default:
-          return 0;
-      }
-    });
-
-    setFilteredItems(filtered);
-  }, [items, searchTerm, filter, sortBy, mode, getProgressStatus]);
-
-  const toggleMarked = (item: DictionaryItem) => {
-    const itemId = 'japanese' in item ? item.japanese : item.character;
-    const { isMarked } = getProgressStatus(mode, itemId);
-
-    updateProgress(mode, itemId, !isMarked)
-      .then(() => {
-        playSound(isMarked ? 'incorrect' : 'correct');
-        console.log(isMarked ? 'Unmarked as read' : 'Marked as read');
-      })
-      .catch((err) => {
-        console.error('Failed to update progress:', err);
-      });
-  };
-
   return (
     <div className="max-w-6xl mx-auto p-4">
       {/* Stats section */}
       <div className="mb-6 flex flex-wrap gap-4 text-sm">
         <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-          Total: {items.length}
+          Total: {stats.total}
         </span>
         <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-          Marked: {items.filter(item => {
-            const itemId = 'japanese' in item ? item.japanese : item.character;
-            return getProgressStatus(mode, itemId).isMarked;
-          }).length}
+          Marked: {stats.marked}
         </span>
         <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-          Mastered: {items.filter(item => {
-            const itemId = 'japanese' in item ? item.japanese : item.character;
-            return getProgressStatus(mode, itemId).isMarked;
-          }).length}
+          Mastered: {stats.mastered}
         </span>
         {isRomajiLoading && (
           <span className="text-blue-500">
@@ -321,10 +339,10 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
 
       {/* Word list */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredItems.map((item, index) => {
-          const itemId = 'japanese' in item ? item.japanese : item.character;
-          const itemText = 'japanese' in item ? item.japanese : item.character;
-          const { isMarked } = getProgressStatus(mode, itemId);
+        {filteredAndSortedItems.map((item, index) => {
+          const itemId = 'japanese' in item ? item.japanese : (item as Kanji).character;
+          const itemText = 'japanese' in item ? item.japanese : (item as Kanji).character;
+          const { isMarked } = getItemStatus(itemId);
           const romaji = romajiMap[itemText] || (isRomajiLoading ? 'Loading...' : itemText);
 
           return (
@@ -346,7 +364,7 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
                   </p>
                 </div>
                 <button
-                  onClick={() => toggleMarked(item)}
+                  onClick={() => toggleMarked(itemId)}
                   className={`p-2 rounded-full ${
                     isMarked 
                       ? 'bg-green-500 text-white' 
