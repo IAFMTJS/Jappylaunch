@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useProgress } from '../context/ProgressContext';
 import { QuizWord, quizWords } from '../data/quizData';
 import { Kanji, kanjiList } from '../data/kanjiData';
 import { useSound } from '../context/SoundContext';
+import { kuroshiroInstance } from '../utils/kuroshiro';
+import { romajiCache } from '../utils/romajiCache';
 
 type DictionaryItem = QuizWord | Kanji;
 type FilterType = 'all' | 'unmarked' | 'marked' | 'mastered';
@@ -22,9 +24,11 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
   const [filteredItems, setFilteredItems] = useState<DictionaryItem[]>([]);
   const [sortBy, setSortBy] = useState<'japanese' | 'english' | 'progress'>('japanese');
   const [romajiMap, setRomajiMap] = useState<Record<string, string>>({});
+  const [isRomajiLoading, setIsRomajiLoading] = useState(false);
+  const [romajiError, setRomajiError] = useState<string | null>(null);
 
+  // Load dictionary items based on mode
   useEffect(() => {
-    // Load dictionary items based on mode
     const loadItems = async () => {
       let loadedItems: DictionaryItem[] = [];
       
@@ -51,6 +55,69 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
     };
     loadItems();
   }, [mode, setTotalItems]);
+
+  // Initialize romaji conversion for all items with improved caching
+  const initializeRomaji = useCallback(async (itemsToConvert: DictionaryItem[]) => {
+    if (itemsToConvert.length === 0) return;
+
+    setIsRomajiLoading(true);
+    setRomajiError(null);
+
+    try {
+      // Get all texts that need conversion
+      const textsToConvert = itemsToConvert
+        .map(item => 'japanese' in item ? item.japanese : item.character);
+
+      // Try to get cached romaji first
+      const cachedRomaji = await romajiCache.getBatch(textsToConvert);
+      
+      // Update state with cached values
+      setRomajiMap(prev => ({ ...prev, ...cachedRomaji }));
+
+      // Find texts that weren't in cache
+      const uncachedTexts = textsToConvert.filter(text => !cachedRomaji[text]);
+
+      if (uncachedTexts.length === 0) {
+        setIsRomajiLoading(false);
+        return;
+      }
+
+      // Process uncached texts in smaller batches
+      const batchSize = 5;
+      const newRomajiMap = { ...romajiMap, ...cachedRomaji };
+
+      for (let i = 0; i < uncachedTexts.length; i += batchSize) {
+        const batch = uncachedTexts.slice(i, i + batchSize);
+        const batchResults = await kuroshiroInstance.convertBatch(batch);
+        
+        // Cache the new conversions
+        await romajiCache.setBatch(batchResults);
+        
+        // Update the map with new conversions
+        Object.entries(batchResults).forEach(([text, romaji]) => {
+          newRomajiMap[text] = romaji;
+        });
+
+        // Update state after each batch to show progress
+        setRomajiMap(newRomajiMap);
+      }
+    } catch (error) {
+      console.error('Error initializing romaji:', error);
+      setRomajiError('Failed to load romaji. Please try refreshing the page.');
+    } finally {
+      setIsRomajiLoading(false);
+    }
+  }, [romajiMap]);
+
+  // Preload romaji for all items when the component mounts
+  useEffect(() => {
+    const preloadRomaji = async () => {
+      if (items.length > 0) {
+        await initializeRomaji(items);
+      }
+    };
+    preloadRomaji();
+  }, [items, initializeRomaji]);
 
   useEffect(() => {
     // Filter and sort items
@@ -125,30 +192,6 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
     setFilteredItems(filtered);
   }, [items, searchTerm, filter, sortBy, progress, mode]);
 
-  // Initialize romaji conversion for all items
-  useEffect(() => {
-    const initializeRomaji = async () => {
-      const textsToConvert = items
-        .filter(item => {
-          const text = 'japanese' in item ? item.japanese : item.character;
-          return !romajiMap[text];
-        })
-        .map(item => 'japanese' in item ? item.japanese : item.character);
-
-      if (textsToConvert.length > 0) {
-        try {
-          const { convertBatchToRomaji } = await import('../utils/kuroshiro');
-          const newRomajiMap = await convertBatchToRomaji(textsToConvert);
-          setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
-        } catch (error) {
-          console.error('Error initializing romaji:', error);
-        }
-      }
-    };
-
-    initializeRomaji();
-  }, [items]);
-
   const toggleMarked = (item: DictionaryItem) => {
     const itemId = 'japanese' in item ? item.japanese : item.character;
     const isMarked = progress[mode]?.masteredIds?.has(itemId);
@@ -180,6 +223,16 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
             progress[mode]?.masteredIds?.has('japanese' in item ? item.japanese : item.character)
           ).length}
         </span>
+        {isRomajiLoading && (
+          <span className="text-blue-500">
+            Loading romaji... {Object.keys(romajiMap).length}/{items.length} cached
+          </span>
+        )}
+        {romajiError && (
+          <span className="text-red-500">
+            {romajiError}
+          </span>
+        )}
       </div>
 
       {/* Filters section */}
@@ -248,58 +301,50 @@ const Dictionary: React.FC<DictionaryProps> = ({ mode }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredItems.map((item, index) => {
           const itemId = 'japanese' in item ? item.japanese : item.character;
-          const isMarked = progress[mode]?.masteredIds?.has(itemId);
           const itemText = 'japanese' in item ? item.japanese : item.character;
+          const isMarked = progress[mode]?.masteredIds?.has(itemId);
+          const romaji = romajiMap[itemText] || (isRomajiLoading ? 'Loading...' : itemText);
 
           return (
             <div
-              key={index}
-              className={`p-4 rounded-lg border ${
+              key={itemId}
+              className={`p-4 rounded-lg shadow-sm transition-colors ${
                 isDarkMode 
-                  ? 'bg-gray-800 border-gray-700' 
-                  : 'bg-white border-gray-200'
-              } shadow-sm hover:shadow-md transition-shadow`}
+                  ? 'bg-gray-800 hover:bg-gray-700' 
+                  : 'bg-white hover:bg-gray-50'
+              } ${isMarked ? 'border-2 border-green-500' : 'border border-gray-200'}`}
             >
-              <div className="flex justify-between items-start">
+              <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h3 className={`text-xl font-semibold ${
-                    isDarkMode ? 'text-white' : 'text-gray-800'
-                  }`}>
+                  <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                     {itemText}
                   </h3>
-                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {romajiMap[itemText] || 'Loading...'}
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    {romaji}
                   </p>
-                  {'english' in item && (
-                    <p className={`mt-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      {item.english}
-                    </p>
-                  )}
                 </div>
                 <button
                   onClick={() => toggleMarked(item)}
                   className={`p-2 rounded-full ${
-                    isMarked
-                      ? 'bg-green-500 hover:bg-green-600'
-                      : 'bg-gray-200 hover:bg-gray-300'
-                  } transition-colors`}
-                  title={isMarked ? 'Mark as unlearned' : 'Mark as learned'}
+                    isMarked 
+                      ? 'bg-green-500 text-white' 
+                      : isDarkMode 
+                        ? 'bg-gray-700 text-gray-300' 
+                        : 'bg-gray-200 text-gray-600'
+                  }`}
                 >
-                  <svg
-                    className={`w-5 h-5 ${isMarked ? 'text-white' : 'text-gray-600'}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
+                  {isMarked ? '✓' : '○'}
                 </button>
               </div>
+              <div className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                {'english' in item ? item.english : (item as Kanji).english}
+              </div>
+              {'readings' in item && (
+                <div className={`mt-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <div>音読み: {(item as Kanji).onyomi.join(', ')}</div>
+                  <div>訓読み: {(item as Kanji).kunyomi.join(', ')}</div>
+                </div>
+              )}
             </div>
           );
         })}
