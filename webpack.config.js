@@ -2,6 +2,7 @@ const path = require('path');
 const WebpackObfuscator = require('webpack-obfuscator');
 const TerserPlugin = require('terser-webpack-plugin');
 const CompressionPlugin = require('compression-webpack-plugin');
+const webpack = require('webpack');
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
@@ -41,6 +42,20 @@ module.exports = (env, argv) => {
       extensions: ['.tsx', '.ts', '.js', '.jsx'],
       alias: {
         '@': path.resolve(__dirname, 'src')
+      },
+      fallback: {
+        "path": require.resolve("path-browserify"),
+        "fs": false,
+        "crypto": require.resolve("crypto-browserify"),
+        "stream": require.resolve("stream-browserify"),
+        "buffer": require.resolve("buffer/"),
+        "util": require.resolve("util/"),
+        "assert": require.resolve("assert/"),
+        "http": require.resolve("stream-http"),
+        "https": require.resolve("https-browserify"),
+        "os": require.resolve("os-browserify/browser"),
+        "url": require.resolve("url/"),
+        "zlib": require.resolve("browserify-zlib")
       }
     },
     optimization: {
@@ -104,7 +119,11 @@ module.exports = (env, argv) => {
           algorithm: 'gzip',
           deleteOriginalAssets: false
         })
-      ] : [])
+      ] : []),
+      new webpack.ProvidePlugin({
+        Buffer: ['buffer', 'Buffer'],
+        process: 'process/browser'
+      })
     ],
     devServer: {
       historyApiFallback: true,
