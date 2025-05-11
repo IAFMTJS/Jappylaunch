@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import Dictionary from '../components/Dictionary';
 import LearningProgress from '../components/LearningProgress';
+import { downloadOfflineData } from '../utils/offlineData';
 
 type TabType = 'progress' | 'dictionary';
 
@@ -9,6 +10,23 @@ const ProgressPage: React.FC = () => {
   const { isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('progress');
   const [dictionaryMode, setDictionaryMode] = useState<'hiragana' | 'katakana' | 'kanji'>('hiragana');
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [downloadSuccess, setDownloadSuccess] = useState(false);
+
+  const handleDownloadOfflineData = async () => {
+    setIsDownloading(true);
+    setDownloadError(null);
+    setDownloadSuccess(false);
+    try {
+      await downloadOfflineData();
+      setDownloadSuccess(true);
+    } catch (err) {
+      setDownloadError('Er is een fout opgetreden bij het downloaden van de offline data.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto p-4">
@@ -45,6 +63,17 @@ const ProgressPage: React.FC = () => {
               Dictionary
             </button>
           </div>
+        </div>
+        <div className="mb-4 flex items-center gap-4">
+          <button
+            onClick={handleDownloadOfflineData}
+            disabled={isDownloading}
+            className={`px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors ${isDownloading ? 'opacity-60 cursor-not-allowed' : ''}`}
+          >
+            {isDownloading ? 'Downloading...' : 'Download Offline Data'}
+          </button>
+          {downloadSuccess && <span className="text-green-600 font-semibold">Offline data opgeslagen!</span>}
+          {downloadError && <span className="text-red-600 font-semibold">{downloadError}</span>}
         </div>
 
         {activeTab === 'dictionary' && (
