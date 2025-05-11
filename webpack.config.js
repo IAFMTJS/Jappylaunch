@@ -4,6 +4,7 @@ const WebpackObfuscator = require('webpack-obfuscator');
 const TerserPlugin = require('terser-webpack-plugin');
 const CompressionPlugin = require('compression-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
@@ -97,13 +98,29 @@ module.exports = (env, argv) => {
         process: 'process/browser.js',
         Buffer: ['buffer', 'Buffer']
       }),
+      new HtmlWebpackPlugin({
+        template: 'public/index.html',
+        inject: 'body',
+        minify: isProduction ? {
+          removeComments: true,
+          collapseWhitespace: true,
+          removeRedundantAttributes: true,
+          useShortDoctype: true,
+          removeEmptyAttributes: true,
+          removeStyleLinkTypeAttributes: true,
+          keepClosingSlash: true,
+          minifyJS: true,
+          minifyCSS: true,
+          minifyURLs: true,
+        } : false
+      }),
       new CopyWebpackPlugin({
         patterns: [
           {
             from: 'public',
             to: '.',
             globOptions: {
-              ignore: ['**/.DS_Store']
+              ignore: ['**/index.html', '**/.DS_Store']
             }
           }
         ]
