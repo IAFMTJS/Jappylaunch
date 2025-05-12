@@ -149,7 +149,7 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
   const navigate = useNavigate();
   const { settings } = useSettings();
   const { playSound } = useSound();
-  const { updateProgress, setTotalItems } = useProgress();
+  const { updateProgress } = useProgress();
   const { isDarkMode } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mode, setMode] = useState<WritingMode>(initialMode);
@@ -379,37 +379,34 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
       isTranslationCorrect = state.translationInput.trim().toLowerCase() === expectedTranslation.toLowerCase();
     }
 
+    const newScore = isCorrect && (!requireTranslation || isTranslationCorrect) ? state.score + 1 : state.score;
+    const newTotalAttempts = state.totalAttempts + 1;
+
     setState(prev => ({
       ...prev,
       isCorrect,
       isTranslationCorrect: requireTranslation ? isTranslationCorrect : null,
-      score: isCorrect && (!requireTranslation || isTranslationCorrect) ? prev.score + 1 : prev.score,
-      totalAttempts: prev.totalAttempts + 1
+      score: newScore,
+      totalAttempts: newTotalAttempts
     }));
+
+    // Update progress with proper type handling
+    const progressKey = `writing-${state.currentWord.japanese}`;
+    updateProgress(mode, progressKey, isCorrect && (!requireTranslation || isTranslationCorrect), {
+      totalQuestions: newTotalAttempts,
+      correctAnswers: newScore,
+      bestStreak: newScore,
+      highScore: newScore,
+      lastAttempt: Date.now()
+    });
 
     if (isCorrect && (!requireTranslation || isTranslationCorrect)) {
       playSound('correct');
-      if (state.currentWord) {
-        updateProgress(mode, {
-          totalQuestions: 1,
-          correctAnswers: 1,
-          bestStreak: state.score + 1,
-          highScore: state.score + 1,
-          lastAttempt: new Date().toISOString()
-        });
-      }
     } else {
       playSound('incorrect');
-      if (state.currentWord) {
-        updateProgress(mode, {
-          totalQuestions: 1,
-          correctAnswers: 0,
-          lastAttempt: new Date().toISOString()
-        });
-      }
     }
 
-    if (state.score + (isCorrect && (!requireTranslation || isTranslationCorrect) ? 1 : 0) >= 10) {
+    if (newScore >= 10) {
       playSound('complete');
       if (onComplete) onComplete();
       else navigate('/');
@@ -627,12 +624,6 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
   useEffect(() => {
     startNewPractice();
   }, [mode, difficulty, practiceType]);
-
-  // Initialize total items count when component loads or mode changes
-  useEffect(() => {
-    const items = getFilteredWords();
-    setTotalItems(mode, items.length);
-  }, [mode, difficulty]);
 
   return (
     <div className="max-w-4xl mx-auto p-4">

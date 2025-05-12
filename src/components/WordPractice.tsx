@@ -37,7 +37,7 @@ const WordPractice: React.FC = () => {
   const [finalStreak, setFinalStreak] = useState(0);
   const progressRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { updateProgress } = useProgress();
+  const { updateProgress, progress } = useProgress();
 
   const getFilteredWords = () => {
     return quizWords.filter(word => {
@@ -154,6 +154,9 @@ const WordPractice: React.FC = () => {
 
     const newScore = score + pointsEarned;
     const newTotalQuestions = totalQuestions + 1;
+    const newStreak = isAnswerCorrect ? streak + 1 : 0;
+    const newBestStreak = Math.max(streak, newStreak);
+
     setScore(newScore);
     setTotalQuestions(newTotalQuestions);
     setUsedWords(prev => new Set([...prev, currentWord.japanese]));
@@ -162,23 +165,23 @@ const WordPractice: React.FC = () => {
     setTimerActive(false);
     setFeedbackMessage(getFeedbackMessage(isAnswerCorrect, streak));
 
+    // Update progress with proper type handling
+    const progressKey = `word-${currentWord.japanese}`;
+    updateProgress('wordPractice', progressKey, isAnswerCorrect, {
+      totalQuestions: newTotalQuestions,
+      correctAnswers: newScore,
+      bestStreak: newBestStreak,
+      highScore: Math.max(newScore, (progress.wordPractice?.highScore ?? 0)),
+      lastAttempt: Date.now()
+    });
+
     // Check if quiz is complete
     if (newTotalQuestions >= questionCount) {
       setQuizComplete(true);
       setFinalScore(newScore);
-      setFinalStreak(streak);
-      updateProgress('wordPractice', {
-        correctAnswers: newScore,
-        bestStreak: Math.max(streak, streak + (isAnswerCorrect ? 1 : 0)),
-        averageTime: calculateAverageTime(averageTime, newTotalQuestions, timeLeft)
-      });
-    } else {
-      updateProgress('wordPractice', {
-        correctAnswers: newScore,
-        bestStreak: Math.max(streak, streak + (isAnswerCorrect ? 1 : 0)),
-        averageTime: calculateAverageTime(averageTime, newTotalQuestions, timeLeft)
-      });
+      setFinalStreak(newStreak);
     }
+
     setAverageTime(calculateAverageTime(averageTime, newTotalQuestions, timeLeft));
   };
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useProgress } from '../context/ProgressContext';
+import { ProgressItem } from '../types';
 
 interface ChartData {
   labels: string[];
@@ -10,6 +11,21 @@ interface ChartData {
     backgroundColor: string;
     borderColor: string;
   }[];
+}
+
+interface SectionProgress {
+  totalQuestions: number;
+  correctAnswers: number;
+  bestStreak: number;
+  lastAttempt?: number;
+}
+
+interface ProgressData {
+  wordPractice: SectionProgress;
+  sentencePractice: SectionProgress;
+  kanji: SectionProgress;
+  hiragana: SectionProgress;
+  katakana: SectionProgress;
 }
 
 const Statistics: React.FC = () => {
@@ -93,10 +109,35 @@ const Statistics: React.FC = () => {
 
   const themeClasses = getThemeClasses();
 
-  const calculateAccuracy = (section: any): number => {
-    if (section.totalQuestions === 0) return 0;
+  const calculateAccuracy = (section: SectionProgress): number => {
+    if (!section?.totalQuestions) return 0;
     return Math.round((section.correctAnswers / section.totalQuestions) * 100);
   };
+
+  const getProgressData = (): ProgressData => {
+    const defaultSection: SectionProgress = {
+      totalQuestions: 0,
+      correctAnswers: 0,
+      bestStreak: 0
+    };
+
+    const convertToSectionProgress = (item: ProgressItem | undefined): SectionProgress => ({
+      totalQuestions: item?.totalQuestions ?? 0,
+      correctAnswers: item?.correctAnswers ?? 0,
+      bestStreak: item?.bestStreak ?? 0,
+      lastAttempt: item?.lastAttempt
+    });
+
+    return {
+      wordPractice: convertToSectionProgress(progress.wordPractice),
+      sentencePractice: convertToSectionProgress(progress.sentencePractice),
+      kanji: convertToSectionProgress(progress.kanji),
+      hiragana: convertToSectionProgress(progress.hiragana),
+      katakana: convertToSectionProgress(progress.katakana)
+    };
+  };
+
+  const progressData = getProgressData();
 
   const getAccuracyData = (): ChartData => ({
     labels: ['Word Practice', 'Sentence Practice', 'Kanji Practice'],
@@ -104,9 +145,9 @@ const Statistics: React.FC = () => {
       {
         label: 'Accuracy (%)',
         data: [
-          calculateAccuracy(progress.wordPractice),
-          calculateAccuracy(progress.sentencePractice),
-          calculateAccuracy(progress.kanji),
+          calculateAccuracy(progressData.wordPractice),
+          calculateAccuracy(progressData.sentencePractice),
+          calculateAccuracy(progressData.kanji),
         ],
         backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)',
         borderColor: isDarkMode ? 'rgb(34, 197, 94)' : 'rgb(22, 163, 74)',
@@ -120,9 +161,9 @@ const Statistics: React.FC = () => {
       {
         label: 'Questions Answered',
         data: [
-          progress.wordPractice.totalQuestions,
-          progress.sentencePractice.totalQuestions,
-          progress.kanji.totalQuestions,
+          progressData.wordPractice.totalQuestions,
+          progressData.sentencePractice.totalQuestions,
+          progressData.kanji.totalQuestions,
         ],
         backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)',
         borderColor: isDarkMode ? 'rgb(59, 130, 246)' : 'rgb(37, 99, 235)',
@@ -136,9 +177,9 @@ const Statistics: React.FC = () => {
       {
         label: 'Best Streak',
         data: [
-          progress.wordPractice.bestStreak,
-          progress.sentencePractice.bestStreak,
-          progress.kanji.bestStreak,
+          progressData.wordPractice.bestStreak,
+          progressData.sentencePractice.bestStreak,
+          progressData.kanji.bestStreak,
         ],
         backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.1)',
         borderColor: isDarkMode ? 'rgb(245, 158, 11)' : 'rgb(217, 119, 6)',
@@ -158,7 +199,7 @@ const Statistics: React.FC = () => {
     </div>
   );
 
-  const renderSectionStats = (title: string, section: any, icon: string) => (
+  const renderSectionStats = (title: string, section: SectionProgress, icon: string) => (
     <div className={`p-4 rounded-lg border ${themeClasses.border} ${themeClasses.card}`}>
       <div className="flex items-center space-x-3 mb-4">
         <span className="text-2xl">{icon}</span>
@@ -201,21 +242,21 @@ const Statistics: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           {renderStatCard(
             'Total Questions',
-            progress.wordPractice.totalQuestions + 
-            progress.sentencePractice.totalQuestions + 
-            progress.kanji.totalQuestions +
-            progress.hiragana.totalQuestions +
-            progress.katakana.totalQuestions,
+            progressData.wordPractice.totalQuestions + 
+            progressData.sentencePractice.totalQuestions + 
+            progressData.kanji.totalQuestions +
+            progressData.hiragana.totalQuestions +
+            progressData.katakana.totalQuestions,
             '📊'
           )}
           {renderStatCard(
             'Average Accuracy',
             `${Math.round(
-              (calculateAccuracy(progress.wordPractice) +
-                calculateAccuracy(progress.sentencePractice) +
-                calculateAccuracy(progress.kanji) +
-                calculateAccuracy(progress.hiragana) +
-                calculateAccuracy(progress.katakana)) /
+              (calculateAccuracy(progressData.wordPractice) +
+                calculateAccuracy(progressData.sentencePractice) +
+                calculateAccuracy(progressData.kanji) +
+                calculateAccuracy(progressData.hiragana) +
+                calculateAccuracy(progressData.katakana)) /
                 5
             )}%`,
             '🎯'
@@ -223,24 +264,24 @@ const Statistics: React.FC = () => {
           {renderStatCard(
             'Best Overall Streak',
             Math.max(
-              progress.wordPractice.bestStreak,
-              progress.sentencePractice.bestStreak,
-              progress.kanji.bestStreak,
-              progress.hiragana.bestStreak,
-              progress.katakana.bestStreak
+              progressData.wordPractice.bestStreak,
+              progressData.sentencePractice.bestStreak,
+              progressData.kanji.bestStreak,
+              progressData.hiragana.bestStreak,
+              progressData.katakana.bestStreak
             ),
             '🔥'
           )}
         </div>
 
-        <div className="space-y-6">
+        <div>
           <h3 className="text-xl font-semibold mb-4">Section Performance</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {renderSectionStats('Hiragana', progress.hiragana, 'あ')}
-            {renderSectionStats('Katakana', progress.katakana, 'ア')}
-            {renderSectionStats('Word Practice', progress.wordPractice, '📚')}
-            {renderSectionStats('Sentence Practice', progress.sentencePractice, '📝')}
-            {renderSectionStats('Kanji', progress.kanji, '🖋️')}
+            {renderSectionStats('Hiragana', progressData.hiragana, 'あ')}
+            {renderSectionStats('Katakana', progressData.katakana, 'ア')}
+            {renderSectionStats('Word Practice', progressData.wordPractice, '📚')}
+            {renderSectionStats('Sentence Practice', progressData.sentencePractice, '📝')}
+            {renderSectionStats('Kanji', progressData.kanji, '🖋️')}
           </div>
         </div>
       </div>

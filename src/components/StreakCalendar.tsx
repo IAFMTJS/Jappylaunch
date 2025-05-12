@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useProgress } from '../context/ProgressContext';
+import { ProgressItem } from '../types';
 
 interface DayData {
   date: Date;
@@ -8,6 +9,13 @@ interface DayData {
   accuracy: number;
   hiraganaPractice: boolean;
   katakanaPractice: boolean;
+}
+
+interface SectionProgress {
+  totalQuestions: number;
+  correctAnswers: number;
+  bestStreak: number;
+  lastAttempt?: number;
 }
 
 const StreakCalendar: React.FC = () => {
@@ -81,6 +89,26 @@ const StreakCalendar: React.FC = () => {
 
   const themeClasses = getThemeClasses();
 
+  const getProgressData = (): { hiragana: SectionProgress; katakana: SectionProgress } => {
+    const defaultSection: SectionProgress = {
+      totalQuestions: 0,
+      correctAnswers: 0,
+      bestStreak: 0
+    };
+
+    const convertToSectionProgress = (item: ProgressItem | undefined): SectionProgress => ({
+      totalQuestions: item?.totalQuestions ?? 0,
+      correctAnswers: item?.correctAnswers ?? 0,
+      bestStreak: item?.bestStreak ?? 0,
+      lastAttempt: item?.lastAttempt
+    });
+
+    return {
+      hiragana: convertToSectionProgress(progress.hiragana),
+      katakana: convertToSectionProgress(progress.katakana)
+    };
+  };
+
   useEffect(() => {
     const generateCalendarData = () => {
       const year = currentMonth.getFullYear();
@@ -89,6 +117,7 @@ const StreakCalendar: React.FC = () => {
       const firstDayOfMonth = new Date(year, month, 1).getDay();
       
       const data: DayData[] = [];
+      const progressData = getProgressData();
       
       // Add padding for days before the first day of the month
       for (let i = 0; i < firstDayOfMonth; i++) {
@@ -108,23 +137,25 @@ const StreakCalendar: React.FC = () => {
         const dateStr = date.toISOString().split('T')[0];
         
         // Check if there was practice on this day
-        const hiraganaLastAttempt = new Date(progress.hiragana.lastAttempt).toISOString().split('T')[0];
-        const katakanaLastAttempt = new Date(progress.katakana.lastAttempt).toISOString().split('T')[0];
+        const hiraganaLastAttempt = progressData.hiragana.lastAttempt 
+          ? new Date(progressData.hiragana.lastAttempt).toISOString().split('T')[0]
+          : null;
+        const katakanaLastAttempt = progressData.katakana.lastAttempt
+          ? new Date(progressData.katakana.lastAttempt).toISOString().split('T')[0]
+          : null;
         
         const hiraganaPractice = hiraganaLastAttempt === dateStr;
         const katakanaPractice = katakanaLastAttempt === dateStr;
         
+        const totalQuestions = (hiraganaPractice ? progressData.hiragana.totalQuestions : 0) +
+                             (katakanaPractice ? progressData.katakana.totalQuestions : 0);
+        const totalCorrect = (hiraganaPractice ? progressData.hiragana.correctAnswers : 0) +
+                           (katakanaPractice ? progressData.katakana.correctAnswers : 0);
+        
         data.push({
           date,
           practiceCount: (hiraganaPractice ? 1 : 0) + (katakanaPractice ? 1 : 0),
-          accuracy: hiraganaPractice && katakanaPractice
-            ? (progress.hiragana.correctAnswers + progress.katakana.correctAnswers) /
-              (progress.hiragana.totalQuestions + progress.katakana.totalQuestions) * 100
-            : hiraganaPractice
-            ? (progress.hiragana.correctAnswers / progress.hiragana.totalQuestions) * 100
-            : katakanaPractice
-            ? (progress.katakana.correctAnswers / progress.katakana.totalQuestions) * 100
-            : 0,
+          accuracy: totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0,
           hiraganaPractice,
           katakanaPractice
         });
