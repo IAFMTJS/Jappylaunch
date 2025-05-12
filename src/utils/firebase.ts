@@ -19,6 +19,8 @@ let db: ReturnType<typeof getFirestore> | null = null;
 
 // Initialize Firebase and return the app instance
 export const initializeApp = async () => {
+  console.log('Firebase initializeApp called');
+  
   if (app) {
     console.log('Firebase already initialized, returning existing app');
     return app;
@@ -32,26 +34,37 @@ export const initializeApp = async () => {
         apiKey: firebaseConfig.apiKey ? '***' : undefined // Hide API key in logs
       },
       environment: process.env.NODE_ENV,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      window: typeof window !== 'undefined' ? 'available' : 'unavailable',
+      document: typeof document !== 'undefined' ? 'available' : 'unavailable'
     });
 
+    if (typeof window === 'undefined') {
+      throw new Error('Firebase initialization attempted in non-browser environment');
+    }
+
+    console.log('Calling firebaseInitializeApp');
     app = firebaseInitializeApp(firebaseConfig);
-    console.log('Firebase app initialized successfully');
+    console.log('Firebase app initialized successfully, app instance:', app);
 
     // Initialize services
     console.log('Initializing Firebase services...');
+    console.log('Getting Auth instance');
     auth = getAuth(app);
-    console.log('Firebase Auth initialized');
+    console.log('Firebase Auth initialized, auth instance:', auth);
     
+    console.log('Getting Firestore instance');
     db = getFirestore(app);
-    console.log('Firestore initialized');
+    console.log('Firestore initialized, db instance:', db);
     
+    console.log('Getting Functions instance');
     const functions = getFunctions(app);
-    console.log('Firebase Functions initialized');
+    console.log('Firebase Functions initialized, functions instance:', functions);
 
     // Enable persistence for offline support
     console.log('Attempting to enable Firestore persistence...');
     try {
+      console.log('Calling enableIndexedDbPersistence');
       await enableIndexedDbPersistence(db);
       console.log('Firestore persistence enabled successfully');
     } catch (err: unknown) {
@@ -61,7 +74,8 @@ export const initializeApp = async () => {
       console.warn('Firestore persistence setup warning:', {
         code,
         message,
-        name
+        name,
+        error: err
       });
       if (code === 'failed-precondition') {
         console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
@@ -91,13 +105,16 @@ export const initializeApp = async () => {
     auth.settings.appVerificationDisabledForTesting = process.env.NODE_ENV === 'development';
     console.log('Firebase Auth settings configured');
 
+    console.log('Firebase initialization completed successfully');
     return app;
   } catch (error) {
     console.error('Critical error during Firebase initialization:', {
       error,
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      window: typeof window !== 'undefined' ? 'available' : 'unavailable',
+      document: typeof document !== 'undefined' ? 'available' : 'unavailable'
     });
     throw error;
   }

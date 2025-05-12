@@ -32,39 +32,73 @@ import EmailVerification from './components/EmailVerification';
 import GuestBanner from './components/GuestBanner';
 import ProgressSection from './pages/ProgressSection';
 
-const LoadingScreen = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-    <div className="text-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-      <p className="mt-4 text-gray-600 dark:text-gray-400">Initializing application...</p>
+const LoadingScreen = () => {
+  console.log('Rendering loading screen');
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+        <p className="mt-4 text-gray-600 dark:text-gray-400">Initializing application...</p>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const App = () => {
+  console.log('App component rendering');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [initError, setInitError] = useState<Error | null>(null);
 
   useEffect(() => {
+    console.log('App useEffect running');
     const initialize = async () => {
       try {
+        console.log('Starting initialization process');
         // Initialize Firebase first
+        console.log('Calling Firebase initializeApp');
         await initializeApp();
+        console.log('Firebase initialization complete');
+        
         // Then initialize security measures
+        console.log('Initializing security measures');
         initializeSecurity();
+        console.log('Security initialization complete');
+        
+        console.log('All initialization complete, setting isInitialized to true');
         setIsInitialized(true);
       } catch (error) {
-        console.error('Failed to initialize application:', error);
-        // You might want to show an error state here
+        console.error('Initialization failed:', error);
+        setInitError(error instanceof Error ? error : new Error('Unknown initialization error'));
       }
     };
 
     initialize();
   }, []);
 
+  if (initError) {
+    console.error('Rendering error state:', initError);
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center p-6 bg-red-50 dark:bg-red-900 rounded-lg">
+          <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-2">Initialization Error</h2>
+          <p className="text-red-500 dark:text-red-300">{initError.message}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!isInitialized) {
+    console.log('App not initialized, rendering loading screen');
     return <LoadingScreen />;
   }
 
+  console.log('App initialized, rendering main application');
   return (
     <ThemeProvider>
       <AuthProvider>
