@@ -331,6 +331,8 @@ const WordPractice: React.FC = () => {
                 onChange={(e) => setSelectedCategory(e.target.value as Category)}
                 className={`w-full p-3 border rounded-lg ${themeClasses.input} focus:ring-2 focus:ring-primary focus:border-primary`}
               >
+                <option value="hiragana">Hiragana</option>
+                <option value="katakana">Katakana</option>
                 <option value="food">Food</option>
                 <option value="animals">Animals</option>
                 <option value="colors">Colors</option>

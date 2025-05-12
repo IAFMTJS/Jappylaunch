@@ -35,6 +35,8 @@ interface QuizState {
 }
 
 const categories = [
+  { id: 'hiragana', name: 'Hiragana' },
+  { id: 'katakana', name: 'Katakana' },
   { id: 'colors', name: 'Colors' },
   { id: 'animals', name: 'Animals' },
   { id: 'food', name: 'Food & Drinks' },
@@ -390,6 +392,8 @@ const Quiz: React.FC = () => {
               className={`w-full p-3 rounded-lg border ${themeClasses.input}`}
             >
               <option value="all">All Categories</option>
+              <option value="hiragana">Hiragana</option>
+              <option value="katakana">Katakana</option>
               <option value="food">Food</option>
               <option value="animals">Animals</option>
               <option value="colors">Colors</option>
