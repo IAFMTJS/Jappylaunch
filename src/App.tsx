@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -32,13 +32,38 @@ import EmailVerification from './components/EmailVerification';
 import GuestBanner from './components/GuestBanner';
 import ProgressSection from './pages/ProgressSection';
 
+const LoadingScreen = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+      <p className="mt-4 text-gray-600 dark:text-gray-400">Initializing application...</p>
+    </div>
+  </div>
+);
+
 const App = () => {
+  const [isInitialized, setIsInitialized] = useState(false);
+
   useEffect(() => {
-    // Initialize Firebase first
-    initializeApp();
-    // Then initialize security measures
-    initializeSecurity();
+    const initialize = async () => {
+      try {
+        // Initialize Firebase first
+        await initializeApp();
+        // Then initialize security measures
+        initializeSecurity();
+        setIsInitialized(true);
+      } catch (error) {
+        console.error('Failed to initialize application:', error);
+        // You might want to show an error state here
+      }
+    };
+
+    initialize();
   }, []);
+
+  if (!isInitialized) {
+    return <LoadingScreen />;
+  }
 
   return (
     <ThemeProvider>

@@ -18,7 +18,7 @@ let auth: ReturnType<typeof getAuth> | null = null;
 let db: ReturnType<typeof getFirestore> | null = null;
 
 // Initialize Firebase and return the app instance
-export const initializeApp = () => {
+export const initializeApp = async () => {
   if (app) {
     console.log('Firebase already initialized, returning existing app');
     return app;
@@ -51,25 +51,26 @@ export const initializeApp = () => {
 
     // Enable persistence for offline support
     console.log('Attempting to enable Firestore persistence...');
-    enableIndexedDbPersistence(db)
-      .then(() => console.log('Firestore persistence enabled successfully'))
-      .catch((err: unknown) => {
-        const code = typeof err === 'object' && err !== null && 'code' in err ? (err as any).code : undefined;
-        const message = err instanceof Error ? err.message : undefined;
-        const name = typeof err === 'object' && err !== null && 'name' in err ? (err as any).name : undefined;
-        console.warn('Firestore persistence setup warning:', {
-          code,
-          message,
-          name
-        });
-        if (code === 'failed-precondition') {
-          console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-        } else if (code === 'unimplemented') {
-          console.warn('The current browser does not support persistence.');
-        } else {
-          console.error('Error enabling persistence:', err);
-        }
+    try {
+      await enableIndexedDbPersistence(db);
+      console.log('Firestore persistence enabled successfully');
+    } catch (err: unknown) {
+      const code = typeof err === 'object' && err !== null && 'code' in err ? (err as any).code : undefined;
+      const message = err instanceof Error ? err.message : undefined;
+      const name = typeof err === 'object' && err !== null && 'name' in err ? (err as any).name : undefined;
+      console.warn('Firestore persistence setup warning:', {
+        code,
+        message,
+        name
       });
+      if (code === 'failed-precondition') {
+        console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+      } else if (code === 'unimplemented') {
+        console.warn('The current browser does not support persistence.');
+      } else {
+        console.error('Error enabling persistence:', err);
+      }
+    }
 
     // Development environment setup
     if (process.env.NODE_ENV === 'development') {
