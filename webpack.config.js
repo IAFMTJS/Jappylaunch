@@ -6,7 +6,6 @@ const CompressionPlugin = require('compression-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const CopyPlugin = require('copy-webpack-plugin');
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
@@ -35,7 +34,11 @@ module.exports = (env, argv) => {
         },
         {
           test: /\.css$/,
-          use: ['style-loader', 'css-loader', 'postcss-loader']
+          use: [
+            isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
+            'css-loader',
+            'postcss-loader'
+          ]
         },
         {
           test: /\.(png|svg|jpg|jpeg|gif)$/i,
@@ -53,18 +56,18 @@ module.exports = (env, argv) => {
     resolve: {
       extensions: ['.tsx', '.ts', '.js', '.jsx'],
       fallback: {
-        "path": require.resolve("path-browserify"),
-        "crypto": require.resolve("crypto-browserify"),
-        "stream": require.resolve("stream-browserify"),
-        "buffer": require.resolve("buffer/"),
-        "process": require.resolve("process/browser"),
-        "zlib": require.resolve("browserify-zlib"),
-        "http": require.resolve("stream-http"),
-        "https": require.resolve("https-browserify"),
-        "os": require.resolve("os-browserify/browser"),
-        "url": require.resolve("url/"),
-        "assert": require.resolve("assert/"),
-        "util": require.resolve("util/")
+        "path": "path-browserify",
+        "crypto": "crypto-browserify",
+        "stream": "stream-browserify",
+        "buffer": "buffer",
+        "process": "process/browser",
+        "zlib": "browserify-zlib",
+        "http": "stream-http",
+        "https": "https-browserify",
+        "os": "os-browserify/browser",
+        "url": "url",
+        "assert": "assert",
+        "util": "util"
       }
     },
     optimization: {
@@ -99,7 +102,7 @@ module.exports = (env, argv) => {
       new HtmlWebpackPlugin({
         template: './public/index.html',
         inject: true,
-        minify: {
+        minify: isProduction ? {
           removeComments: true,
           collapseWhitespace: true,
           removeRedundantAttributes: true,
@@ -110,7 +113,7 @@ module.exports = (env, argv) => {
           minifyJS: true,
           minifyCSS: true,
           minifyURLs: true
-        }
+        } : false
       }),
       new webpack.ProvidePlugin({
         process: 'process/browser',
@@ -146,6 +149,12 @@ module.exports = (env, argv) => {
         new MiniCssExtractPlugin({
           filename: 'static/css/[name].[contenthash:8].css',
           chunkFilename: 'static/css/[name].[contenthash:8].chunk.css'
+        }),
+        new WebpackObfuscator({
+          rotateStringArray: true,
+          stringArray: true,
+          stringArrayEncoding: ['base64'],
+          stringArrayThreshold: 0.75
         })
       ] : [])
     ],
@@ -164,7 +173,8 @@ module.exports = (env, argv) => {
       maxAssetSize: 512000
     },
     stats: {
-      errorDetails: true
+      errorDetails: true,
+      loggingDebug: ['webpack-obfuscator']
     }
   };
 }; 
