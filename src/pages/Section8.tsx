@@ -469,7 +469,38 @@ const Section8 = () => {
     });
   };
 
-  // Game state management
+  // Add useEffect to initialize game data when component mounts
+  useEffect(() => {
+    if (selectedGame) {
+      initializeGameData();
+    }
+  }, [selectedGame]);
+
+  // Add function to initialize game data
+  const initializeGameData = useCallback(() => {
+    console.log('Initializing game data for:', selectedGame);
+    switch (selectedGame) {
+      case 'memory':
+        initializeMemoryGame();
+        break;
+      case 'matching':
+        initializeMatchingGame();
+        break;
+      case 'sentence':
+        initializeSentenceGameData();
+        break;
+      case 'quiz':
+        initializeQuizGame();
+        break;
+      case 'association':
+        initializeAssociationGame();
+        break;
+      default:
+        console.error('Unknown game type:', selectedGame);
+    }
+  }, [selectedGame, initializeMemoryGame, initializeMatchingGame, initializeSentenceGameData, initializeQuizGame, initializeAssociationGame]);
+
+  // Modify startGame to use initializeGameData
   const startGame = useCallback(() => {
     console.log('Starting game:', selectedGame);
     // Reset game state first
@@ -482,92 +513,43 @@ const Section8 = () => {
     });
 
     // Initialize the selected game
-    switch (selectedGame) {
-      case 'memory':
-        initializeMemoryGame();
-        break;
-      case 'matching':
-        initializeMatchingGame();
-        break;
-      case 'sentence':
-        initializeSentenceBuilder();
-        break;
-      case 'quiz':
-        initializeQuizGame();
-        break;
-      case 'association':
-        initializeAssociationGame();
-        break;
-      default:
-        console.error('Unknown game type:', selectedGame);
-        setGameState(prev => ({ ...prev, isPlaying: false }));
-        return;
-    }
-  }, [selectedGame, initializeMemoryGame, initializeMatchingGame, initializeSentenceBuilder, initializeQuizGame, initializeAssociationGame]);
+    initializeGameData();
+  }, [selectedGame, initializeGameData]);
 
-  const endGame = useCallback(() => {
-    console.log('Ending game:', selectedGame);
-    // Update progress before ending
-    if (gameState.score > 0) {
-      const itemId = `${selectedGame}-${Date.now()}`;
-      updateProgress('section8', itemId, true).catch((err: Error) => {
-        console.error('Failed to update progress:', err);
-      });
-    }
-    
-    // Reset game state
-    setGameState(prev => ({ ...prev, isPlaying: false }));
-    
-    // Reset game-specific states
-    switch (selectedGame) {
-      case 'memory':
-        setMemoryCards([]);
-        setMemoryFeedback('');
-        setMemoryWin(false);
-        break;
-      case 'matching':
-        setMatchingPairs([]);
-        break;
-      case 'sentence':
-        setSentenceWords([]);
-        setSentenceDropZone([]);
-        setSentenceFeedback('');
-        break;
-      case 'quiz':
-        setQuizState({
-          currentQuestion: 0,
-          selectedAnswer: null,
-          showFeedback: false,
-          isCorrect: null,
-          showCorrect: false
-        });
-        break;
-      case 'association':
-        setAssociationState({
-          currentWord: '',
-          selectedAssociations: [],
-          correctAssociations: []
-        });
-        break;
-    }
-  }, [selectedGame, gameState.score, updateProgress]);
-
-  // Timer effect
+  // Add useEffect to handle game state changes
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (gameState.isPlaying && gameState.timeLeft > 0) {
-      timer = setInterval(() => {
+    if (gameState.isPlaying) {
+      const timer = setInterval(() => {
         setGameState(prev => {
-          if (prev.timeLeft <= 1) {
+          if (prev.timeLeft <= 0) {
+            clearInterval(timer);
             endGame();
             return prev;
           }
-          return { ...prev, timeLeft: prev.timeLeft - 1 };
+          return {
+            ...prev,
+            timeLeft: prev.timeLeft - 1
+          };
         });
       }, 1000);
+
+      return () => clearInterval(timer);
     }
-    return () => clearInterval(timer);
-  }, [gameState.isPlaying, gameState.timeLeft]);
+  }, [gameState.isPlaying]);
+
+  // Add function to end game
+  const endGame = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      isPlaying: false
+    }));
+    
+    // Update progress with the correct signature
+    const itemId = `${selectedGame}-${Date.now()}`;
+    updateProgress('section8', itemId, gameState.score > 0).catch((err: Error) => {
+      console.error('Failed to update progress:', err);
+    });
+  }, [gameState.score, updateProgress, selectedGame]);
 
   // Game completion checks
   useEffect(() => {
@@ -692,8 +674,7 @@ const Section8 = () => {
   // Winmelding effect:
   useEffect(() => {
     if (gameState.isPlaying && memoryCards.length > 0 && memoryCards.every(card => card.isMatched)) {
-      setMemoryWin(true);
-      setTimeout(() => setMemoryWin(false), 2000);
+      endGame();
     }
   }, [memoryCards, gameState.isPlaying]);
 
@@ -906,87 +887,61 @@ const Section8 = () => {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Japanese Games</h1>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <button
-          onClick={() => setSelectedGame('sentence')}
-          className={`p-4 rounded ${
-            selectedGame === 'sentence' ? 'bg-primary text-white' : 'bg-gray-100'
-          }`}
-        >
-          Sentence Builder
-        </button>
-        <button
-          onClick={() => setSelectedGame('memory')}
-          className={`p-4 rounded ${
-            selectedGame === 'memory' ? 'bg-primary text-white' : 'bg-gray-100'
-          }`}
-        >
-          Memory Game
-        </button>
-        <button
-          onClick={() => setSelectedGame('quiz')}
-          className={`p-4 rounded ${
-            selectedGame === 'quiz' ? 'bg-primary text-white' : 'bg-gray-100'
-          }`}
-        >
-          Quiz
-        </button>
-        <button
-          onClick={() => setSelectedGame('association')}
-          className={`p-4 rounded ${
-            selectedGame === 'association' ? 'bg-primary text-white' : 'bg-gray-100'
-          }`}
-        >
-          Word Association
-        </button>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {games.map((game) => (
+          <button
+            key={game.id}
+            onClick={() => {
+              setSelectedGame(game.id);
+              setGameState(prev => ({ ...prev, isPlaying: false }));
+            }}
+            className={`p-4 rounded-lg border ${
+              selectedGame === game.id
+                ? 'bg-blue-100 border-blue-500'
+                : 'bg-white border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            <h3 className="text-lg font-semibold">{game.name}</h3>
+            <p className="text-sm text-gray-600">{game.description}</p>
+          </button>
+        ))}
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
-        {!gameState.isPlaying ? (
-          // Show start button when not playing
-          <div className="mb-4 flex justify-center">
+      {selectedGame && (
+        <div className="mt-8">
+          {!gameState.isPlaying ? (
             <button
               onClick={startGame}
-              className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Start {selectedGame.charAt(0).toUpperCase() + selectedGame.slice(1)} Game
+              Start Game
             </button>
-          </div>
-        ) : (
-          // Show game content only when playing
-          <>
-            {(() => {
-              console.log('Rendering game content for:', selectedGame);
-              const content = renderGameContent();
-              if (!content) {
-                return (
-                  <div className="text-red-600">
-                    Error: Unable to render game content. (Debug: {selectedGame})
-                  </div>
-                );
-              }
-              return content;
-            })()}
-            
-            <div className="mt-4 flex justify-between items-center">
-              <div className="flex space-x-4">
-                <div className={`text-lg font-medium ${themeClasses.text}`}>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <div className="text-lg font-semibold">
+                  Score: {gameState.score}
+                </div>
+                <div className="text-lg font-semibold">
                   Time: {gameState.timeLeft}s
                 </div>
-                <div className={`text-lg font-medium ${themeClasses.text}`}>
-                  Mistakes: {gameState.mistakes}
-                </div>
               </div>
-              <button
-                onClick={endGame}
-                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white"
-              >
-                End Game
-              </button>
+              {(() => {
+                console.log('Rendering game content for:', selectedGame);
+                const content = renderGameContent();
+                if (!content) {
+                  return (
+                    <div className="text-red-600">
+                      Error: Unable to render game content. (Debug: {selectedGame})
+                    </div>
+                  );
+                }
+                return content;
+              })()}
             </div>
-          </>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

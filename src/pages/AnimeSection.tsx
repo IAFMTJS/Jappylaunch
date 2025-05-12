@@ -267,7 +267,7 @@ const isKanaOnly = (str: string) => /^[\u3040-\u309F\u30A0-\u30FF\u3000-\u303F\u
 const AnimeSection: React.FC = () => {
   const { currentUser } = useAuth();
   const { settings } = useApp();
-  const { markItemMastered, setTotalItems } = useProgress();
+  const { updateProgress } = useProgress();
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   const [showRomaji, setShowRomaji] = useState(settings.showRomaji);
   const [romajiMap, setRomajiMap] = useState<{ [key: string]: string }>({});
@@ -287,6 +287,23 @@ const AnimeSection: React.FC = () => {
   );
 
   const currentPhrase = filteredPhrases[currentPhraseIndex];
+
+  // If no phrases to show, display a message and return early
+  if (filteredPhrases.length === 0 || !currentPhrase) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <h1 className="text-3xl font-bold text-center mb-8 text-gray-800 dark:text-white">
+          Learn Japanese with Anime & Manga
+        </h1>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 text-center">
+          <p className="text-lg text-gray-600 dark:text-gray-300">
+            No phrases available for the selected category or filter.<br />
+            Try selecting a different category or check your data.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Romaji conversion with batch processing
   useEffect(() => {
@@ -311,11 +328,6 @@ const AnimeSection: React.FC = () => {
     return () => { isMounted = false; };
   }, [showRomaji, filteredPhrases]);
 
-  // Set total items for progress tracking
-  useEffect(() => {
-    setTotalItems('anime', filteredPhrases.length);
-  }, [filteredPhrases.length, setTotalItems]);
-
   const handleNext = () => {
     if (currentPhraseIndex < filteredPhrases.length - 1) {
       setCurrentPhraseIndex(prev => prev + 1);
@@ -336,9 +348,9 @@ const AnimeSection: React.FC = () => {
     setShowEnglish(false);
   };
 
-  const handlePractice = () => {
+  const handlePractice = async () => {
     if (currentUser && currentPhrase) {
-      markItemMastered('anime', currentPhrase.japanese);
+      await updateProgress('anime', currentPhrase.japanese, true);
       setScore(prev => prev + 1);
     }
   };

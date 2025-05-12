@@ -392,8 +392,6 @@ const Quiz: React.FC = () => {
               className={`w-full p-3 rounded-lg border ${themeClasses.input}`}
             >
               <option value="all">All Categories</option>
-              <option value="hiragana">Hiragana</option>
-              <option value="katakana">Katakana</option>
               <option value="food">Food</option>
               <option value="animals">Animals</option>
               <option value="colors">Colors</option>
@@ -402,21 +400,14 @@ const Quiz: React.FC = () => {
               <option value="weather">Weather</option>
               <option value="family">Family</option>
               <option value="body">Body</option>
-              <option value="clothes">Clothes</option>
+              <option value="clothing">Clothing</option>
               <option value="school">School</option>
-              <option value="work">Work</option>
-              <option value="travel">Travel</option>
-              <option value="emotions">Emotions</option>
-              <option value="verbs">Verbs</option>
-              <option value="adjectives">Adjectives</option>
-              <option value="adverbs">Adverbs</option>
-              <option value="prepositions">Prepositions</option>
-              <option value="conjunctions">Conjunctions</option>
-              <option value="interjections">Interjections</option>
-              <option value="phrases">Phrases</option>
-              <option value="idioms">Idioms</option>
-              <option value="slang">Slang</option>
-              <option value="anime">Anime & Manga</option>
+              <option value="hobbies">Hobbies</option>
+              <option value="nature">Nature</option>
+              <option value="house">House</option>
+              <option value="city">City</option>
+              <option value="technology">Technology</option>
+              <option value="health">Health</option>
             </select>
           </div>
 

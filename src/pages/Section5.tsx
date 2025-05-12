@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { useProgress } from '../context/ProgressContext';
 import SettingsPanel from '../components/Settings';
 import { kuroshiroInstance } from '../utils/kuroshiro';
 
@@ -41,7 +42,8 @@ interface Category {
 }
 
 const Section5 = () => {
-  const { settings, updateProgress } = useApp();
+  const { settings } = useApp();
+  const { getProgressStatus, updateProgress } = useProgress();
   const [selectedCategory, setSelectedCategory] = useState<string>('themed');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [completedWords, setCompletedWords] = useState<number>(0);
@@ -105,16 +107,18 @@ const Section5 = () => {
 
   React.useEffect(() => {
     if (currentCategory) {
+      const completed = currentCategory.words.filter(word => 
+        getProgressStatus('section5', word.japanese).isMarked
+      ).length;
+      setCompletedWords(completed);
       setTotalWords(currentCategory.words.length);
     }
-  }, [currentCategory]);
+  }, [currentCategory, getProgressStatus]);
 
-  React.useEffect(() => {
-    updateProgress('section5', completedWords, totalWords);
-  }, [completedWords, totalWords, updateProgress]);
-
-  const handleWordComplete = () => {
-    setCompletedWords(prev => prev + 1);
+  const handleWordComplete = async (word: Word) => {
+    const currentStatus = getProgressStatus('section5', word.japanese);
+    await updateProgress('section5', word.japanese, !currentStatus.isMarked);
+    // The completed words count will be updated by the useEffect above
   };
 
   const getRomaji = async (text: string) => {
@@ -147,67 +151,75 @@ const Section5 = () => {
     }
   }, [settings.showRomajiVocabulary, categories]);
 
-  const renderWord = (word: Word) => (
-    <div className="bg-gray-50 p-4 rounded-lg">
-      <div className="flex justify-between items-start">
-        <div>
-          <h3 className="text-lg font-semibold">{word.japanese}</h3>
-          {settings.showRomajiVocabulary && (
-            <p className="text-gray-500 italic">
-              {romajiMap[word.japanese.trim()] || 'Loading...'}
+  const renderWord = (word: Word) => {
+    const { isMarked } = getProgressStatus('section5', word.japanese);
+    return (
+      <div className={`bg-gray-50 p-4 rounded-lg ${isMarked ? 'border-2 border-green-500' : ''}`}>
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="text-lg font-semibold">{word.japanese}</h3>
+            {settings.showRomajiVocabulary && (
+              <p className="text-gray-500 italic">
+                {romajiMap[word.japanese.trim()] || 'Loading...'}
+              </p>
+            )}
+            <p className="text-gray-600">{word.english}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`px-2 py-1 rounded text-sm ${
+              word.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
+              word.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+              'bg-red-100 text-red-800'
+            }`}>
+              {word.difficulty}
+            </span>
+            <button
+              onClick={() => handleWordComplete(word)}
+              className={`p-2 rounded-full ${
+                isMarked 
+                  ? 'bg-green-500 text-white' 
+                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+              }`}
+            >
+              {isMarked ? '✓' : '○'}
+            </button>
+          </div>
+        </div>
+        
+        {'synonym' in word && (
+          <div className="mt-2">
+            <p className="text-sm text-gray-500">
+              Synonym: {word.synonym} | Antonym: {word.antonym}
             </p>
-          )}
-          <p className="text-gray-600">{word.english}</p>
-        </div>
-        <span className={`px-2 py-1 rounded text-sm ${
-          word.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
-          word.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-red-100 text-red-800'
-        }`}>
-          {word.difficulty}
-        </span>
+          </div>
+        )}
+        
+        {'related' in word && (
+          <div className="mt-2">
+            <p className="text-sm text-gray-500">
+              Related words: {word.related.join(', ')}
+            </p>
+          </div>
+        )}
+        
+        {'usage' in word && (
+          <div className="mt-2">
+            <p className="text-sm text-gray-500">
+              Usage: {word.usage}
+            </p>
+          </div>
+        )}
+        
+        {'literal' in word && (
+          <div className="mt-2">
+            <p className="text-sm text-gray-500">
+              Literal meaning: {word.literal}
+            </p>
+          </div>
+        )}
       </div>
-      
-      {'synonym' in word && (
-        <div className="mt-2">
-          <p className="text-sm text-gray-500">
-            Synonym: {word.synonym} | Antonym: {word.antonym}
-          </p>
-        </div>
-      )}
-      
-      {'related' in word && (
-        <div className="mt-2">
-          <p className="text-sm text-gray-500">
-            Related words: {word.related.join(', ')}
-          </p>
-        </div>
-      )}
-      
-      {'usage' in word && (
-        <div className="mt-2">
-          <p className="text-sm text-gray-500">
-            Usage: {word.usage}
-          </p>
-        </div>
-      )}
-      
-      {'literal' in word && (
-        <div className="mt-2">
-          <p className="text-sm text-gray-500">
-            Literal meaning: {word.literal}
-          </p>
-        </div>
-      )}
-
-      <button
-        onClick={handleWordComplete}
-        className="mt-2 px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
-      >
-        Mark as Learned
-      </button>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="py-8">

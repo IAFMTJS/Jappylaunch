@@ -1,0 +1,53 @@
+[
+  {
+    "character": "日",
+    "english": "sun, day",
+    "onyomi": ["ニチ", "ジツ"],
+    "kunyomi": ["ひ", "か"],
+    "examples": [
+      { "word": "日本", "reading": "にほん", "meaning": "Japan" },
+      { "word": "今日", "reading": "きょう", "meaning": "today" },
+      { "word": "日曜日", "reading": "にちようび", "meaning": "Sunday" }
+    ],
+    "difficulty": "easy",
+    "category": "nature",
+    "hint": "Looks like a sun with rays",
+    "strokeCount": 4,
+    "radicals": ["日"],
+    "jlptLevel": "N5"
+  },
+  {
+    "character": "月",
+    "english": "moon, month",
+    "onyomi": ["ゲツ", "ガツ"],
+    "kunyomi": ["つき"],
+    "examples": [
+      { "word": "月曜日", "reading": "げつようび", "meaning": "Monday" },
+      { "word": "一月", "reading": "いちがつ", "meaning": "January" },
+      { "word": "月見", "reading": "つきみ", "meaning": "moon viewing" }
+    ],
+    "difficulty": "easy",
+    "category": "nature",
+    "hint": "Looks like a crescent moon",
+    "strokeCount": 4,
+    "radicals": ["月"],
+    "jlptLevel": "N5"
+  },
+  {
+    "character": "水",
+    "english": "water",
+    "onyomi": ["スイ"],
+    "kunyomi": ["みず"],
+    "examples": [
+      { "word": "水曜日", "reading": "すいようび", "meaning": "Wednesday" },
+      { "word": "水泳", "reading": "すいえい", "meaning": "swimming" },
+      { "word": "水着", "reading": "みずぎ", "meaning": "swimsuit" }
+    ],
+    "difficulty": "easy",
+    "category": "nature",
+    "hint": "Looks like flowing water",
+    "strokeCount": 4,
+    "radicals": ["水"],
+    "jlptLevel": "N5"
+  }
+] 

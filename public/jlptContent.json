@@ -1,0 +1,88 @@
+{
+  "n5": {
+    "grammar": [
+      {
+        "pattern": "～は～です",
+        "meaning": "I am a student",
+        "examples": ["わたしは がくせい です"],
+        "romaji": ["watashihaku sei desu"]
+      },
+      {
+        "pattern": "～に～があります",
+        "meaning": "There is a book on the desk",
+        "examples": ["つくえの うえに ほんが あります"],
+        "romaji": ["tsukue no ue ni hon ga arimasu"]
+      }
+    ],
+    "vocabulary": [
+      {
+        "word": "食べる",
+        "reading": "たべる",
+        "meaning": "to eat",
+        "romaji": "taberu"
+      },
+      {
+        "word": "飲む",
+        "reading": "のむ",
+        "meaning": "to drink",
+        "romaji": "nomu"
+      }
+    ],
+    "reading": [
+      {
+        "passage": "はじめまして。わたしは たなか です。にほんじん です。よろしく おねがいします。",
+        "questions": [
+          {
+            "question": "たなかさんは にほんじん ですか。",
+            "options": ["はい、そうです", "いいえ、ちがいます"],
+            "correctAnswer": 0
+          }
+        ],
+        "romaji": "hajimemashite. watashihaku sei desu. nihonjin desu. yoroshiku onegaishimasu."
+      }
+    ]
+  },
+  "n4": {
+    "grammar": [
+      {
+        "pattern": "～てください",
+        "meaning": "Please sit here",
+        "examples": ["ここに すわって ください"],
+        "romaji": ["koko ni suwotte kudasai"]
+      },
+      {
+        "pattern": "～てもいいです",
+        "meaning": "You may smoke here",
+        "examples": ["ここで たばこを すっても いいです"],
+        "romaji": ["koko de tabako o sutte mo ii desu"]
+      }
+    ],
+    "vocabulary": [
+      {
+        "word": "準備する",
+        "reading": "じゅんびする",
+        "meaning": "to prepare",
+        "romaji": "junbi suru"
+      },
+      {
+        "word": "説明する",
+        "reading": "せつめいする",
+        "meaning": "to explain",
+        "romaji": "setsumei suru"
+      }
+    ],
+    "reading": [
+      {
+        "passage": "来週、友達と 京都へ 旅行に 行きます。新幹線で 行きます。ホテルは もう 予約しました。",
+        "questions": [
+          {
+            "question": "いつ 京都へ 行きますか。",
+            "options": ["今週", "来週", "先週"],
+            "correctAnswer": 1
+          }
+        ],
+        "romaji": "raishuu, yotama to kyoto e ryokou ni ikimasu. shinkansen de ikimasu. hoteru wa mou yoyaku shimashita."
+      }
+    ]
+  }
+} 

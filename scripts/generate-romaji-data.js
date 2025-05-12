@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const Kuroshiro = require('kuroshiro').default;
-const KuromojiAnalyzer = require('kuroshiro-analyzer-kuromoji');
+const Kuroshiro = require('kuroshiro').default || require('kuroshiro');
+const KuromojiAnalyzer = require('kuroshiro-analyzer-kuromoji').default || require('kuroshiro-analyzer-kuromoji');
 console.log('kuromojiModule exports:', KuromojiAnalyzer);
 // const KuromojiAnalyzer = kuromojiModule.default || kuromojiModule.KuromojiAnalyzer;
 
@@ -63,76 +63,124 @@ const commonWords = [
   '趣味', 'スポーツ', '音楽', '映画', '本', 'ゲーム'
 ];
 
-async function generateRomajiData() {
-  console.log('Initializing Kuroshiro...');
-  const kuroshiro = new Kuroshiro();
-  await kuroshiro.init(new KuromojiAnalyzer());
-  console.log('Kuroshiro initialized');
+// Initialize kuroshiro
+const kuroshiro = new Kuroshiro();
+let initialized = false;
 
-  // Use only common words
-  const allWords = new Set(commonWords);
-  console.log(`Converting ${allWords.size} words to romaji...`);
+async function initKuroshiro() {
+  if (!initialized) {
+    await kuroshiro.init(new KuromojiAnalyzer());
+    initialized = true;
+  }
+}
+
+async function convertToRomaji(text) {
+  if (!initialized) {
+    await initKuroshiro();
+  }
+  return kuroshiro.convert(text, { to: 'romaji', mode: 'spaced' });
+}
+
+async function collectQuizJapaneseText() {
+  const texts = new Set();
+  const quizDataPath = path.join(__dirname, '../src/data/quizData.ts');
+  const quizDataContent = fs.readFileSync(quizDataPath, 'utf8');
+  // Use a regex (or a simple split) to extract the "japanese" field from each quiz word (e.g. "japanese: 'カンガルー'" yields "カンガルー").
+  const regex = /japanese:\s*['"]([^'"]+)['"]/g;
+  let match;
+  while ((match = regex.exec(quizDataContent)) !== null) {
+    texts.add(match[1].trim());
+  }
+  return Array.from(texts);
+}
+
+async function collectReadingPracticeJapaneseText() {
+  const texts = new Set();
+  const readingDataPath = path.join(__dirname, '../src/pages/Section6.tsx');
+  const readingDataContent = fs.readFileSync(readingDataPath, 'utf8');
+  // Use a regex (or a simple split) to extract "content" and "vocabulary" fields (e.g. "content: '…" and "vocabulary: […"). (Note: This is a simple regex; you may need to adjust it if the TSX file's structure is more complex.)
+  const regexContent = /content:\s*['"]([^'"]+)['"]/g;
+  const regexVocab = /vocabulary:\s*\[([^]]+)\]/g;
+  let match;
+  while ((match = regexContent.exec(readingDataContent)) !== null) {
+    texts.add(match[1].trim());
+  }
+  while ((match = regexVocab.exec(readingDataContent)) !== null) {
+    const vocabList = match[1].split(',').map(s => s.trim().replace(/['"]/g, ''));
+    vocabList.forEach(vocab => texts.add(vocab));
+  }
+  return Array.from(texts);
+}
+
+async function collectJapaneseText() {
+  const texts = new Set();
   
+  // Read kanji data from JSON
+  const kanjiData = JSON.parse(fs.readFileSync(path.join(__dirname, '../public/kanjiData.json'), 'utf8'));
+  kanjiData.forEach(kanji => {
+    texts.add(kanji.character);
+    if (kanji.examples) {
+      kanji.examples.forEach(example => {
+        texts.add(example.word);
+        texts.add(example.reading);
+      });
+    }
+  });
+
+  // Read JLPT data from JSON
+  const jlptContent = JSON.parse(fs.readFileSync(path.join(__dirname, '../public/jlptContent.json'), 'utf8'));
+  Object.values(jlptContent).forEach(level => {
+    level.grammar.forEach(grammar => {
+      texts.add(grammar.pattern);
+      grammar.examples.forEach(example => texts.add(example));
+    });
+    level.vocabulary.forEach(vocab => {
+      texts.add(vocab.word);
+      texts.add(vocab.reading);
+    });
+    level.reading.forEach(reading => {
+      texts.add(reading.passage);
+      reading.questions.forEach(q => {
+        texts.add(q.question);
+        q.options.forEach(opt => texts.add(opt));
+      });
+    });
+  });
+
+  // Collect quiz (games) Japanese text and merge it.
+  const quizTexts = await collectQuizJapaneseText();
+  quizTexts.forEach(text => texts.add(text));
+
+  // Collect reading practice (Section6) Japanese text and merge it.
+  const readingTexts = await collectReadingPracticeJapaneseText();
+  readingTexts.forEach(text => texts.add(text));
+
+  return Array.from(texts);
+}
+
+async function generateRomajiData() {
+  console.log('Collecting Japanese text...');
+  const texts = await collectJapaneseText();
+  console.log(`Found ${texts.length} unique Japanese texts`);
+
+  console.log('Converting to romaji...');
   const romajiData = {};
   let count = 0;
-  let errorCount = 0;
-
-  // Process in batches of 50
-  const batchSize = 50;
-  const words = Array.from(allWords);
   
-  for (let i = 0; i < words.length; i += batchSize) {
-    const batch = words.slice(i, i + batchSize);
-    console.log(`Processing batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(words.length / batchSize)}`);
-    
-    const batchResults = await Promise.all(
-      batch.map(async (word) => {
-        try {
-          const romaji = await kuroshiro.convert(word, { to: 'romaji', mode: 'spaced' });
-          romajiData[word] = romaji;
-          count++;
-          if (count % 100 === 0) {
-            console.log(`Converted ${count} words...`);
-          }
-          return [word, romaji];
-        } catch (error) {
-          console.error(`Error converting word "${word}":`, error);
-          errorCount++;
-          romajiData[word] = word; // Fallback to original word
-          return [word, word];
-        }
-      })
-    );
-
-    // Verify batch results
-    const failedWords = batchResults.filter(([_, romaji]) => romaji === '');
-    if (failedWords.length > 0) {
-      console.warn('Words that failed conversion:', failedWords.map(([word]) => word));
+  for (const text of texts) {
+    if (text.trim()) {
+      romajiData[text] = await convertToRomaji(text);
+      count++;
+      if (count % 100 === 0) {
+        console.log(`Converted ${count}/${texts.length} texts`);
+      }
     }
   }
 
-  // Save to file
+  console.log('Writing romaji data file...');
   const outputPath = path.join(__dirname, '../public/romaji-data.json');
   fs.writeFileSync(outputPath, JSON.stringify(romajiData, null, 2));
-  
-  console.log('\nConversion Summary:');
-  console.log(`Total words processed: ${words.length}`);
-  console.log(`Successfully converted: ${count}`);
-  console.log(`Failed conversions: ${errorCount}`);
-  console.log(`Romaji data saved to ${outputPath}`);
-  
-  // Verify the saved file
-  const savedData = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-  console.log(`\nVerification:`);
-  console.log(`Saved entries: ${Object.keys(savedData).length}`);
-  console.log(`File size: ${(fs.statSync(outputPath).size / 1024).toFixed(2)} KB`);
-  
-  // Test some common words
-  const testWords = ['猫', '犬', '鳥', '魚', '本', '日本語', '大学', '電車'];
-  console.log('\nSample conversions:');
-  testWords.forEach(word => {
-    console.log(`${word} -> ${savedData[word] || 'NOT FOUND'}`);
-  });
+  console.log(`Successfully wrote romaji data to ${outputPath}`);
 }
 
 generateRomajiData().catch(console.error); 

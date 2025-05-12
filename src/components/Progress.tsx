@@ -14,6 +14,15 @@ const Progress: React.FC<ProgressProps> = ({ detailed = false }) => {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const { progress } = useApp();
 
+  // Guard: if progress is missing or not an object, show a message
+  if (!progress || typeof progress !== 'object') {
+    return (
+      <div className="p-8 text-center text-lg text-gray-600 dark:text-gray-300">
+        Progress data is not available. Please try refreshing the page or check your settings.
+      </div>
+    );
+  }
+
   const getThemeClasses = () => {
     if (isDarkMode) {
       return {
