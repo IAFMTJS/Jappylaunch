@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import WritingPractice from '../components/WritingPractice';
+import Kanji from '../components/Kanji';
 import { useNavigate } from 'react-router-dom';
 
 type WritingMode = 'hiragana' | 'katakana' | 'kanji';
@@ -51,7 +52,11 @@ const WritingPracticePage: React.FC = () => {
         </div>
       </div>
 
-      <WritingPractice mode={selectedMode} onComplete={handleComplete} />
+      {selectedMode === 'kanji' ? (
+        <Kanji />
+      ) : (
+        <WritingPractice mode={selectedMode as 'hiragana' | 'katakana'} onComplete={handleComplete} />
+      )}
     </div>
   );
 };

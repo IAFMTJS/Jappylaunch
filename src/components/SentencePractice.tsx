@@ -100,11 +100,13 @@ const SentencePractice: React.FC = () => {
     setUserAnswer('');
 
     // Update progress
-    updateProgress('sentencePractice', {
+    const progressKey = `sentence-${currentExample?.japanese}`;
+    updateProgress('sentencePractice', progressKey, isAnswerCorrect, {
       totalQuestions: totalQuestions + 1,
       correctAnswers: isAnswerCorrect ? (score + 1) : score,
       bestStreak: Math.max(streak, streak + (isAnswerCorrect ? 1 : 0)),
-      averageTime: ((averageTime * totalQuestions) + (30 - timeLeft)) / (totalQuestions + 1)
+      highScore: Math.max(score + (isAnswerCorrect ? 1 : 0), score),
+      lastAttempt: Date.now()
     });
 
     if (questionsRemaining <= 1) {

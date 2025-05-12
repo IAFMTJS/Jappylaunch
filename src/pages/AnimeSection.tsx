@@ -481,7 +481,7 @@ const ErrorFallback = ({ error, onRetry }: { error: Error | null; onRetry?: () =
 // Main component
 const AnimeSection: React.FC = () => {
   // Context hooks
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const { settings } = useApp();
   const { updateProgress } = useProgress();
   const { theme, isDarkMode } = useTheme();
@@ -562,7 +562,7 @@ const AnimeSection: React.FC = () => {
   }, []);
 
   const handlePractice = useCallback(async () => {
-    if (!user || !currentPhrase) return;
+    if (!currentUser || !currentPhrase) return;
 
     try {
       await updateProgress('anime', currentPhrase.japanese, true);
@@ -577,7 +577,7 @@ const AnimeSection: React.FC = () => {
         error: 'Failed to save progress. Please try again.' 
       }));
     }
-  }, [user, currentPhrase, updateProgress, playSound]);
+  }, [currentUser, currentPhrase, updateProgress, playSound]);
 
   const handleToggleEnglish = useCallback(() => {
     setState(prev => ({ ...prev, showEnglish: !prev.showEnglish }));
@@ -739,8 +739,8 @@ const AnimeSection: React.FC = () => {
           <button
             onClick={handlePractice}
             className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-            disabled={!user}
-            title={!user ? 'Please log in to practice' : 'Mark as practiced'}
+            disabled={!currentUser}
+            title={!currentUser ? 'Please log in to practice' : 'Mark as practiced'}
           >
             Practice
           </button>

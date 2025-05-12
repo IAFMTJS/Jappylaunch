@@ -56,11 +56,11 @@ class RomajiCache {
             blocking() {
               console.warn('This tab is blocking another tab from upgrading the database');
             },
-            terminated() {
+            terminated: function(this: RomajiCache) {
               console.warn('Database connection terminated');
               this.isInitialized = false;
               this.db = null;
-            }
+            }.bind(this)
           });
           
           console.log('IndexedDB opened successfully');

@@ -148,6 +148,17 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, []);
   
+  // Helper function to create a PendingProgressItem
+  const createPendingProgressItem = useCallback((progress: ProgressItem, timestamp: number): PendingProgressItem => {
+    const pendingItem = {
+      ...progress,
+      status: 'pending' as const,
+      retryCount: 0,
+      lastAttempt: timestamp
+    } as PendingProgressItem;
+    return pendingItem;
+  }, []);
+
   // Update progress with offline support
   const updateProgress = useCallback(async (
     section: string,
@@ -170,13 +181,18 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         incorrect: (existingProgress?.incorrect ?? 0) + (correct ? 0 : 1),
         lastAttempted: timestamp,
         timestamp: existingProgress?.timestamp ?? timestamp,
-        version: '1.0.0', // TODO: Get from app version
-        totalQuestions: (existingProgress?.totalQuestions ?? 0) + (additionalData?.totalQuestions ?? 1),
-        correctAnswers: (existingProgress?.correctAnswers ?? 0) + (correct ? 1 : 0),
-        bestStreak: Math.max(existingProgress?.bestStreak ?? 0, additionalData?.bestStreak ?? 0),
-        highScore: Math.max(existingProgress?.highScore ?? 0, additionalData?.highScore ?? 0),
+        version: '1.0.0',
+        ...additionalData,
+        // Ensure these properties are properly typed and handled
+        totalQuestions: additionalData?.totalQuestions ?? (existingProgress?.totalQuestions ?? 0) + 1,
+        correctAnswers: additionalData?.correctAnswers ?? (existingProgress?.correctAnswers ?? 0) + (correct ? 1 : 0),
+        bestStreak: additionalData?.bestStreak ?? Math.max(existingProgress?.bestStreak ?? 0, correct ? (existingProgress?.bestStreak ?? 0) + 1 : 0),
+        highScore: additionalData?.highScore ?? Math.max(existingProgress?.highScore ?? 0, correct ? (existingProgress?.correctAnswers ?? 0) + 1 : (existingProgress?.correctAnswers ?? 0)),
         lastAttempt: timestamp,
-        ...additionalData
+        // Preserve optional properties if they exist
+        masteredIds: additionalData?.masteredIds ?? existingProgress?.masteredIds,
+        meaning: additionalData?.meaning ?? existingProgress?.meaning,
+        examples: additionalData?.examples ?? existingProgress?.examples
       };
       
       // Update local state
@@ -192,25 +208,13 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } catch (err) {
           console.error('[ProgressContext] Failed to save progress online:', err);
           // Fall back to pending if direct save fails
-          const pendingItem: PendingProgressItem = {
-            ...updatedProgress,
-            status: 'pending',
-            retryCount: 0,
-            lastAttempt: timestamp
-          };
-          
+          const pendingItem = createPendingProgressItem(updatedProgress, timestamp);
           await savePendingProgress(pendingItem);
           setPendingProgress(prev => [...prev, pendingItem]);
         }
       } else {
         // Save as pending if offline
-        const pendingItem: PendingProgressItem = {
-          ...updatedProgress,
-          status: 'pending',
-          retryCount: 0,
-          lastAttempt: timestamp
-        };
-        
+        const pendingItem = createPendingProgressItem(updatedProgress, timestamp);
         await savePendingProgress(pendingItem);
         setPendingProgress(prev => [...prev, pendingItem]);
       }
