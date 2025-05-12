@@ -164,7 +164,10 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         incorrect: (existingProgress?.incorrect ?? 0) + (correct ? 0 : 1),
         lastAttempted: timestamp,
         timestamp: existingProgress?.timestamp ?? timestamp,
-        version: '1.0.0' // TODO: Get from app version
+        version: '1.0.0', // TODO: Get from app version
+        totalQuestions: (existingProgress?.totalQuestions ?? 0) + 1,
+        correctAnswers: (existingProgress?.correctAnswers ?? 0) + (correct ? 1 : 0),
+        lastAttempt: timestamp
       };
       
       // Update local state
@@ -184,12 +187,22 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       } else {
         // Save as pending if offline
-        const pendingItem: PendingProgressItem = {
-          ...updatedProgress,
-          status: 'pending',
-          retryCount: 0,
-          lastAttempt: timestamp
-        };
+        const pendingItem = {
+          id: updatedProgress.id,
+          userId: updatedProgress.userId,
+          section: updatedProgress.section,
+          itemId: updatedProgress.itemId,
+          correct: updatedProgress.correct,
+          incorrect: updatedProgress.incorrect,
+          lastAttempted: updatedProgress.lastAttempted,
+          timestamp: updatedProgress.timestamp,
+          version: updatedProgress.version,
+          totalQuestions: updatedProgress.totalQuestions ?? 0,
+          correctAnswers: updatedProgress.correctAnswers ?? 0,
+          lastAttempt: timestamp, // Required by PendingProgressItem
+          status: 'pending' as const,
+          retryCount: 0
+        } satisfies PendingProgressItem;
         
         await savePendingProgress(pendingItem);
         setPendingProgress(prev => [...prev, pendingItem]);
@@ -434,7 +447,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const key = `${section}-${itemId}`;
     const item = progress[key];
     return {
-      isMarked: item?.correct > 0,
+      isMarked: Boolean(item?.correct && item.correct > 0),
       lastAttempted: item?.lastAttempted ?? null
     };
   }, [progress]);

@@ -7,27 +7,16 @@ import {
   sendPasswordResetEmail,
   updatePassword,
   sendEmailVerification,
-  type User as FirebaseUser,
-  type AuthError as FirebaseAuthError,
-  onAuthStateChanged,
-  User
+  onAuthStateChanged
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getFirestore } from 'firebase/firestore';
 import { getApp } from 'firebase/app';
-import type { AuthContextType, AuthErrorResponse } from '../types/auth';
+import type { AuthContextType, AuthErrorResponse, User } from '../types/auth';
 
-// Initialize Firebase auth
+// Initialize Firebase auth and firestore
 const app = getApp();
 const auth = getAuth(app);
-
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  error: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-}
+const db = getFirestore(app);
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -49,10 +38,11 @@ const LoadingScreen = () => (
 );
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AuthErrorResponse | null>(null);
   const [loginAttempts, setLoginAttempts] = useState(0);
+  const [sessionWarning, setSessionWarning] = useState(false);
   const MAX_LOGIN_ATTEMPTS = 5;
   const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
   const [lockoutEndTime, setLockoutEndTime] = useState<number | null>(null);
@@ -67,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           emailVerified: user?.emailVerified,
           timestamp: new Date().toISOString()
         });
-        setUser(user);
+        setCurrentUser(user);
         setLoading(false);
       }, (error: unknown) => {
         console.error('AuthProvider: Firebase auth initialization error:', {
@@ -97,25 +87,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const handleAuthError = (error: unknown): string => {
+  const handleAuthError = (error: unknown): AuthErrorResponse => {
     if (error instanceof Error) {
       const errorCode = (error as { code?: string })?.code;
+      const errorName = error.name || 'FirebaseError';
       switch (errorCode) {
         case 'auth/invalid-email':
-          return 'Invalid email address';
+          return { code: 'auth/invalid-email', message: 'Invalid email address', name: errorName };
         case 'auth/user-disabled':
-          return 'This account has been disabled';
+          return { code: 'auth/user-disabled', message: 'This account has been disabled', name: errorName };
         case 'auth/user-not-found':
-          return 'No account found with this email';
+          return { code: 'auth/user-not-found', message: 'No account found with this email', name: errorName };
         case 'auth/wrong-password':
-          return 'Incorrect password';
+          return { code: 'auth/wrong-password', message: 'Incorrect password', name: errorName };
         case 'auth/too-many-requests':
-          return 'Too many failed attempts. Please try again later';
+          return { code: 'auth/too-many-requests', message: 'Too many failed attempts. Please try again later', name: errorName };
         default:
-          return error.message || 'An error occurred during authentication';
+          return { code: 'unknown', message: error.message || 'An error occurred during authentication', name: errorName };
       }
     }
-    return 'An unexpected error occurred';
+    return { code: 'unknown', message: 'An unexpected error occurred', name: 'UnknownError' };
   };
 
   const clearError = () => setError(null);
@@ -140,7 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const errorMessage = handleAuthError(err);
       setError(errorMessage);
       
-      if (errorMessage.includes('Incorrect password')) {
+      if (errorMessage.code === 'auth/wrong-password') {
         const newAttempts = loginAttempts + 1;
         setLoginAttempts(newAttempts);
         
@@ -151,7 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       
-      throw new Error(errorMessage);
+      throw new Error(errorMessage.message);
     }
   };
 
@@ -182,7 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       const errorMessage = handleAuthError(err);
       setError(errorMessage);
-      throw new Error(errorMessage);
+      throw new Error(errorMessage.message);
     }
   };
 
@@ -193,17 +184,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       const errorMessage = handleAuthError(err);
       setError(errorMessage);
-      throw new Error(errorMessage);
+      throw new Error(errorMessage.message);
     }
   };
 
   const updateUserPassword = async (_actionCode: string, newPassword: string) => {
     try {
       clearError();
-      if (!user) {
+      if (!currentUser) {
         throw new Error('No user is currently signed in');
       }
-      await updatePassword(user, newPassword);
+      await updatePassword(currentUser, newPassword);
     } catch (error: unknown) {
       handleAuthError(error);
     }
@@ -212,17 +203,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sendVerificationEmail = async () => {
     try {
       clearError();
-      if (!user) {
+      if (!currentUser) {
         throw new Error('No user is currently signed in');
       }
-      await sendEmailVerification(user);
+      await sendEmailVerification(currentUser);
     } catch (error: unknown) {
       handleAuthError(error);
     }
   };
 
   const value: AuthContextType = {
-    user,
+    currentUser,
     loading,
     error,
     login,
@@ -230,7 +221,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     resetPassword,
     updateUserPassword,
     sendVerificationEmail,
-    resetSessionTimer
+    isEmailVerified: currentUser?.emailVerified ?? false,
+    sessionWarning,
+    resetSessionTimer,
+    signup,
+    clearError
   };
 
   if (loading) {

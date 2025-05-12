@@ -1,5 +1,8 @@
-import type { User } from 'firebase/auth';
+import type { User as FirebaseUser } from 'firebase/auth';
 import type { FirebaseError } from 'firebase/app';
+
+// Re-export the User type
+export type User = FirebaseUser;
 
 // Custom error types for better error handling
 export type AuthErrorResponse = Pick<FirebaseError, 'code' | 'message' | 'name'>;
