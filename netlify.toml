@@ -8,28 +8,53 @@
   status = 200
   force = true
 
+# Handle 404s and other errors
+[[redirects]]
+  from = "/*"
+  to = "/error.html"
+  status = 404
+
+[[redirects]]
+  from = "/*"
+  to = "/error.html"
+  status = 500
+
 [build.environment]
   NODE_VERSION = "18"
+  NODE_ENV = "production"
 
 # Cache settings for better performance
 [[headers]]
   for = "/*"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 
 [[headers]]
   for = "/static/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+    X-Content-Type-Options = "nosniff"
 
 [[headers]]
   for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+    X-Content-Type-Options = "nosniff"
 
 [[headers]]
   for = "/romaji-data.json"
   [headers.values]
     Content-Type = "application/json"
     Access-Control-Allow-Origin = "*"
-    Cache-Control = "public, max-age=0, must-revalidate" 
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/error.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    X-Content-Type-Options = "nosniff" 

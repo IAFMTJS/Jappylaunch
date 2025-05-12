@@ -94,14 +94,48 @@ try {
 
 // Register service worker for romaji caching
 if ('serviceWorker' in navigator) {
+  // Wait for the page to be fully loaded
   window.addEventListener('load', () => {
-    console.log('Attempting to register service worker...');
-    navigator.serviceWorker.register('/service-worker.js')
+    // Add a small delay to ensure the app is initialized first
+    setTimeout(() => {
+      console.log('Attempting to register service worker...');
+      navigator.serviceWorker.register('/service-worker.js', {
+        scope: '/',
+        updateViaCache: 'none'
+      })
       .then(registration => {
         console.log('ServiceWorker registration successful with scope:', registration.scope);
+        
+        // Check for updates
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('New service worker installed, waiting for activation');
+              }
+            });
+          }
+        });
       })
       .catch(error => {
-        console.error('ServiceWorker registration failed:', error);
+        console.warn('ServiceWorker registration failed:', error);
+        // Don't throw the error, just log it
       });
+    }, 1000); // 1 second delay
   });
-} 
+}
+
+// Add global error handler
+window.addEventListener('error', (event) => {
+  console.error('Global error caught:', event.error);
+  // Prevent the default error handling
+  event.preventDefault();
+});
+
+// Add unhandled rejection handler
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+  // Prevent the default error handling
+  event.preventDefault();
+}); 

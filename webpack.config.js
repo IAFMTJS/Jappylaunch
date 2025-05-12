@@ -29,21 +29,13 @@ module.exports = (env, argv) => {
           use: {
             loader: 'ts-loader',
             options: {
-              transpileOnly: false,
-              compilerOptions: {
-                module: 'esnext',
-                noEmit: false
-              }
+              transpileOnly: true
             }
           }
         },
         {
           test: /\.css$/,
-          use: [
-            isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
-            'css-loader',
-            'postcss-loader'
-          ]
+          use: ['style-loader', 'css-loader', 'postcss-loader']
         },
         {
           test: /\.(png|svg|jpg|jpeg|gif)$/i,
@@ -60,23 +52,19 @@ module.exports = (env, argv) => {
     },
     resolve: {
       extensions: ['.tsx', '.ts', '.js', '.jsx'],
-      alias: {
-        '@': path.resolve(__dirname, 'src'),
-        'process': 'process/browser.js'
-      },
       fallback: {
         "path": require.resolve("path-browserify"),
-        "fs": false,
         "crypto": require.resolve("crypto-browserify"),
         "stream": require.resolve("stream-browserify"),
         "buffer": require.resolve("buffer/"),
-        "util": require.resolve("util/"),
-        "assert": require.resolve("assert/"),
+        "process": require.resolve("process/browser"),
+        "zlib": require.resolve("browserify-zlib"),
         "http": require.resolve("stream-http"),
         "https": require.resolve("https-browserify"),
         "os": require.resolve("os-browserify/browser"),
         "url": require.resolve("url/"),
-        "zlib": require.resolve("browserify-zlib")
+        "assert": require.resolve("assert/"),
+        "util": require.resolve("util/")
       }
     },
     optimization: {
@@ -104,37 +92,14 @@ module.exports = (env, argv) => {
       ],
       splitChunks: {
         chunks: 'all',
-        maxInitialRequests: 20,
-        minSize: 20000,
-        maxSize: 244000,
-        cacheGroups: {
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name(module) {
-              const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
-              return `vendor.${packageName.replace('@', '')}`;
-            },
-            chunks: 'all',
-            priority: 1
-          },
-          common: {
-            name: 'common',
-            minChunks: 2,
-            priority: 0,
-            reuseExistingChunk: true
-          }
-        }
+        name: false
       }
     },
     plugins: [
-      new webpack.ProvidePlugin({
-        process: 'process/browser.js',
-        Buffer: ['buffer', 'Buffer']
-      }),
       new HtmlWebpackPlugin({
-        template: 'public/index.html',
-        inject: 'body',
-        minify: isProduction ? {
+        template: './public/index.html',
+        inject: true,
+        minify: {
           removeComments: true,
           collapseWhitespace: true,
           removeRedundantAttributes: true,
@@ -144,8 +109,15 @@ module.exports = (env, argv) => {
           keepClosingSlash: true,
           minifyJS: true,
           minifyCSS: true,
-          minifyURLs: true,
-        } : false
+          minifyURLs: true
+        }
+      }),
+      new webpack.ProvidePlugin({
+        process: 'process/browser',
+        Buffer: ['buffer', 'Buffer']
+      }),
+      new webpack.DefinePlugin({
+        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production')
       }),
       new CopyWebpackPlugin({
         patterns: [
