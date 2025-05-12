@@ -236,7 +236,7 @@ const Section8 = () => {
     try {
       const example = sentenceExamples[Math.floor(Math.random() * sentenceExamples.length)];
       setCurrentSentence(example);
-      const words = example.japanese.split(' ');
+      const words = example?.japanese?.split(' ') ?? [];
       setSentenceChoices(words.sort(() => Math.random() - 0.5));
       setSentenceAnswer([]);
       setSentenceFeedback('');
@@ -602,7 +602,7 @@ const Section8 = () => {
       const updateRomaji = async () => {
         try {
           // Update romaji for sentence game
-          const sentenceWords = sentenceExamples.flatMap(example => example.japanese.split(' '));
+          const sentenceWords = sentenceExamples.flatMap(example => example.japanese.split(' ') ?? []);
           for (const word of sentenceWords) {
             if (!romajiMap[word]) {
               await getRomaji(word);
@@ -611,11 +611,11 @@ const Section8 = () => {
 
           // Update romaji for memory game
           for (const item of matchingGameData) {
-            if (!romajiMap[item.japanese]) {
-              await getRomaji(item.japanese);
+            if (!romajiMap[item.japanese ?? '']) {
+              await getRomaji(item.japanese ?? '');
             }
-            if (!romajiMap[item.hiragana]) {
-              await getRomaji(item.hiragana);
+            if (!romajiMap[item.hiragana ?? '']) {
+              await getRomaji(item.hiragana ?? '');
             }
           }
 
@@ -632,7 +632,7 @@ const Section8 = () => {
   const startNewSentence = () => {
     const example = sentenceExamples[Math.floor(Math.random() * sentenceExamples.length)];
     setCurrentSentence(example);
-    const words = example.japanese.split(' ');
+    const words = example.japanese?.split(' ') ?? [];
     setSentenceChoices(words.sort(() => Math.random() - 0.5));
     setSentenceAnswer([]);
     setSentenceFeedback('');
@@ -659,7 +659,7 @@ const Section8 = () => {
 
   // Controleer of het antwoord klopt
   useEffect(() => {
-    if (sentenceAnswer.length === currentSentence.japanese.split(' ').length) {
+    if (sentenceAnswer.length === currentSentence.japanese?.split(' ').length) {
       if (sentenceAnswer.join(' ') === currentSentence.japanese) {
         setSentenceFeedback('Correct!');
         setSentenceScore(score => score + 1);
@@ -730,7 +730,7 @@ const Section8 = () => {
                 {pair.isSelected ? (settings?.showKanjiGames ? pair.japanese : pair.hiragana) : '?'}
                 {settings?.showRomajiGames && pair.isSelected && (
                   <span className="block text-sm text-gray-600 mt-1">
-                    {romajiMap[settings.showKanjiGames ? pair.japanese : pair.hiragana] || 'Loading...'}
+                    {romajiMap[settings.showKanjiGames ? pair.japanese : pair.hiragana] ?? 'Loading...'}
                   </span>
                 )}
               </button>

@@ -101,14 +101,14 @@ const Section5 = () => {
 
   const currentCategory = categories.find(cat => cat.id === selectedCategory);
   const filteredWords = currentCategory?.words.filter((word: Word) => 
-    word.japanese.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    word.english.toLowerCase().includes(searchTerm.toLowerCase())
+    (word?.japanese?.toLowerCase()?.includes(searchTerm.toLowerCase()) ?? false) ||
+    (word?.english?.toLowerCase()?.includes(searchTerm.toLowerCase()) ?? false)
   ) || [];
 
   React.useEffect(() => {
     if (currentCategory) {
       const completed = currentCategory.words.filter(word => 
-        getProgressStatus('section5', word.japanese).isMarked
+        getProgressStatus('section5', word?.japanese ?? '').isMarked
       ).length;
       setCompletedWords(completed);
       setTotalWords(currentCategory.words.length);
@@ -116,8 +116,8 @@ const Section5 = () => {
   }, [currentCategory, getProgressStatus]);
 
   const handleWordComplete = async (word: Word) => {
-    const currentStatus = getProgressStatus('section5', word.japanese);
-    await updateProgress('section5', word.japanese, !currentStatus.isMarked);
+    const currentStatus = getProgressStatus('section5', word?.japanese ?? '');
+    await updateProgress('section5', word?.japanese ?? '', !currentStatus.isMarked);
     // The completed words count will be updated by the useEffect above
   };
 
@@ -138,7 +138,7 @@ const Section5 = () => {
       const updateRomaji = async () => {
         // Collect all words that need romaji conversion
         const wordsToConvert = categories.flatMap(category => 
-          category.words.map(word => word.japanese.trim())
+          category.words.map(word => word?.japanese?.trim() ?? '')
         ).filter(word => !romajiMap[word]);
         console.log('Batching for romaji:', wordsToConvert);
         if (wordsToConvert.length > 0) {
@@ -152,26 +152,26 @@ const Section5 = () => {
   }, [settings.showRomajiVocabulary, categories]);
 
   const renderWord = (word: Word) => {
-    const { isMarked } = getProgressStatus('section5', word.japanese);
+    const { isMarked } = getProgressStatus('section5', word?.japanese ?? '');
     return (
       <div className={`bg-gray-50 p-4 rounded-lg ${isMarked ? 'border-2 border-green-500' : ''}`}>
         <div className="flex justify-between items-start">
           <div>
-            <h3 className="text-lg font-semibold">{word.japanese}</h3>
+            <h3 className="text-lg font-semibold">{word?.japanese ?? 'Loading...'}</h3>
             {settings.showRomajiVocabulary && (
               <p className="text-gray-500 italic">
-                {romajiMap[word.japanese.trim()] || 'Loading...'}
+                {romajiMap[word?.japanese?.trim() ?? ''] || 'Loading...'}
               </p>
             )}
-            <p className="text-gray-600">{word.english}</p>
+            <p className="text-gray-600">{word?.english ?? 'Loading...'}</p>
           </div>
           <div className="flex items-center gap-2">
             <span className={`px-2 py-1 rounded text-sm ${
-              word.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
-              word.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+              word?.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
+              word?.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
               'bg-red-100 text-red-800'
             }`}>
-              {word.difficulty}
+              {word?.difficulty ?? 'Loading...'}
             </span>
             <button
               onClick={() => handleWordComplete(word)}
