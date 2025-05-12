@@ -205,33 +205,12 @@ async function handleApiRequest(request) {
 // Handle asset requests with cache-first strategy
 async function handleAssetRequest(request) {
   const cache = await caches.open(CACHE_CONFIG.assets.name);
-  
-  try {
-    // Try cache first
-    const cachedResponse = await cache.match(request);
-    if (cachedResponse) {
-      return cachedResponse;
-    }
-    
-    // If not in cache, fetch from network
-    const response = await fetch(request);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch asset: ${response.status}`);
-    }
-    
-    // Cache the response
-    await cache.put(request, response.clone());
-    return response;
-  } catch (error) {
-    console.error('[Service Worker] Error handling asset request:', error);
-    
-    // For HTML requests, return offline page
-    if (request.headers.get('accept').includes('text/html')) {
-      return caches.match('/offline.html');
-    }
-    
-    throw error;
-  }
+  const cachedResponse = await cache.match(request);
+  if (cachedResponse) { return cachedResponse; }
+  const fetchResponse = await fetch(request);
+  if (!fetchResponse.ok || fetchResponse.status === 206) { return fetchResponse; }
+  await cache.put(request, fetchResponse.clone());
+  return fetchResponse;
 }
 
 // Enhanced background sync with retry logic
