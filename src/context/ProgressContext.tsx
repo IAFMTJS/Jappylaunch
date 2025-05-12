@@ -39,6 +39,7 @@ interface ProgressContextType {
   updateProgress: (section: string, itemId: string, correct: boolean, additionalData?: Partial<ProgressItem>) => Promise<void>;
   syncProgress: () => Promise<void>;
   clearProgress: () => Promise<void>;
+  resetProgress: () => Promise<void>;
   getProgressStatus: (section: string, itemId: string) => { isMarked: boolean; lastAttempted: number | null };
   
   // Settings actions
@@ -367,6 +368,38 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [settings]);
   
+  // Add resetProgress function
+  const resetProgress = useCallback(async () => {
+    try {
+      setError(null);
+      
+      // Clear from IndexedDB
+      await Promise.all([
+        clearPendingProgress(DEFAULT_USER_ID),
+        clearProgressDB(DEFAULT_USER_ID)
+      ]);
+      
+      // Clear local state
+      setProgress({});
+      setPendingProgress([]);
+      
+      // Update settings
+      if (settings) {
+        const newSettings: Settings = {
+          ...settings,
+          lastSync: Date.now()
+        };
+        await saveSettings(newSettings);
+        setSettings(newSettings);
+        setLastSyncTime(newSettings.lastSync);
+      }
+    } catch (err) {
+      console.error('[ProgressContext] Failed to reset progress:', err);
+      setError(err instanceof Error ? err.message : 'Failed to reset progress');
+      throw err;
+    }
+  }, [settings]);
+  
   // Update settings
   const updateSettings = useCallback(async (newSettings: Partial<Settings>) => {
     if (!settings) {
@@ -464,6 +497,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     updateProgress,
     syncProgress,
     clearProgress,
+    resetProgress,
     getProgressStatus,
     
     // Settings actions

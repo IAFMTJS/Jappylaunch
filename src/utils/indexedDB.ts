@@ -69,13 +69,26 @@ const migrations: Migration[] = [
       });
 
       // Initialize default settings
-      const defaultSettings: Settings = {
+      const DEFAULT_SETTINGS: Settings = {
         userId: 'default',
         lastSync: Date.now(),
         offlineMode: false,
         notifications: true,
         theme: 'light',
         fontSize: 'medium',
+        // General settings
+        showRomaji: true,
+        showHints: true,
+        autoPlay: true,
+        difficulty: 'medium',
+        // Section-specific settings
+        showRomajiVocabulary: true,
+        showRomajiReading: true,
+        showRomajiJLPT: true,
+        showKanjiGames: true,
+        showRomajiGames: true,
+        useHiraganaGames: true,
+        // Quiz settings
         quizSettings: {
           showRomaji: true,
           showHiragana: true,
@@ -86,7 +99,7 @@ const migrations: Migration[] = [
         }
       };
       await new Promise<void>((resolve, reject) => {
-        const request = transaction.objectStore(DB_CONFIG.stores.settings.name).add(defaultSettings);
+        const request = transaction.objectStore(DB_CONFIG.stores.settings.name).add(DEFAULT_SETTINGS);
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
@@ -389,64 +402,108 @@ export async function clearPendingProgress(userId: string): Promise<void> {
 }
 
 // Settings operations
-export async function saveSettings(settings: Settings): Promise<Settings> {
-  return updateInStore('settings', settings);
-}
+export const saveSettings = async (settings: Settings): Promise<void> => {
+  const db = await openDB();
+  const tx = db.transaction('settings', 'readwrite');
+  const store = tx.objectStore('settings');
+  
+  return new Promise((resolve, reject) => {
+    const request = store.put(settings);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+};
 
-export async function getSettings(userId: string): Promise<Settings | undefined> {
-  return getFromStore<Settings>('settings', userId);
-}
+export const getSettings = async (userId: string): Promise<Settings | null> => {
+  const db = await openDB();
+  const tx = db.transaction('settings', 'readonly');
+  const store = tx.objectStore('settings');
+  
+  return new Promise((resolve, reject) => {
+    const request = store.get(userId);
+    request.onsuccess = () => resolve(request.result ?? null);
+    request.onerror = () => reject(request.error);
+    tx.onerror = () => reject(tx.error);
+  });
+};
 
 // Backup and restore operations
-export async function createBackup(): Promise<{
+export const createBackup = async (): Promise<{
   progress: ProgressItem[];
   pending: PendingProgressItem[];
   settings: Settings[];
-}> {
+}> => {
   const db = await openDB();
-  const transaction = db.transaction(['progress', 'pending', 'settings'], 'readonly');
+  const tx = db.transaction(['progress', 'pending', 'settings'], 'readonly');
   
-  const [progress, pending, settings] = await Promise.all([
-    new Promise<ProgressItem[]>((resolve, reject) => {
-      const request = transaction.objectStore('progress').getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    }),
-    new Promise<PendingProgressItem[]>((resolve, reject) => {
-      const request = transaction.objectStore('pending').getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    }),
-    new Promise<Settings[]>((resolve, reject) => {
-      const request = transaction.objectStore('settings').getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    })
-  ]);
+  return new Promise((resolve, reject) => {
+    const progressRequest = tx.objectStore('progress').getAll();
+    const pendingRequest = tx.objectStore('pending').getAll();
+    const settingsRequest = tx.objectStore('settings').getAll();
+    
+    Promise.all([
+      new Promise<ProgressItem[]>((res, rej) => {
+        progressRequest.onsuccess = () => res(progressRequest.result);
+        progressRequest.onerror = () => rej(progressRequest.error);
+      }),
+      new Promise<PendingProgressItem[]>((res, rej) => {
+        pendingRequest.onsuccess = () => res(pendingRequest.result);
+        pendingRequest.onerror = () => rej(pendingRequest.error);
+      }),
+      new Promise<Settings[]>((res, rej) => {
+        settingsRequest.onsuccess = () => res(settingsRequest.result);
+        settingsRequest.onerror = () => rej(settingsRequest.error);
+      })
+    ]).then(([progress, pending, settings]) => {
+      resolve({ progress, pending, settings });
+    }).catch(reject);
+    
+    tx.onerror = () => reject(tx.error);
+  });
+};
 
-  return { progress, pending, settings };
-}
-
-export async function restoreBackup(backup: {
+export const restoreBackup = async (backup: {
   progress: ProgressItem[];
   pending: PendingProgressItem[];
   settings: Settings[];
-}): Promise<void> {
+}): Promise<void> => {
   const db = await openDB();
-  const transaction = db.transaction(['progress', 'pending', 'settings'], 'readwrite');
-
-  await Promise.all([
-    clearStore('progress'),
-    clearStore('pending'),
-    clearStore('settings')
-  ]);
-
-  await Promise.all([
-    addBulkToStore('progress', backup.progress),
-    addBulkToStore('pending', backup.pending),
-    addBulkToStore('settings', backup.settings)
-  ]);
-}
+  const tx = db.transaction(['progress', 'pending', 'settings'], 'readwrite');
+  
+  return new Promise((resolve, reject) => {
+    // Clear existing data
+    const clearRequests = [
+      tx.objectStore('progress').clear(),
+      tx.objectStore('pending').clear(),
+      tx.objectStore('settings').clear()
+    ];
+    
+    Promise.all(clearRequests.map(req => 
+      new Promise<void>((res, rej) => {
+        req.onsuccess = () => res();
+        req.onerror = () => rej(req.error);
+      })
+    )).then(() => {
+      // Restore data
+      const restoreRequests = [
+        ...backup.progress.map(item => tx.objectStore('progress').put(item)),
+        ...backup.pending.map(item => tx.objectStore('pending').put(item)),
+        ...backup.settings.map(item => tx.objectStore('settings').put(item))
+      ];
+      
+      Promise.all(restoreRequests.map(req =>
+        new Promise<void>((res, rej) => {
+          req.onsuccess = () => res();
+          req.onerror = () => rej(req.error);
+        })
+      )).then(() => resolve()).catch(reject);
+    }).catch(reject);
+    
+    tx.onerror = () => reject(tx.error);
+  });
+};
 
 // Export database configuration for use in other files
 export { DB_CONFIG }; 

@@ -4,9 +4,12 @@ import { useApp } from '../context/AppContext';
 import { useProgress } from '../context/ProgressContext';
 import { useSound } from '../context/SoundContext';
 import { Kanji, kanjiList } from '../data/kanjiData';
+import { ProgressItem } from '../types';
+
+const DEFAULT_USER_ID = 'default';
 
 type Difficulty = 'easy' | 'medium' | 'hard';
-type AnswerType = 'kanji' | 'meaning' | 'reading';
+type AnswerType = 'meaning' | 'reading' | 'kanji';
 
 interface QuizState {
   mode: 'setup' | 'quiz' | 'result';
@@ -123,20 +126,33 @@ const KanjiQuiz: React.FC = () => {
     }
 
     // Update progress
-    const currentProgress = progress.kanji || {
+    const key = `kanji-${currentKanji.character}`;
+    const kanjiProgress = progress[key] as ProgressItem | undefined;
+    const defaultProgress: ProgressItem = {
+      id: currentKanji.character,
+      userId: DEFAULT_USER_ID,
+      section: 'kanji',
+      itemId: currentKanji.character,
+      correct: 0,
+      incorrect: 0,
+      lastAttempted: Date.now(),
+      timestamp: Date.now(),
+      version: '1.0',
       totalQuestions: 0,
       correctAnswers: 0,
       bestStreak: 0,
       highScore: 0,
-      lastAttempt: new Date().toISOString()
+      lastAttempt: Date.now()
     };
 
-    updateProgress('kanji', {
-      totalQuestions: currentProgress.totalQuestions + 1,
-      correctAnswers: currentProgress.correctAnswers + (isCorrect ? 1 : 0),
-      bestStreak: Math.max(currentProgress.bestStreak, newBestStreak),
-      highScore: Math.max(currentProgress.highScore, score + (isCorrect ? 1 : 0)),
-      lastAttempt: new Date().toISOString()
+    const currentProgress = kanjiProgress || defaultProgress;
+
+    updateProgress('kanji', currentKanji.character, isCorrect, {
+      totalQuestions: (currentProgress.totalQuestions || 0) + 1,
+      correctAnswers: (currentProgress.correctAnswers || 0) + (isCorrect ? 1 : 0),
+      bestStreak: Math.max(currentProgress.bestStreak || 0, newBestStreak),
+      highScore: Math.max(currentProgress.highScore || 0, score + (isCorrect ? 1 : 0)),
+      lastAttempt: Date.now()
     });
   }, [quizState, questions, settings.answerType, currentStreak, bestStreak, score, progress, updateProgress, playSound]);
 
