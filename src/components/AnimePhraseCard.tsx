@@ -1,17 +1,26 @@
 import React from 'react';
 
+type Difficulty = 'beginner' | 'intermediate' | 'advanced';
+type Category = 'greeting' | 'emotion' | 'action' | 'question' | 'response';
+
 interface AnimePhraseCardProps {
+  id: string;
   japanese: string;
   romaji: string;
   english: string;
   context: string;
   example: string;
-  category: string;
+  difficulty: Difficulty;
+  category: Category;
   showRomaji: boolean;
   showEnglish: boolean;
   animeImage?: string;
   characterName?: string;
   animeTitle?: string;
+  onMarkAsLearned?: () => Promise<void>;
+  isLearned: boolean;
+  onPlaySound?: () => void;
+  isDarkMode: boolean;
 }
 
 const AnimePhraseCard: React.FC<AnimePhraseCardProps> = ({
@@ -25,10 +34,14 @@ const AnimePhraseCard: React.FC<AnimePhraseCardProps> = ({
   showEnglish,
   animeImage,
   characterName,
-  animeTitle
+  animeTitle,
+  onMarkAsLearned,
+  isLearned,
+  onPlaySound,
+  isDarkMode
 }) => {
   // Default anime images based on category
-  const getDefaultImage = (category: string) => {
+  const getDefaultImage = (category: Category) => {
     switch (category) {
       case 'greeting':
         return 'https://i.imgur.com/8YtG5Yx.png'; // Tanjiro greeting
@@ -50,8 +63,24 @@ const AnimePhraseCard: React.FC<AnimePhraseCardProps> = ({
     imageUrl = `/anime/${animeImage}`;
   }
 
+  const handleMarkAsLearned = async () => {
+    if (onMarkAsLearned) {
+      try {
+        await onMarkAsLearned();
+      } catch (error) {
+        console.error('Failed to mark as learned:', error);
+      }
+    }
+  };
+
+  const handlePlaySound = () => {
+    if (onPlaySound) {
+      onPlaySound();
+    }
+  };
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden ${isDarkMode ? 'dark' : ''}`}>
       {/* Visual Section */}
       <div className="relative h-48 bg-gray-100 dark:bg-gray-700">
         <div 
@@ -64,7 +93,10 @@ const AnimePhraseCard: React.FC<AnimePhraseCardProps> = ({
         >
           <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center">
             <div className="text-center p-4">
-              <h2 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">
+              <h2 
+                className="text-3xl font-bold text-white mb-2 drop-shadow-lg cursor-pointer hover:text-blue-200 transition-colors"
+                onClick={handlePlaySound}
+              >
                 {japanese}
               </h2>
               {showRomaji && (
@@ -106,11 +138,25 @@ const AnimePhraseCard: React.FC<AnimePhraseCardProps> = ({
           </div>
         </div>
 
-        {/* Category Badge */}
-        <div className="mt-4">
+        {/* Category and Actions */}
+        <div className="mt-4 flex items-center justify-between">
           <span className="inline-block px-3 py-1 rounded-full text-sm font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
             {category}
           </span>
+          
+          {onMarkAsLearned && (
+            <button
+              onClick={handleMarkAsLearned}
+              disabled={isLearned}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isLearned
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 cursor-not-allowed'
+                  : 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700'
+              }`}
+            >
+              {isLearned ? 'Learned' : 'Mark as Learned'}
+            </button>
+          )}
         </div>
       </div>
     </div>
