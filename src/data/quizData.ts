@@ -18,8 +18,10 @@ export interface QuizWord {
 }
 
 export const quizWords: QuizWord[] = [
+  // Include kana words from kanaData.ts
   ...hiraganaWords,
   ...katakanaWords,
+  
   // Food
   { japanese: 'りんご', english: 'apple', category: 'food', difficulty: 'easy', hint: 'A common red fruit', romaji: 'ringo', isHiragana: true, isKatakana: false },
   { japanese: 'バナナ', english: 'banana', category: 'food', difficulty: 'easy', hint: 'Yellow curved fruit', romaji: 'banana', isHiragana: false, isKatakana: true },

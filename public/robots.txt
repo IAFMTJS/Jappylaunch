@@ -1,0 +1,13 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://japvoc.netlify.app/sitemap.xml
+
+# Disallow crawling of API endpoints and data files
+Disallow: /api/
+Disallow: /romaji-data.json
+Disallow: /service-worker.js
+Disallow: /manifest.json
+Disallow: /offline.html 
