@@ -29,21 +29,62 @@ module.exports = (env, argv) => {
         {
           test: /\.(ts|tsx)$/,
           exclude: /node_modules/,
+          use: {
+            loader: 'ts-loader',
+            options: {
+              transpileOnly: true
+            }
+          }
+        },
+        {
+          test: /\.js$/,
+          exclude: [
+            /node_modules/,
+            /\.(ts|tsx)$/,
+            /\.test\.js$/,
+            /\.spec\.js$/
+          ],
           use: [
             {
-              loader: 'ts-loader',
+              loader: 'babel-loader',
               options: {
-                transpileOnly: true
+                presets: ['@babel/preset-env']
               }
             },
-            // Only apply obfuscation in production
+            // Only apply obfuscation to JavaScript files in production
             ...(isProduction && WebpackObfuscator ? [{
               loader: WebpackObfuscator.loader,
               options: {
                 rotateStringArray: true,
                 stringArray: true,
                 stringArrayEncoding: ['base64'],
-                stringArrayThreshold: 0.75
+                stringArrayThreshold: 0.75,
+                identifierNamesGenerator: 'hexadecimal',
+                compact: true,
+                controlFlowFlattening: false,
+                deadCodeInjection: false,
+                debugProtection: false,
+                debugProtectionInterval: false,
+                disableConsoleOutput: false,
+                identifierNamesGenerator: 'hexadecimal',
+                log: false,
+                numbersToExpressions: false,
+                renameGlobals: false,
+                selfDefending: false,
+                simplify: true,
+                splitStrings: false,
+                stringArray: true,
+                stringArrayEncoding: ['base64'],
+                stringArrayIndexShift: true,
+                stringArrayRotate: true,
+                stringArrayShuffle: true,
+                stringArrayWrappersCount: 2,
+                stringArrayWrappersChainedCalls: true,
+                stringArrayWrappersParametersMaxCount: 4,
+                stringArrayWrappersType: 'variable',
+                stringArrayThreshold: 0.75,
+                transformObjectKeys: false,
+                unicodeEscapeSequence: false
               }
             }] : [])
           ]
