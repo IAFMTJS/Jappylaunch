@@ -274,7 +274,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         // Update synced items
         const syncedItems = pendingItems.filter((_, index) => index < synced);
         await Promise.all(syncedItems.map(item => 
-          saveProgress({ ...item, status: 'synced' })
+          saveProgress({ ...item, status: undefined } as ProgressItem)
         ));
         
         // Update failed items
@@ -287,7 +287,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             status: 'failed',
             retryCount: item.retryCount + 1,
             lastAttempt: Date.now()
-          })
+          } as PendingProgressItem)
         ));
         
         // Handle conflicts
