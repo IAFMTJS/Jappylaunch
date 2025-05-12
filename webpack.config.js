@@ -31,7 +31,8 @@ module.exports = (env, argv) => {
             options: {
               transpileOnly: false,
               compilerOptions: {
-                module: 'esnext'
+                module: 'esnext',
+                noEmit: false
               }
             }
           }
