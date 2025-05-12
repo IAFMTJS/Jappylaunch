@@ -1,11 +1,15 @@
 const path = require('path');
 const webpack = require('webpack');
-const WebpackObfuscator = require('webpack-obfuscator');
 const TerserPlugin = require('terser-webpack-plugin');
 const CompressionPlugin = require('compression-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+
+// Only require webpack-obfuscator in production
+const WebpackObfuscator = process.env.NODE_ENV === 'production' 
+  ? require('webpack-obfuscator')
+  : null;
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
@@ -25,12 +29,24 @@ module.exports = (env, argv) => {
         {
           test: /\.(ts|tsx)$/,
           exclude: /node_modules/,
-          use: {
-            loader: 'ts-loader',
-            options: {
-              transpileOnly: true
-            }
-          }
+          use: [
+            {
+              loader: 'ts-loader',
+              options: {
+                transpileOnly: true
+              }
+            },
+            // Only apply obfuscation in production
+            ...(isProduction && WebpackObfuscator ? [{
+              loader: WebpackObfuscator.loader,
+              options: {
+                rotateStringArray: true,
+                stringArray: true,
+                stringArrayEncoding: ['base64'],
+                stringArrayThreshold: 0.75
+              }
+            }] : [])
+          ]
         },
         {
           test: /\.css$/,
@@ -149,12 +165,6 @@ module.exports = (env, argv) => {
         new MiniCssExtractPlugin({
           filename: 'static/css/[name].[contenthash:8].css',
           chunkFilename: 'static/css/[name].[contenthash:8].chunk.css'
-        }),
-        new WebpackObfuscator({
-          rotateStringArray: true,
-          stringArray: true,
-          stringArrayEncoding: ['base64'],
-          stringArrayThreshold: 0.75
         })
       ] : [])
     ],
