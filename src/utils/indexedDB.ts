@@ -404,24 +404,23 @@ export async function clearPendingProgress(userId: string): Promise<void> {
 // Settings operations
 export const saveSettings = async (settings: Settings): Promise<void> => {
   const db = await openDB();
-  const tx = db.transaction('settings', 'readwrite');
-  const store = tx.objectStore('settings');
-  
   return new Promise((resolve, reject) => {
+    const tx = db.transaction('settings', 'readwrite');
+    const store = tx.objectStore('settings');
+    
     const request = store.put(settings);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
-    tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 };
 
 export const getSettings = async (userId: string): Promise<Settings | null> => {
   const db = await openDB();
-  const tx = db.transaction('settings', 'readonly');
-  const store = tx.objectStore('settings');
-  
   return new Promise((resolve, reject) => {
+    const tx = db.transaction('settings', 'readonly');
+    const store = tx.objectStore('settings');
+    
     const request = store.get(userId);
     request.onsuccess = () => resolve(request.result ?? null);
     request.onerror = () => reject(request.error);
@@ -436,9 +435,9 @@ export const createBackup = async (): Promise<{
   settings: Settings[];
 }> => {
   const db = await openDB();
-  const tx = db.transaction(['progress', 'pending', 'settings'], 'readonly');
-  
   return new Promise((resolve, reject) => {
+    const tx = db.transaction(['progress', 'pending', 'settings'], 'readonly');
+    
     const progressRequest = tx.objectStore('progress').getAll();
     const pendingRequest = tx.objectStore('pending').getAll();
     const settingsRequest = tx.objectStore('settings').getAll();
@@ -470,9 +469,9 @@ export const restoreBackup = async (backup: {
   settings: Settings[];
 }): Promise<void> => {
   const db = await openDB();
-  const tx = db.transaction(['progress', 'pending', 'settings'], 'readwrite');
-  
   return new Promise((resolve, reject) => {
+    const tx = db.transaction(['progress', 'pending', 'settings'], 'readwrite');
+    
     // Clear existing data
     const clearRequests = [
       tx.objectStore('progress').clear(),

@@ -171,10 +171,12 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         lastAttempted: timestamp,
         timestamp: existingProgress?.timestamp ?? timestamp,
         version: '1.0.0', // TODO: Get from app version
-        ...additionalData,
         totalQuestions: (existingProgress?.totalQuestions ?? 0) + (additionalData?.totalQuestions ?? 1),
         correctAnswers: (existingProgress?.correctAnswers ?? 0) + (correct ? 1 : 0),
-        lastAttempt: timestamp
+        bestStreak: Math.max(existingProgress?.bestStreak ?? 0, additionalData?.bestStreak ?? 0),
+        highScore: Math.max(existingProgress?.highScore ?? 0, additionalData?.highScore ?? 0),
+        lastAttempt: timestamp,
+        ...additionalData
       };
       
       // Update local state
@@ -190,7 +192,15 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } catch (err) {
           console.error('[ProgressContext] Failed to save progress online:', err);
           // Fall back to pending if direct save fails
-          throw err;
+          const pendingItem: PendingProgressItem = {
+            ...updatedProgress,
+            status: 'pending',
+            retryCount: 0,
+            lastAttempt: timestamp
+          };
+          
+          await savePendingProgress(pendingItem);
+          setPendingProgress(prev => [...prev, pendingItem]);
         }
       } else {
         // Save as pending if offline

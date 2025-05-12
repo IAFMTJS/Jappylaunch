@@ -237,52 +237,50 @@ const Quiz: React.FC = () => {
     return 'Keep trying! 💪';
   };
 
-  const checkAnswer = (answer: string, selectedIndex: number) => {
-    if (quizState.showFeedback) return;
-
+  const checkAnswer = (answer: string, index: number) => {
     const currentWord = questions[quizState.currentQuestion];
-    const isCorrect = answer.toLowerCase().trim() === currentWord.english.toLowerCase().trim();
-    const newScore = isCorrect ? score + 1 : score;
+    if (!currentWord) return;
+
+    const isCorrect = answer.toLowerCase() === currentWord.english.toLowerCase();
+    const newScore = score + (isCorrect ? 1 : 0);
     const newStreak = isCorrect ? currentStreak + 1 : 0;
     const newBestStreak = Math.max(bestStreak, newStreak);
 
     setScore(newScore);
+    setCurrentStreak(newStreak);
     setBestStreak(newBestStreak);
     setQuizState(prev => ({
       ...prev,
-      selectedAnswer: selectedIndex,
+      selectedAnswer: index,
       showFeedback: true,
       isCorrect,
-      showCorrect: !isCorrect
+      showCorrect: true
     }));
 
+    // Update progress with additional data
+    updateProgress(
+      currentWord.category,
+      currentWord.english,
+      isCorrect,
+      {
+        totalQuestions: 1,
+        correctAnswers: isCorrect ? 1 : 0,
+        bestStreak: newStreak,
+        highScore: newScore,
+        lastAttempt: Date.now()
+      }
+    );
+
+    // Play sound effect
     if (isCorrect) {
       playSound('correct');
-      setMotivation(getMotivation(newStreak));
     } else {
       playSound('incorrect');
-      setMotivation(getMotivation(0));
     }
 
-    // Update progress after each question
-    const section = settings.category === 'hiragana' ? 'hiragana' : 
-                   settings.category === 'katakana' ? 'katakana' : 'section8';
-    
-    const currentProgress = progress[section] || {
-      totalQuestions: 0,
-      correctAnswers: 0,
-      bestStreak: 0,
-      highScore: 0,
-      lastAttempt: new Date().toISOString()
-    };
-
-    updateProgress(section, {
-      totalQuestions: currentProgress.totalQuestions + 1,
-      correctAnswers: currentProgress.correctAnswers + (isCorrect ? 1 : 0),
-      bestStreak: Math.max(currentProgress.bestStreak, newBestStreak),
-      highScore: Math.max(currentProgress.highScore, newScore),
-      lastAttempt: new Date().toISOString()
-    });
+    // Show feedback
+    setShowFeedback(true);
+    setFeedback(isCorrect);
   };
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
@@ -469,7 +467,9 @@ const Quiz: React.FC = () => {
         : 0;
       const minutes = Math.floor(timeSpent / 60);
       const seconds = timeSpent % 60;
-      const accuracy = Math.round((score / questions.length) * 100);
+      const accuracy = questions.length > 0 
+        ? Math.round((score / questions.length) * 100)
+        : 0;
 
       return (
         <div className="text-center">
@@ -491,6 +491,14 @@ const Quiz: React.FC = () => {
     }
 
     const currentQuestionData = questions[quizState.currentQuestion];
+    if (!currentQuestionData) {
+      return (
+        <div className={`text-center ${themeClasses.text}`}>
+          Error: Question data not found
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6">
         <div className="mb-6">
@@ -511,15 +519,15 @@ const Quiz: React.FC = () => {
           <h3 className={`text-3xl font-bold mb-4 ${themeClasses.text}`}>
             {settings.difficulty === 'easy' ? (
               <>
-                {currentWord.japanese}
-                {appSettings.showRomaji && (
+                {currentQuestionData.japanese}
+                {appSettings.showRomaji && currentQuestionData.romaji && (
                   <div className="text-xl text-gray-600 mt-2">
-                    {currentWord.romaji}
+                    {currentQuestionData.romaji}
                   </div>
                 )}
               </>
             ) : (
-              currentWord.japanese
+              currentQuestionData.japanese
             )}
           </h3>
         </div>
@@ -570,7 +578,7 @@ const Quiz: React.FC = () => {
               <div className="text-green-700 font-semibold">Correct!</div>
             ) : (
               <div className="text-red-700 font-semibold">
-                Incorrect! The correct answer is: <span className="underline">{currentWord.english}</span>
+                Incorrect! The correct answer is: <span className="underline">{currentQuestionData.english}</span>
               </div>
             )}
             <button

@@ -92,9 +92,9 @@ const LearningProgress: React.FC = () => {
 
         // Calculate daily stats
         const dailyStats = dates.map(date => {
-          const mastered = modeProgress.masteredIds?.size || 0;
-          const attempted = modeProgress.totalQuestions || 0;
-          const accuracy = modeProgress.totalQuestions > 0
+          const mastered = modeProgress.masteredIds?.length ?? 0;
+          const attempted = modeProgress.totalQuestions ?? 0;
+          const accuracy = modeProgress.totalQuestions && modeProgress.correctAnswers
             ? (modeProgress.correctAnswers / modeProgress.totalQuestions) * 100
             : 0;
 
@@ -168,15 +168,15 @@ const LearningProgress: React.FC = () => {
     const data: PieChartData[] = [
       {
         name: 'Hiragana',
-        value: stats.hiragana[stats.hiragana.length - 1]?.mastered || 0
+        value: stats.hiragana[stats.hiragana.length - 1]?.mastered ?? 0
       },
       {
         name: 'Katakana',
-        value: stats.katakana[stats.katakana.length - 1]?.mastered || 0
+        value: stats.katakana[stats.katakana.length - 1]?.mastered ?? 0
       },
       {
         name: 'Kanji',
-        value: stats.kanji[stats.kanji.length - 1]?.mastered || 0
+        value: stats.kanji[stats.kanji.length - 1]?.mastered ?? 0
       }
     ];
 
@@ -279,13 +279,13 @@ const LearningProgress: React.FC = () => {
               </h3>
               <div className="space-y-2">
                 <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-                  Mastered Items: {latest?.mastered || 0}
+                  Mastered Items: {latest?.mastered ?? 0}
                 </p>
                 <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-                  Attempted Today: {latest?.attempted || 0}
+                  Attempted Today: {latest?.attempted ?? 0}
                 </p>
                 <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-                  Accuracy: {latest?.accuracy.toFixed(1) || 0}%
+                  Accuracy: {(latest?.accuracy ?? 0).toFixed(1)}%
                 </p>
               </div>
             </div>
