@@ -7,6 +7,7 @@ import { AuthProvider } from './context/AuthContext';
 import { SettingsProvider } from './context/SettingsContext';
 import { SoundProvider } from './context/SoundContext';
 import { initializeSecurity } from './utils/security';
+import { initializeApp } from './utils/firebase';
 import Navigation from './components/Navigation';
 import Home from './pages/Home';
 import Section1 from './pages/Section1';
@@ -33,7 +34,9 @@ import ProgressSection from './pages/ProgressSection';
 
 const App = () => {
   useEffect(() => {
-    // Initialize security measures
+    // Initialize Firebase first
+    initializeApp();
+    // Then initialize security measures
     initializeSecurity();
   }, []);
 

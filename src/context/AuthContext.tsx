@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { 
-  getAuth, 
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
@@ -9,14 +8,9 @@ import {
   sendEmailVerification,
   onAuthStateChanged
 } from 'firebase/auth';
-import { doc, setDoc, getFirestore } from 'firebase/firestore';
-import { getApp } from 'firebase/app';
+import { doc, setDoc } from 'firebase/firestore';
+import { getAuthInstance, getFirestoreInstance } from '../utils/firebase';
 import type { AuthContextType, AuthErrorResponse, User } from '../types/auth';
-
-// Initialize Firebase auth and firestore
-const app = getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -47,9 +41,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
   const [lockoutEndTime, setLockoutEndTime] = useState<number | null>(null);
 
+  // Get Firebase services lazily
+  const getAuth = useCallback(() => {
+    try {
+      return getAuthInstance();
+    } catch (error) {
+      console.error('Failed to get Auth instance:', error);
+      throw error;
+    }
+  }, []);
+
+  const getDb = useCallback(() => {
+    try {
+      return getFirestoreInstance();
+    } catch (error) {
+      console.error('Failed to get Firestore instance:', error);
+      throw error;
+    }
+  }, []);
+
   useEffect(() => {
     console.log('AuthProvider: Starting authentication state listener...');
     try {
+      const auth = getAuth();
       const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
         console.log('AuthProvider: Auth state changed:', {
           hasUser: !!user,
@@ -85,7 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(handleAuthError(error));
       setLoading(false);
     }
-  }, []);
+  }, [getAuth]);
 
   const handleAuthError = (error: unknown): AuthErrorResponse => {
     if (error instanceof Error) {
@@ -124,6 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(`Account is locked. Please try again in ${remainingTime} minutes`);
       }
 
+      const auth = getAuth();
       await signInWithEmailAndPassword(auth, email, password);
       setLoginAttempts(0);
       setLockoutEndTime(null);
@@ -149,6 +164,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signup = async (email: string, password: string) => {
     try {
       clearError();
+      const auth = getAuth();
+      const db = getDb();
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
@@ -169,6 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       clearError();
+      const auth = getAuth();
       await signOut(auth);
     } catch (err) {
       const errorMessage = handleAuthError(err);
@@ -180,6 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetPassword = async (email: string) => {
     try {
       clearError();
+      const auth = getAuth();
       await sendPasswordResetEmail(auth, email);
     } catch (err) {
       const errorMessage = handleAuthError(err);
