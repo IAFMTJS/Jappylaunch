@@ -29,7 +29,7 @@ module.exports = (env, argv) => {
           use: {
             loader: 'ts-loader',
             options: {
-              transpileOnly: true,
+              transpileOnly: false,
               compilerOptions: {
                 module: 'esnext'
               }
@@ -85,7 +85,14 @@ module.exports = (env, argv) => {
           terserOptions: {
             compress: {
               drop_console: isProduction,
-              drop_debugger: isProduction
+              drop_debugger: isProduction,
+              pure_funcs: isProduction ? ['console.log'] : [],
+              keep_fnames: true,
+              keep_classnames: true
+            },
+            mangle: {
+              keep_fnames: true,
+              keep_classnames: true
             },
             format: {
               comments: false
@@ -96,8 +103,9 @@ module.exports = (env, argv) => {
       ],
       splitChunks: {
         chunks: 'all',
-        maxInitialRequests: Infinity,
-        minSize: 0,
+        maxInitialRequests: 20,
+        minSize: 20000,
+        maxSize: 244000,
         cacheGroups: {
           vendor: {
             test: /[\\/]node_modules[\\/]/,
@@ -105,21 +113,14 @@ module.exports = (env, argv) => {
               const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
               return `vendor.${packageName.replace('@', '')}`;
             },
+            chunks: 'all',
+            priority: 1
           },
-          kuromoji: {
-            test: /[\\/]node_modules[\\/](kuromoji|kuroshiro)[\\/]/,
-            name: 'vendor.kuromoji',
-            priority: 10,
-          },
-          firebase: {
-            test: /[\\/]node_modules[\\/]firebase[\\/]/,
-            name: 'vendor.firebase',
-            priority: 10,
-          },
-          recharts: {
-            test: /[\\/]node_modules[\\/]recharts[\\/]/,
-            name: 'vendor.recharts',
-            priority: 10,
+          common: {
+            name: 'common',
+            minChunks: 2,
+            priority: 0,
+            reuseExistingChunk: true
           }
         }
       }

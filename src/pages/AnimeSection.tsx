@@ -261,11 +261,8 @@ const beginnerPhrases: AnimePhrase[] = [
   }
 ];
 
-// Helper: check if string is kana-only (hiragana/katakana)
-const isKanaOnly = (str: string) => /^[\u3040-\u309F\u30A0-\u30FF\u3000-\u303F\uFF66-\uFF9F\s]+$/.test(str);
-
 const AnimeSection: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
   const { settings } = useApp();
   const { updateProgress } = useProgress();
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
@@ -275,15 +272,9 @@ const AnimeSection: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<AnimePhrase['category'] | 'all'>('all');
   const [score, setScore] = useState(0);
 
-  // Filter phrases to kana-only
-  const kanaPhrases = useMemo(() =>
-    beginnerPhrases.filter(phrase => isKanaOnly(phrase.japanese)),
-    []
-  );
-
   const filteredPhrases = useMemo(() =>
-    (selectedCategory === 'all' ? kanaPhrases : kanaPhrases.filter(phrase => phrase.category === selectedCategory)),
-    [kanaPhrases, selectedCategory]
+    (selectedCategory === 'all' ? beginnerPhrases : beginnerPhrases.filter(phrase => phrase.category === selectedCategory)),
+    [selectedCategory]
   );
 
   const currentPhrase = filteredPhrases[currentPhraseIndex];
@@ -349,7 +340,7 @@ const AnimeSection: React.FC = () => {
   };
 
   const handlePractice = async () => {
-    if (currentUser && currentPhrase) {
+    if (user && currentPhrase) {
       await updateProgress('anime', currentPhrase.japanese, true);
       setScore(prev => prev + 1);
     }

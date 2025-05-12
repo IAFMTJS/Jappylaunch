@@ -1,25 +1,39 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { 
-  onAuthStateChanged, 
+  getAuth, 
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
   updatePassword,
   sendEmailVerification,
-  type User,
-  type AuthError,
-  type UserCredential
+  type User as FirebaseUser,
+  type AuthError as FirebaseAuthError,
+  onAuthStateChanged,
+  User
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../utils/firebase';
+import { getApp } from 'firebase/app';
 import type { AuthContextType, AuthErrorResponse } from '../types/auth';
+
+// Initialize Firebase auth
+const app = getApp();
+const auth = getAuth(app);
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
@@ -35,40 +49,36 @@ const LoadingScreen = () => (
 );
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<AuthErrorResponse | null>(null);
-  const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const [sessionWarning, setSessionWarning] = useState(false);
-  const [initError, setInitError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const MAX_LOGIN_ATTEMPTS = 5;
+  const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
+  const [lockoutEndTime, setLockoutEndTime] = useState<number | null>(null);
 
   useEffect(() => {
     console.log('AuthProvider: Starting authentication state listener...');
     try {
-      const unsubscribe = onAuthStateChanged(auth, 
-        (user) => {
-          console.log('AuthProvider: Auth state changed:', {
-            hasUser: !!user,
-            email: user?.email,
-            emailVerified: user?.emailVerified,
-            timestamp: new Date().toISOString()
-          });
-          setCurrentUser(user);
-          setIsEmailVerified(user?.emailVerified ?? false);
-          setLoading(false);
-          setInitError(null);
-        },
-        (error) => {
-          console.error('AuthProvider: Firebase auth initialization error:', {
-            error,
-            code: error instanceof Error ? (error as AuthError).code : 'unknown',
-            message: error instanceof Error ? error.message : 'Unknown error',
-            timestamp: new Date().toISOString()
-          });
-          setInitError(error instanceof Error ? error.message : 'Unknown error occurred');
-          setLoading(false);
-        }
-      );
+      const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+        console.log('AuthProvider: Auth state changed:', {
+          hasUser: !!user,
+          email: user?.email,
+          emailVerified: user?.emailVerified,
+          timestamp: new Date().toISOString()
+        });
+        setUser(user);
+        setLoading(false);
+      }, (error: unknown) => {
+        console.error('AuthProvider: Firebase auth initialization error:', {
+          error,
+          code: (error as { code?: string })?.code,
+          message: (error as Error)?.message,
+          timestamp: new Date().toISOString()
+        });
+        setError(handleAuthError(error));
+        setLoading(false);
+      });
 
       console.log('AuthProvider: Auth state listener set up successfully');
       return () => {
@@ -82,43 +92,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         stack: error instanceof Error ? error.stack : undefined,
         timestamp: new Date().toISOString()
       });
-      setInitError(error instanceof Error ? error.message : 'Failed to initialize authentication');
+      setError(handleAuthError(error));
       setLoading(false);
     }
   }, []);
 
-  const handleError = (error: unknown): never => {
+  const handleAuthError = (error: unknown): string => {
     if (error instanceof Error) {
-      const errorResponse: AuthErrorResponse = {
-        code: error instanceof AuthError ? error.code : 'unknown',
-        message: error.message,
-        name: error.name
-      };
-      setError(errorResponse);
-      throw error;
+      const errorCode = (error as { code?: string })?.code;
+      switch (errorCode) {
+        case 'auth/invalid-email':
+          return 'Invalid email address';
+        case 'auth/user-disabled':
+          return 'This account has been disabled';
+        case 'auth/user-not-found':
+          return 'No account found with this email';
+        case 'auth/wrong-password':
+          return 'Incorrect password';
+        case 'auth/too-many-requests':
+          return 'Too many failed attempts. Please try again later';
+        default:
+          return error.message || 'An error occurred during authentication';
+      }
     }
-    const defaultError: AuthErrorResponse = {
-      code: 'unknown',
-      message: 'An unknown error occurred',
-      name: 'Error'
-    };
-    setError(defaultError);
-    throw new Error(defaultError.message);
+    return 'An unexpected error occurred';
   };
 
   const clearError = () => setError(null);
 
   const resetSessionTimer = () => {
-    setSessionWarning(false);
+    setLockoutEndTime(null);
+    setLoginAttempts(0);
     // Additional session management logic can be added here
   };
 
   const login = async (email: string, password: string) => {
     try {
-      clearError();
+      if (lockoutEndTime && Date.now() < lockoutEndTime) {
+        const remainingTime = Math.ceil((lockoutEndTime - Date.now()) / 60000);
+        throw new Error(`Account is locked. Please try again in ${remainingTime} minutes`);
+      }
+
       await signInWithEmailAndPassword(auth, email, password);
-    } catch (error: unknown) {
-      handleError(error);
+      setLoginAttempts(0);
+      setLockoutEndTime(null);
+    } catch (err) {
+      const errorMessage = handleAuthError(err);
+      setError(errorMessage);
+      
+      if (errorMessage.includes('Incorrect password')) {
+        const newAttempts = loginAttempts + 1;
+        setLoginAttempts(newAttempts);
+        
+        if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+          const endTime = Date.now() + LOCKOUT_DURATION;
+          setLockoutEndTime(endTime);
+          throw new Error(`Too many failed attempts. Account locked for 15 minutes`);
+        }
+      }
+      
+      throw new Error(errorMessage);
     }
   };
 
@@ -138,7 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Send email verification
       await sendEmailVerification(user);
     } catch (error: unknown) {
-      handleError(error);
+      handleAuthError(error);
     }
   };
 
@@ -146,8 +179,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       clearError();
       await signOut(auth);
-    } catch (error: unknown) {
-      handleError(error);
+    } catch (err) {
+      const errorMessage = handleAuthError(err);
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
   };
 
@@ -155,75 +190,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       clearError();
       await sendPasswordResetEmail(auth, email);
-    } catch (error: unknown) {
-      handleError(error);
+    } catch (err) {
+      const errorMessage = handleAuthError(err);
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
   };
 
   const updateUserPassword = async (_actionCode: string, newPassword: string) => {
     try {
       clearError();
-      if (!currentUser) {
+      if (!user) {
         throw new Error('No user is currently signed in');
       }
-      await updatePassword(currentUser, newPassword);
+      await updatePassword(user, newPassword);
     } catch (error: unknown) {
-      handleError(error);
+      handleAuthError(error);
     }
   };
 
   const sendVerificationEmail = async () => {
     try {
       clearError();
-      if (!currentUser) {
+      if (!user) {
         throw new Error('No user is currently signed in');
       }
-      await sendEmailVerification(currentUser);
+      await sendEmailVerification(user);
     } catch (error: unknown) {
-      handleError(error);
+      handleAuthError(error);
     }
   };
 
   const value: AuthContextType = {
-    currentUser,
+    user,
     loading,
+    error,
     login,
-    signup,
     logout,
-    sendVerificationEmail,
     resetPassword,
     updateUserPassword,
-    isEmailVerified,
-    sessionWarning,
-    resetSessionTimer,
-    error,
-    clearError
+    sendVerificationEmail,
+    resetSessionTimer
   };
 
   if (loading) {
     console.log('AuthProvider: Rendering loading screen');
     return <LoadingScreen />;
-  }
-
-  if (initError) {
-    console.error('AuthProvider: Rendering error screen due to initialization error:', initError);
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-          <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-2">Initialization Error</h2>
-          <p className="text-gray-600 dark:text-gray-400">{initError}</p>
-          <button 
-            onClick={() => {
-              console.log('AuthProvider: Retry button clicked');
-              window.location.reload();
-            }} 
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
   }
 
   console.log('AuthProvider: Rendering children with auth context');

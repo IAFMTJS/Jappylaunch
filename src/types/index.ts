@@ -9,6 +9,17 @@ export interface ProgressItem {
   lastAttempted: number;
   timestamp: number;
   version: string;
+  // Additional properties used throughout the application
+  totalQuestions?: number;
+  correctAnswers?: number;
+  bestStreak?: number;
+  highScore?: number;
+  averageTime?: number;
+  masteredIds?: string[];
+  totalItems?: number;
+  lastAttempt?: number;
+  meaning?: string;
+  examples?: string[];
 }
 
 export interface PendingProgressItem extends ProgressItem {
@@ -18,23 +29,34 @@ export interface PendingProgressItem extends ProgressItem {
 }
 
 // Settings types
-export interface QuizSettings {
-  showRomaji: boolean;
-  showHiragana: boolean;
-  showKatakana: boolean;
-  showKanji: boolean;
-  randomize: boolean;
-  timeLimit: number;
-}
-
 export interface Settings {
   userId: string;
   lastSync: number;
   offlineMode: boolean;
   notifications: boolean;
-  theme: 'light' | 'dark' | 'system';
+  theme: 'light' | 'blue' | 'green';
   fontSize: 'small' | 'medium' | 'large';
-  quizSettings: QuizSettings;
+  // General settings
+  showRomaji: boolean;
+  showHints: boolean;
+  autoPlay: boolean;
+  difficulty: 'easy' | 'medium' | 'hard';
+  // Section-specific settings
+  showRomajiVocabulary: boolean;
+  showRomajiReading: boolean;
+  showRomajiJLPT: boolean;
+  showKanjiGames: boolean;
+  showRomajiGames: boolean;
+  useHiraganaGames: boolean;
+  // Quiz settings
+  quizSettings: {
+    showRomaji: boolean;
+    showHiragana: boolean;
+    showKatakana: boolean;
+    showKanji: boolean;
+    randomize: boolean;
+    timeLimit: number;
+  };
 }
 
 // Database types
