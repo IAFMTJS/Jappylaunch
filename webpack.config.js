@@ -32,7 +32,8 @@ module.exports = (env, argv) => {
           use: {
             loader: 'ts-loader',
             options: {
-              transpileOnly: true
+              transpileOnly: true,
+              happyPackMode: true
             }
           }
         },
@@ -48,7 +49,8 @@ module.exports = (env, argv) => {
             {
               loader: 'babel-loader',
               options: {
-                presets: ['@babel/preset-env']
+                presets: ['@babel/preset-env'],
+                cacheDirectory: true
               }
             },
             // Only apply obfuscation to JavaScript files in production
@@ -152,8 +154,26 @@ module.exports = (env, argv) => {
       ],
       splitChunks: {
         chunks: 'all',
-        name: false
-      }
+        minSize: 20000,
+        minRemainingSize: 0,
+        minChunks: 1,
+        maxAsyncRequests: 30,
+        maxInitialRequests: 30,
+        enforceSizeThreshold: 50000,
+        cacheGroups: {
+          defaultVendors: {
+            test: /[\\/]node_modules[\\/]/,
+            priority: -10,
+            reuseExistingChunk: true,
+          },
+          default: {
+            minChunks: 2,
+            priority: -20,
+            reuseExistingChunk: true,
+          },
+        },
+      },
+      runtimeChunk: 'single'
     },
     plugins: [
       new HtmlWebpackPlugin({
@@ -225,7 +245,13 @@ module.exports = (env, argv) => {
     },
     stats: {
       errorDetails: true,
-      loggingDebug: ['webpack-obfuscator']
+      loggingDebug: ['webpack-obfuscator'],
+      logging: 'verbose',
+      modules: true,
+      reasons: true,
+      moduleTrace: true,
+      errorStack: true,
+      children: true
     }
   };
 }; 

@@ -66,7 +66,7 @@
   },
   "scripts": {
     "prebuild": "npm install --legacy-peer-deps",
-    "build": "cross-env NODE_ENV=production webpack --mode production",
+    "build": "cross-env NODE_ENV=production webpack --mode production --display-error-details --display-modules --display-reasons --display-chunks --display-entrypoints --display-origins --display-cached --display-cached-assets --display-error-details --display-exclude --display-max-modules 0 --display-optimization-bailout --display-used-exports --display-provided-exports --display-nested-modules --display-depth 0",
     "build:analyze": "cross-env NODE_ENV=production webpack --mode production --profile --json > stats.json",
     "start": "webpack serve --mode development --open",
     "test": "react-scripts test",
