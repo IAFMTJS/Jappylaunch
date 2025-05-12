@@ -92,9 +92,11 @@ const KanjiPractice: React.FC = () => {
           await getRomaji(currentKanji.character);
         }
         // Update romaji for examples
-        for (const example of currentKanji.examples) {
-          if (!romajiMap[example.word]) {
-            await getRomaji(example.word);
+        if (currentKanji.examples) {
+          for (const example of currentKanji.examples) {
+            if (!romajiMap[example.word]) {
+              await getRomaji(example.word);
+            }
           }
         }
       };
@@ -235,7 +237,7 @@ const KanjiPractice: React.FC = () => {
 
     switch (mode) {
       case 'meaning-quiz':
-        isAnswerCorrect = checkAnswer(userAnswer, currentKanji.meaning);
+        isAnswerCorrect = checkAnswer(userAnswer, currentKanji.english);
         break;
       case 'reading-quiz':
         isAnswerCorrect = checkAnswer(userAnswer, readingType === 'onyomi' ? currentKanji.onyomi : currentKanji.kunyomi);
@@ -264,12 +266,7 @@ const KanjiPractice: React.FC = () => {
     setUserAnswer('');
 
     // Update progress
-    updateProgress('kanji', {
-      totalQuestions: totalQuestions + 1,
-      correctAnswers: isAnswerCorrect ? (score + 1) : score,
-      bestStreak: Math.max(streak, streak + (isAnswerCorrect ? 1 : 0)),
-      averageTime: ((averageTime * totalQuestions) + (30 - timeLeft)) / (totalQuestions + 1)
-    });
+    handleAnswer(isAnswerCorrect);
 
     if (questionsRemaining <= 1) {
       setQuizComplete(true);
@@ -295,6 +292,20 @@ const KanjiPractice: React.FC = () => {
   };
 
   const currentKanji = filteredKanji[currentIndex];
+
+  const handleAnswer = async (isCorrect: boolean) => {
+    try {
+      await updateProgress('kanji', currentKanji.character, isCorrect, {
+        totalQuestions: totalQuestions + 1,
+        correctAnswers: score + (isCorrect ? 1 : 0),
+        bestStreak: Math.max(streak, streak + (isCorrect ? 1 : 0)),
+        highScore: Math.max(score + (isCorrect ? 1 : 0), score),
+        averageTime: ((averageTime * totalQuestions) + (30 - timeLeft)) / (totalQuestions + 1)
+      });
+    } catch (err) {
+      console.error('Failed to update progress:', err);
+    }
+  };
 
   const renderQuizContent = () => {
     if (quizComplete) {
@@ -347,7 +358,7 @@ const KanjiPractice: React.FC = () => {
                 {settings.showKanjiGames ? (
                   <div className="text-8xl mb-4">{currentKanji.character}</div>
                 ) : (
-                  <div className="text-8xl mb-4">{currentKanji.meaning}</div>
+                  <div className="text-8xl mb-4">{currentKanji.english}</div>
                 )}
                 {settings.showRomajiGames && (
                   <div className="text-xl mb-4 text-gray-600">
@@ -363,7 +374,7 @@ const KanjiPractice: React.FC = () => {
               <>
                 <div className="text-2xl mb-4">
                   {writingMode === 'meaning' 
-                    ? `Write the kanji for: ${currentKanji.meaning}`
+                    ? `Write the kanji for: ${currentKanji.english}`
                     : `Write the kanji for the reading: ${currentKanji.onyomi[0]}`
                   }
                 </div>
@@ -422,7 +433,7 @@ const KanjiPractice: React.FC = () => {
         {mode === 'meaning-quiz' && (
           <>
             <div className="text-xl mb-4">
-              The meaning is: {currentKanji.meaning}
+              The meaning is: {currentKanji.english}
             </div>
             {settings.showKanjiGames && (
               <div className="text-8xl mb-4">{currentKanji.character}</div>
@@ -448,7 +459,7 @@ const KanjiPractice: React.FC = () => {
               }
             </div>
             <div className="text-lg mb-4">
-              Meaning: {currentKanji.meaning}
+              Meaning: {currentKanji.english}
             </div>
           </>
         )}
@@ -458,7 +469,7 @@ const KanjiPractice: React.FC = () => {
               The kanji is: {currentKanji.character}
             </div>
             <div className="text-lg mb-4">
-              Meaning: {currentKanji.meaning}
+              Meaning: {currentKanji.english}
             </div>
             <div className="text-lg mb-4">
               Readings: {currentKanji.onyomi.join(', ')} / {currentKanji.kunyomi.join(', ')}
@@ -581,7 +592,7 @@ const KanjiPractice: React.FC = () => {
                   showMeaning ? 'bg-primary text-white' : 'bg-gray-100'
                 }`}
               >
-                {showMeaning ? currentKanji.meaning : 'Show Meaning'}
+                {showMeaning ? currentKanji.english : 'Show Meaning'}
               </button>
 
               <button
@@ -600,30 +611,32 @@ const KanjiPractice: React.FC = () => {
                 )}
               </button>
 
-              <button
-                onClick={() => setShowExamples(!showExamples)}
-                className={`w-full p-4 rounded-lg ${
-                  showExamples ? 'bg-primary text-white' : 'bg-gray-100'
-                }`}
-              >
-                {showExamples ? (
-                  <div className="space-y-2">
-                    {currentKanji.examples.map((example, index) => (
-                      <div key={index}>
-                        {settings.showKanjiGames ? example.word : example.reading} 
-                        {settings.showRomajiGames && (
-                          <span className="text-gray-600 ml-2">
-                            ({romajiMap[example.word] || 'Loading...'})
-                          </span>
-                        )}
-                        {' - '}{example.meaning}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  'Show Examples'
-                )}
-              </button>
+              {currentKanji.examples && (
+                <button
+                  onClick={() => setShowExamples(!showExamples)}
+                  className={`w-full p-4 rounded-lg ${
+                    showExamples ? 'bg-primary text-white' : 'bg-gray-100'
+                  }`}
+                >
+                  {showExamples ? (
+                    <div className="space-y-2">
+                      {currentKanji.examples.map((example, index) => (
+                        <div key={index}>
+                          {settings.showKanjiGames ? example.word : example.reading} 
+                          {settings.showRomajiGames && (
+                            <span className="text-gray-600 ml-2">
+                              ({romajiMap[example.word] || 'Loading...'})
+                            </span>
+                          )}
+                          {' - '}{example.meaning}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    'Show Examples'
+                  )}
+                </button>
+              )}
 
               {currentKanji.hint && (
                 <div className="mt-4 text-sm text-gray-600">

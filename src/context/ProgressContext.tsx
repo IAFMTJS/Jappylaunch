@@ -36,7 +36,7 @@ interface ProgressContextType {
   settingsError: string | null;
   
   // Progress actions
-  updateProgress: (section: string, itemId: string, correct: boolean) => Promise<void>;
+  updateProgress: (section: string, itemId: string, correct: boolean, additionalData?: Partial<ProgressItem>) => Promise<void>;
   syncProgress: () => Promise<void>;
   clearProgress: () => Promise<void>;
   getProgressStatus: (section: string, itemId: string) => { isMarked: boolean; lastAttempted: number | null };
@@ -148,7 +148,12 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
   
   // Update progress with offline support
-  const updateProgress = useCallback(async (section: string, itemId: string, correct: boolean) => {
+  const updateProgress = useCallback(async (
+    section: string,
+    itemId: string,
+    correct: boolean,
+    additionalData?: Partial<ProgressItem>
+  ) => {
     const key = `${section}-${itemId}`;
     const timestamp = Date.now();
     
@@ -165,7 +170,8 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         lastAttempted: timestamp,
         timestamp: existingProgress?.timestamp ?? timestamp,
         version: '1.0.0', // TODO: Get from app version
-        totalQuestions: (existingProgress?.totalQuestions ?? 0) + 1,
+        ...additionalData,
+        totalQuestions: (existingProgress?.totalQuestions ?? 0) + (additionalData?.totalQuestions ?? 1),
         correctAnswers: (existingProgress?.correctAnswers ?? 0) + (correct ? 1 : 0),
         lastAttempt: timestamp
       };
@@ -187,22 +193,12 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       } else {
         // Save as pending if offline
-        const pendingItem = {
-          id: updatedProgress.id,
-          userId: updatedProgress.userId,
-          section: updatedProgress.section,
-          itemId: updatedProgress.itemId,
-          correct: updatedProgress.correct,
-          incorrect: updatedProgress.incorrect,
-          lastAttempted: updatedProgress.lastAttempted,
-          timestamp: updatedProgress.timestamp,
-          version: updatedProgress.version,
-          totalQuestions: updatedProgress.totalQuestions ?? 0,
-          correctAnswers: updatedProgress.correctAnswers ?? 0,
-          lastAttempt: timestamp, // Required by PendingProgressItem
-          status: 'pending' as const,
-          retryCount: 0
-        } satisfies PendingProgressItem;
+        const pendingItem: PendingProgressItem = {
+          ...updatedProgress,
+          status: 'pending',
+          retryCount: 0,
+          lastAttempt: timestamp
+        };
         
         await savePendingProgress(pendingItem);
         setPendingProgress(prev => [...prev, pendingItem]);
