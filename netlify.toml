@@ -22,6 +22,8 @@
 [build.environment]
   NODE_VERSION = "18"
   NODE_ENV = "production"
+  CI = "false"  # Prevent treating warnings as errors
+  NPM_FLAGS = "--legacy-peer-deps"  # Handle peer dependency issues
 
 # Cache settings for better performance
 [[headers]]
