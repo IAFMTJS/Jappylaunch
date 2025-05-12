@@ -15,10 +15,12 @@ const CACHE_CONFIG = {
       '/index.html',
       '/manifest.json',
       '/offline.html',
-      '/static/js/main.chunk.js',
-      '/static/js/0.chunk.js',
-      '/static/js/bundle.js',
-      '/static/css/main.chunk.css',
+      '/error.html',
+      '/romaji-data.json',
+      '/jlptContent.json',
+      '/kanjiData.json',
+      '/_redirects',
+      '/_headers',
       // Icons
       '/icons/icon-72x72.png',
       '/icons/icon-96x96.png',
@@ -33,12 +35,12 @@ const CACHE_CONFIG = {
       '/icons/katakana-96x96.png',
       '/icons/kanji-96x96.png'
     ],
-    strategy: 'cache-first'
+    strategy: 'stale-while-revalidate'
   },
   data: {
     name: DATA_CACHE_NAME,
     urls: [ROMAJI_DATA_URL],
-    strategy: 'stale-while-revalidate'
+    strategy: 'network-first'
   }
 };
 
@@ -117,7 +119,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Enhanced fetch handler with better caching strategies
+// Enhanced fetch handler with better caching strategies for Netlify
 self.addEventListener('fetch', (event) => {
   // Skip cross-origin requests
   if (!event.request.url.startsWith(self.location.origin)) {
@@ -125,10 +127,12 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Handle different types of requests
-  if (event.request.url.includes(ROMAJI_DATA_URL)) {
-    event.respondWith(handleRomajiDataRequest(event.request));
-  } else if (event.request.url.includes('/api/')) {
+  if (event.request.url.includes('/api/')) {
     event.respondWith(handleApiRequest(event.request));
+  } else if (event.request.url.includes(ROMAJI_DATA_URL)) {
+    event.respondWith(handleRomajiDataRequest(event.request));
+  } else if (event.request.url.includes('/static/')) {
+    event.respondWith(handleStaticRequest(event.request));
   } else {
     event.respondWith(handleAssetRequest(event.request));
   }
@@ -199,6 +203,50 @@ async function handleApiRequest(request) {
         headers: { 'Content-Type': 'application/json' }
       }
     );
+  }
+}
+
+// Handle static assets with stale-while-revalidate strategy
+async function handleStaticRequest(request) {
+  const cache = await caches.open(CACHE_CONFIG.assets.name);
+  
+  try {
+    // Try to serve from cache first
+    const cachedResponse = await cache.match(request);
+    if (cachedResponse) {
+      // Update cache in background
+      fetch(request).then(async response => {
+        if (response.ok) {
+          await cache.put(request, response.clone());
+        }
+      }).catch(() => {
+        // Ignore fetch errors for background updates
+      });
+      
+      return cachedResponse;
+    }
+    
+    // If not in cache, fetch from network
+    const response = await fetch(request);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch static asset: ${response.status}`);
+    }
+    
+    // Cache the response
+    await cache.put(request, response.clone());
+    return response;
+  } catch (error) {
+    console.error('[Service Worker] Error handling static request:', error);
+    
+    // If offline and no cache, return offline page
+    if (!navigator.onLine) {
+      const offlineResponse = await cache.match('/offline.html');
+      if (offlineResponse) {
+        return offlineResponse;
+      }
+    }
+    
+    throw error;
   }
 }
 
