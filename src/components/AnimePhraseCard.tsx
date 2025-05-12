@@ -40,6 +40,24 @@ const AnimePhraseCard: React.FC<AnimePhraseCardProps> = ({
   onPlaySound,
   isDarkMode
 }) => {
+  console.log('AnimePhraseCard props:', {
+    onMarkAsLearned,
+    onPlaySound,
+    isLearned,
+    japanese,
+    romaji,
+    english,
+    context,
+    example,
+    category,
+    animeImage,
+    characterName,
+    animeTitle,
+    showRomaji,
+    showEnglish,
+    isDarkMode
+  });
+
   // Default anime images based on category
   const getDefaultImage = (category: Category) => {
     switch (category) {
