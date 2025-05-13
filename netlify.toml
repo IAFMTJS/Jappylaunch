@@ -6,6 +6,23 @@
   NODE_VERSION = "20"
   NODE_ENV = "production"
 
+# Add environment variable verification
+[[plugins]]
+  package = "@netlify/plugin-lighthouse"
+
+[build.processing]
+  skip_processing = false
+[build.processing.css]
+  bundle = true
+  minify = true
+[build.processing.js]
+  bundle = true
+  minify = true
+[build.processing.html]
+  pretty_urls = true
+[build.processing.images]
+  compress = true
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
