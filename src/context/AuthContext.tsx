@@ -48,15 +48,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('AuthProvider: Starting Firebase initialization check...');
     const checkFirebaseInitialization = async () => {
       try {
-        // Try to get auth instance - this will throw if Firebase is not initialized
-        const auth = getAuthInstance();
+        // Try to get auth instance - this will initialize Firebase if needed
+        const auth = await getAuthInstance();
         console.log('AuthProvider: Firebase is initialized, auth instance:', auth);
         setFirebaseInitialized(true);
       } catch (error) {
-        console.error('AuthProvider: Firebase not initialized yet:', error);
+        console.error('AuthProvider: Firebase initialization failed:', error);
         setFirebaseInitialized(false);
-        // Retry after a short delay
-        setTimeout(checkFirebaseInitialization, 100);
+        setError(handleAuthError(error));
       }
     };
 
@@ -75,7 +74,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const setupAuth = async () => {
       try {
-        const auth = getAuthInstance();
+        const auth = await getAuthInstance();
+        const { onAuthStateChanged } = await import('firebase/auth');
+        
         unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
           console.log('AuthProvider: Auth state changed:', {
             hasUser: !!user,
@@ -120,7 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unsubscribe();
       }
     };
-  }, [firebaseInitialized]); // Only run when firebaseInitialized changes
+  }, [firebaseInitialized]);
 
   const handleAuthError = (error: unknown): AuthErrorResponse => {
     if (error instanceof Error) {
@@ -149,7 +150,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetSessionTimer = () => {
     setLockoutEndTime(null);
     setLoginAttempts(0);
-    // Additional session management logic can be added here
   };
 
   const login = async (email: string, password: string) => {
@@ -159,7 +159,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(`Account is locked. Please try again in ${remainingTime} minutes`);
       }
 
-      const auth = getAuthInstance();
+      const auth = await getAuthInstance();
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
       await signInWithEmailAndPassword(auth, email, password);
       setLoginAttempts(0);
       setLockoutEndTime(null);
@@ -185,8 +186,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signup = async (email: string, password: string) => {
     try {
       clearError();
-      const auth = getAuthInstance();
-      const db = getFirestoreInstance();
+      const auth = await getAuthInstance();
+      const db = await getFirestoreInstance();
+      const { createUserWithEmailAndPassword, sendEmailVerification } = await import('firebase/auth');
+      const { doc, setDoc } = await import('firebase/firestore');
+      
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
@@ -207,7 +211,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       clearError();
-      const auth = getAuthInstance();
+      const auth = await getAuthInstance();
+      const { signOut } = await import('firebase/auth');
       await signOut(auth);
     } catch (err) {
       const errorMessage = handleAuthError(err);
@@ -219,7 +224,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetPassword = async (email: string) => {
     try {
       clearError();
-      const auth = getAuthInstance();
+      const auth = await getAuthInstance();
+      const { sendPasswordResetEmail } = await import('firebase/auth');
       await sendPasswordResetEmail(auth, email);
     } catch (err) {
       const errorMessage = handleAuthError(err);
@@ -234,6 +240,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!currentUser) {
         throw new Error('No user is currently signed in');
       }
+      const { updatePassword } = await import('firebase/auth');
       await updatePassword(currentUser, newPassword);
     } catch (error: unknown) {
       handleAuthError(error);
@@ -246,6 +253,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!currentUser) {
         throw new Error('No user is currently signed in');
       }
+      const { sendEmailVerification } = await import('firebase/auth');
       await sendEmailVerification(currentUser);
     } catch (error: unknown) {
       handleAuthError(error);
