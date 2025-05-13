@@ -1,4 +1,4 @@
-import { initializeApp as firebaseInitializeApp } from 'firebase/app';
+import { initializeApp as firebaseInitializeApp, getApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
@@ -28,59 +28,51 @@ if (missingEnvVars.length > 0) {
   throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
 }
 
-let app: ReturnType<typeof firebaseInitializeApp> | null = null;
-let auth: ReturnType<typeof getAuth> | null = null;
-let db: ReturnType<typeof getFirestore> | null = null;
+// Private variables for initialized services
+let _app: ReturnType<typeof firebaseInitializeApp> | null = null;
+let _auth: ReturnType<typeof getAuth> | null = null;
+let _db: ReturnType<typeof getFirestore> | null = null;
 
 // Initialize Firebase and return the app instance
 export const initializeApp = async () => {
   console.log('Firebase initializeApp called');
   
-  if (app) {
-    console.log('Firebase already initialized, returning existing app');
-    return app;
-  }
-
   try {
-    // Initialize Firebase
-    console.log('Starting Firebase initialization...', {
-      config: {
-        ...firebaseConfig,
-        apiKey: firebaseConfig.apiKey ? '***' : undefined // Hide API key in logs
-      },
-      environment: process.env.NODE_ENV,
-      timestamp: new Date().toISOString(),
-      window: typeof window !== 'undefined' ? 'available' : 'unavailable',
-      document: typeof document !== 'undefined' ? 'available' : 'unavailable'
-    });
-
-    if (typeof window === 'undefined') {
-      throw new Error('Firebase initialization attempted in non-browser environment');
+    // Try to get existing app first
+    try {
+      _app = getApp();
+      console.log('Found existing Firebase app instance');
+    } catch (e) {
+      // No existing app, initialize new one
+      console.log('No existing Firebase app, initializing new one');
+      _app = firebaseInitializeApp(firebaseConfig);
     }
 
-    console.log('Calling firebaseInitializeApp');
-    app = firebaseInitializeApp(firebaseConfig);
-    console.log('Firebase app initialized successfully, app instance:', app);
+    if (!_app) {
+      throw new Error('Failed to initialize Firebase app');
+    }
+
+    console.log('Firebase app initialized successfully, app instance:', _app);
 
     // Initialize services
     console.log('Initializing Firebase services...');
     console.log('Getting Auth instance');
-    auth = getAuth(app);
-    console.log('Firebase Auth initialized, auth instance:', auth);
+    _auth = getAuth(_app);
+    console.log('Firebase Auth initialized, auth instance:', _auth);
     
     console.log('Getting Firestore instance');
-    db = getFirestore(app);
-    console.log('Firestore initialized, db instance:', db);
+    _db = getFirestore(_app);
+    console.log('Firestore initialized, db instance:', _db);
     
     console.log('Getting Functions instance');
-    const functions = getFunctions(app);
+    const functions = getFunctions(_app);
     console.log('Firebase Functions initialized, functions instance:', functions);
 
     // Enable persistence for offline support
     console.log('Attempting to enable Firestore persistence...');
     try {
       console.log('Calling enableIndexedDbPersistence');
-      await enableIndexedDbPersistence(db);
+      await enableIndexedDbPersistence(_db);
       console.log('Firestore persistence enabled successfully');
     } catch (err: unknown) {
       const code = typeof err === 'object' && err !== null && 'code' in err ? (err as any).code : undefined;
@@ -107,8 +99,8 @@ export const initializeApp = async () => {
       // Connect to emulators if running locally
       if (process.env.REACT_APP_USE_EMULATORS === 'true') {
         console.log('Connecting to Firebase emulators...');
-        connectAuthEmulator(auth, 'http://localhost:9099');
-        connectFirestoreEmulator(db, 'localhost', 8080);
+        connectAuthEmulator(_auth, 'http://localhost:9099');
+        connectFirestoreEmulator(_db, 'localhost', 8080);
         connectFunctionsEmulator(functions, 'localhost', 5001);
         console.log('Connected to Firebase emulators successfully');
       }
@@ -116,12 +108,12 @@ export const initializeApp = async () => {
 
     // Security settings for auth
     console.log('Configuring Firebase Auth settings...');
-    auth.useDeviceLanguage();
-    auth.settings.appVerificationDisabledForTesting = process.env.NODE_ENV === 'development';
+    _auth.useDeviceLanguage();
+    _auth.settings.appVerificationDisabledForTesting = process.env.NODE_ENV === 'development';
     console.log('Firebase Auth settings configured');
 
     console.log('Firebase initialization completed successfully');
-    return app;
+    return _app;
   } catch (error) {
     console.error('Critical error during Firebase initialization:', {
       error,
@@ -137,17 +129,23 @@ export const initializeApp = async () => {
 
 // Export initialized services
 export const getAuthInstance = () => {
-  if (!auth) {
+  if (!_auth) {
     throw new Error('Firebase Auth not initialized. Call initializeApp() first.');
   }
-  return auth;
+  return _auth;
 };
 
 export const getFirestoreInstance = () => {
-  if (!db) {
+  if (!_db) {
     throw new Error('Firestore not initialized. Call initializeApp() first.');
   }
-  return db;
+  return _db;
 };
 
-export default app; 
+// Export a function to get the app instance instead of exporting it directly
+export const getAppInstance = () => {
+  if (!_app) {
+    throw new Error('Firebase app not initialized. Call initializeApp() first.');
+  }
+  return _app;
+}; 
