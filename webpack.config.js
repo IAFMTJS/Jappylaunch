@@ -12,25 +12,27 @@ const dotenv = require('dotenv');
 const envFile = dotenv.config().parsed || {};
 
 // Merge environment variables, prioritizing process.env (Netlify) over .env file
-const envKeys = Object.keys(process.env)
-  .filter(key => key.startsWith('REACT_APP_'))
-  .reduce((prev, next) => {
-    // Ensure we're using the actual value from process.env
-    const value = process.env[next];
-    if (value === undefined) {
-      console.warn(`Warning: Environment variable ${next} is undefined`);
-    }
-    prev[`process.env.${next}`] = JSON.stringify(value);
-    return prev;
-  }, {});
-
-// Add any additional environment variables from .env file that aren't in process.env
-Object.keys(envFile)
-  .filter(key => key.startsWith('REACT_APP_') && !process.env[key])
-  .forEach(key => {
-    console.log(`Using .env file value for ${key}`);
-    envKeys[`process.env.${key}`] = JSON.stringify(envFile[key]);
-  });
+const envKeys = {
+  'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+  ...Object.keys(process.env)
+    .filter(key => key.startsWith('REACT_APP_'))
+    .reduce((prev, next) => {
+      const value = process.env[next];
+      if (value === undefined) {
+        console.error(`Error: Environment variable ${next} is undefined`);
+        process.exit(1);
+      }
+      prev[`process.env.${next}`] = JSON.stringify(value);
+      return prev;
+    }, {}),
+  ...Object.keys(envFile)
+    .filter(key => key.startsWith('REACT_APP_') && !process.env[key])
+    .reduce((prev, next) => {
+      console.log(`Using .env file value for ${next}`);
+      prev[`process.env.${next}`] = JSON.stringify(envFile[next]);
+      return prev;
+    }, {})
+};
 
 // Validate required environment variables
 const requiredEnvVars = [
@@ -61,6 +63,7 @@ const validateEnvVars = () => {
   // Log successful validation
   console.log('Environment variables validation successful');
   console.log('Environment:', process.env.NODE_ENV);
+  console.log('Available variables:', Object.keys(envKeys).map(key => key.replace('process.env.', '')));
   console.log('Timestamp:', new Date().toISOString());
 };
 
