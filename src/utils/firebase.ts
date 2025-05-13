@@ -12,6 +12,9 @@ const firebaseConfig = {
   appId: process.env.REACT_APP_FIREBASE_APP_ID
 };
 
+// DEBUG: Remove after testing!
+console.log("Firebase config at runtime:", firebaseConfig);
+
 // Constants for initialization
 const INIT_TIMEOUT = 10000; // 10 seconds
 const MAX_RETRIES = 3;
