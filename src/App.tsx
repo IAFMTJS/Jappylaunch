@@ -185,49 +185,56 @@ const App = () => {
   }
 
   console.log('App initialized, rendering main application');
+  
+  // Split providers into Firebase-dependent and independent
+  const firebaseDependentProviders = (
+    <AuthProvider>
+      <SettingsProvider>
+        <ProgressProvider>
+          <SoundProvider>
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+              <Navigation />
+              <SessionWarning />
+              <GuestBanner />
+              <main className="container mx-auto px-4 py-8">
+                <Suspense fallback={<LoadingScreen />}>
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/signup" element={<Signup />} />
+                    <Route path="/reset-password" element={<ResetPassword />} />
+                    <Route path="/update-password" element={<UpdatePassword />} />
+                    <Route path="/verify-email" element={<EmailVerification />} />
+                    <Route path="/section1" element={<ProtectedRoute><Section1 /></ProtectedRoute>} />
+                    <Route path="/section2" element={<ProtectedRoute><Section2 /></ProtectedRoute>} />
+                    <Route path="/section3" element={<ProtectedRoute><Section3 /></ProtectedRoute>} />
+                    <Route path="/section4" element={<ProtectedRoute><Section4 /></ProtectedRoute>} />
+                    <Route path="/section5" element={<ProtectedRoute><Section5 /></ProtectedRoute>} />
+                    <Route path="/section6" element={<ProtectedRoute><Section6 /></ProtectedRoute>} />
+                    <Route path="/section7" element={<ProtectedRoute><Section7 /></ProtectedRoute>} />
+                    <Route path="/section8" element={<ProtectedRoute><Section8 /></ProtectedRoute>} />
+                    <Route path="/anime" element={<ProtectedRoute><AnimeSection /></ProtectedRoute>} />
+                    <Route path="/progress" element={<ProtectedRoute><ProgressPage /></ProtectedRoute>} />
+                    <Route path="/progress/:sectionId" element={<ProtectedRoute><ProgressSection /></ProtectedRoute>} />
+                    <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+                    <Route path="/writing-practice" element={<ProtectedRoute><WritingPracticePage /></ProtectedRoute>} />
+                  </Routes>
+                </Suspense>
+              </main>
+            </div>
+          </SoundProvider>
+        </ProgressProvider>
+      </SettingsProvider>
+    </AuthProvider>
+  );
+
+  // Wrap everything in Firebase-independent providers
   return (
     <Router>
       <ErrorBoundary>
         <ThemeProvider>
           <AppProvider>
-            <AuthProvider>
-              <SettingsProvider>
-                <ProgressProvider>
-                  <SoundProvider>
-                    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-                      <Navigation />
-                      <SessionWarning />
-                      <GuestBanner />
-                      <main className="container mx-auto px-4 py-8">
-                        <Suspense fallback={<LoadingScreen />}>
-                          <Routes>
-                            <Route path="/" element={<Home />} />
-                            <Route path="/login" element={<Login />} />
-                            <Route path="/signup" element={<Signup />} />
-                            <Route path="/reset-password" element={<ResetPassword />} />
-                            <Route path="/update-password" element={<UpdatePassword />} />
-                            <Route path="/verify-email" element={<EmailVerification />} />
-                            <Route path="/section1" element={<ProtectedRoute><Section1 /></ProtectedRoute>} />
-                            <Route path="/section2" element={<ProtectedRoute><Section2 /></ProtectedRoute>} />
-                            <Route path="/section3" element={<ProtectedRoute><Section3 /></ProtectedRoute>} />
-                            <Route path="/section4" element={<ProtectedRoute><Section4 /></ProtectedRoute>} />
-                            <Route path="/section5" element={<ProtectedRoute><Section5 /></ProtectedRoute>} />
-                            <Route path="/section6" element={<ProtectedRoute><Section6 /></ProtectedRoute>} />
-                            <Route path="/section7" element={<ProtectedRoute><Section7 /></ProtectedRoute>} />
-                            <Route path="/section8" element={<ProtectedRoute><Section8 /></ProtectedRoute>} />
-                            <Route path="/anime" element={<ProtectedRoute><AnimeSection /></ProtectedRoute>} />
-                            <Route path="/progress" element={<ProtectedRoute><ProgressPage /></ProtectedRoute>} />
-                            <Route path="/progress/:sectionId" element={<ProtectedRoute><ProgressSection /></ProtectedRoute>} />
-                            <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-                            <Route path="/writing-practice" element={<ProtectedRoute><WritingPracticePage /></ProtectedRoute>} />
-                          </Routes>
-                        </Suspense>
-                      </main>
-                    </div>
-                  </SoundProvider>
-                </ProgressProvider>
-              </SettingsProvider>
-            </AuthProvider>
+            {firebaseDependentProviders}
           </AppProvider>
         </ThemeProvider>
       </ErrorBoundary>
