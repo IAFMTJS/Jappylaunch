@@ -8,24 +8,28 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const os = require('os');
 const dotenv = require('dotenv');
 
-// Load environment variables from .env file in development
-const env = process.env.NODE_ENV === 'development' 
-  ? dotenv.config().parsed || {}
-  : {};
+// Load environment variables from .env file
+const envFile = dotenv.config().parsed || {};
 
 // Merge environment variables, prioritizing process.env (Netlify) over .env file
 const envKeys = Object.keys(process.env)
   .filter(key => key.startsWith('REACT_APP_'))
   .reduce((prev, next) => {
-    prev[`process.env.${next}`] = JSON.stringify(process.env[next]);
+    // Ensure we're using the actual value from process.env
+    const value = process.env[next];
+    if (value === undefined) {
+      console.warn(`Warning: Environment variable ${next} is undefined`);
+    }
+    prev[`process.env.${next}`] = JSON.stringify(value);
     return prev;
   }, {});
 
 // Add any additional environment variables from .env file that aren't in process.env
-Object.keys(env)
+Object.keys(envFile)
   .filter(key => key.startsWith('REACT_APP_') && !process.env[key])
   .forEach(key => {
-    envKeys[`process.env.${key}`] = JSON.stringify(env[key]);
+    console.log(`Using .env file value for ${key}`);
+    envKeys[`process.env.${key}`] = JSON.stringify(envFile[key]);
   });
 
 // Validate required environment variables
@@ -38,23 +42,31 @@ const requiredEnvVars = [
   'REACT_APP_FIREBASE_APP_ID'
 ];
 
-// Log environment variable status (safely)
-console.log('Environment variables status:', {
-  NODE_ENV: process.env.NODE_ENV,
-  hasRequiredVars: requiredEnvVars.reduce((acc, key) => {
-    acc[key] = !!(process.env[key] || env[key]);
-    return acc;
-  }, {}),
-  timestamp: new Date().toISOString()
-});
+// Enhanced environment variable validation
+const validateEnvVars = () => {
+  const missingEnvVars = requiredEnvVars.filter(varName => {
+    const hasVar = !!(process.env[varName] || envFile[varName]);
+    if (!hasVar) {
+      console.error(`Missing required environment variable: ${varName}`);
+    }
+    return !hasVar;
+  });
 
-if (process.env.NODE_ENV === 'production') {
-  const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName] && !env[varName]);
   if (missingEnvVars.length > 0) {
-    console.error('Missing required environment variables:', missingEnvVars.join(', '));
+    console.error('Build failed: Missing required environment variables:', missingEnvVars.join(', '));
     console.error('Please ensure these variables are set in your Netlify environment settings.');
     process.exit(1);
   }
+
+  // Log successful validation
+  console.log('Environment variables validation successful');
+  console.log('Environment:', process.env.NODE_ENV);
+  console.log('Timestamp:', new Date().toISOString());
+};
+
+// Always validate in production
+if (process.env.NODE_ENV === 'production') {
+  validateEnvVars();
 }
 
 // Only require webpack-obfuscator in production
