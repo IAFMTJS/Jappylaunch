@@ -8,12 +8,25 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const os = require('os');
 const dotenv = require('dotenv');
 
-// Load environment variables
-const env = dotenv.config().parsed || {};
-const envKeys = Object.keys(env).reduce((prev, next) => {
-  prev[`process.env.${next}`] = JSON.stringify(env[next]);
-  return prev;
-}, {});
+// Load environment variables from .env file in development
+const env = process.env.NODE_ENV === 'development' 
+  ? dotenv.config().parsed || {}
+  : {};
+
+// Merge environment variables, prioritizing process.env (Netlify) over .env file
+const envKeys = Object.keys(process.env)
+  .filter(key => key.startsWith('REACT_APP_'))
+  .reduce((prev, next) => {
+    prev[`process.env.${next}`] = JSON.stringify(process.env[next]);
+    return prev;
+  }, {});
+
+// Add any additional environment variables from .env file that aren't in process.env
+Object.keys(env)
+  .filter(key => key.startsWith('REACT_APP_') && !process.env[key])
+  .forEach(key => {
+    envKeys[`process.env.${key}`] = JSON.stringify(env[key]);
+  });
 
 // Validate required environment variables
 const requiredEnvVars = [
@@ -24,6 +37,16 @@ const requiredEnvVars = [
   'REACT_APP_FIREBASE_MESSAGING_SENDER_ID',
   'REACT_APP_FIREBASE_APP_ID'
 ];
+
+// Log environment variable status (safely)
+console.log('Environment variables status:', {
+  NODE_ENV: process.env.NODE_ENV,
+  hasRequiredVars: requiredEnvVars.reduce((acc, key) => {
+    acc[key] = !!(process.env[key] || env[key]);
+    return acc;
+  }, {}),
+  timestamp: new Date().toISOString()
+});
 
 if (process.env.NODE_ENV === 'production') {
   const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName] && !env[varName]);
@@ -266,15 +289,7 @@ module.exports = (env, argv) => {
         process: 'process/browser',
         Buffer: ['buffer', 'Buffer']
       }),
-      new webpack.DefinePlugin({
-        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
-        ...envKeys,
-        // Fallback values for development
-        'process.env.REACT_APP_USE_EMULATORS': JSON.stringify(process.env.REACT_APP_USE_EMULATORS || 'false'),
-        'process.env.REACT_APP_ENABLE_OFFLINE_MODE': JSON.stringify(process.env.REACT_APP_ENABLE_OFFLINE_MODE || 'true'),
-        'process.env.REACT_APP_ENABLE_NOTIFICATIONS': JSON.stringify(process.env.REACT_APP_ENABLE_NOTIFICATIONS || 'true'),
-        'process.env.REACT_APP_ENABLE_ANALYTICS': JSON.stringify(process.env.REACT_APP_ENABLE_ANALYTICS || 'false')
-      }),
+      new webpack.DefinePlugin(envKeys),
       new CopyWebpackPlugin({
         patterns: [
           {
