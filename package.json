@@ -64,6 +64,7 @@
     "webpack-obfuscator": "^3.5.1"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.14",
     "react-app-rewired": "^2.2.1",
     "webpack-dev-server": "^5.2.1"
   },

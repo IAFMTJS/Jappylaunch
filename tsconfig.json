@@ -21,7 +21,7 @@
       "@/*": ["*"]
     },
     "typeRoots": ["./node_modules/@types", "./src/types", "./src/utils"],
-    "types": ["node"],
+    "types": ["node", "jest"],
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
