@@ -22,17 +22,34 @@ const envKeys = {
         console.error(`Error: Environment variable ${next} is undefined`);
         process.exit(1);
       }
-      prev[`process.env.${next}`] = JSON.stringify(value);
+      // Ensure the value is properly stringified and wrapped in quotes
+      prev[`process.env.${next}`] = JSON.stringify(value || '');
       return prev;
     }, {}),
   ...Object.keys(envFile)
     .filter(key => key.startsWith('REACT_APP_') && !process.env[key])
     .reduce((prev, next) => {
       console.log(`Using .env file value for ${next}`);
-      prev[`process.env.${next}`] = JSON.stringify(envFile[next]);
+      // Ensure the value is properly stringified and wrapped in quotes
+      prev[`process.env.${next}`] = JSON.stringify(envFile[next] || '');
       return prev;
     }, {})
 };
+
+// Add debug logging for environment variables
+console.log('Environment variables being injected:', 
+  Object.keys(envKeys)
+    .filter(key => key.startsWith('process.env.REACT_APP_'))
+    .reduce((obj, key) => {
+      const value = envKeys[key];
+      // Only log the first few characters of sensitive values
+      const maskedValue = typeof value === 'string' && value.length > 4 
+        ? value.slice(0, 4) + '...' 
+        : value;
+      obj[key] = maskedValue;
+      return obj;
+    }, {})
+);
 
 // Validate required environment variables
 const requiredEnvVars = [
@@ -79,6 +96,12 @@ const WebpackObfuscator = process.env.NODE_ENV === 'production'
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
+
+  // Add environment variable validation at the start of the build
+  if (isProduction) {
+    console.log('Validating environment variables for production build...');
+    validateEnvVars();
+  }
 
   return {
     mode: isProduction ? 'production' : 'development',
@@ -284,6 +307,18 @@ module.exports = (env, argv) => {
     },
     plugins: [
       new webpack.ProgressPlugin(),
+      new webpack.DefinePlugin({
+        ...envKeys,
+        // Add a global flag to indicate if we're in production
+        'process.env.PRODUCTION': JSON.stringify(isProduction),
+        // Ensure all environment variables are strings
+        ...Object.keys(envKeys).reduce((acc, key) => {
+          if (key.startsWith('process.env.REACT_APP_')) {
+            acc[key] = JSON.stringify(String(envKeys[key].replace(/^"|"$/g, '')));
+          }
+          return acc;
+        }, {})
+      }),
       new HtmlWebpackPlugin({
         template: './public/index.html',
         inject: true,
@@ -304,7 +339,6 @@ module.exports = (env, argv) => {
         process: 'process/browser',
         Buffer: ['buffer', 'Buffer']
       }),
-      new webpack.DefinePlugin(envKeys),
       new CopyWebpackPlugin({
         patterns: [
           {
