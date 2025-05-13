@@ -1,5 +1,5 @@
 [build]
-  command = "npm run generate-pwa-assets && npm run build"
+  command = "node scripts/verify-env.js && npm run generate-pwa-assets && npm run build"
   publish = "build"
 
 [[redirects]]
