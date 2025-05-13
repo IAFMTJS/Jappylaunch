@@ -6,6 +6,33 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const os = require('os');
+const dotenv = require('dotenv');
+
+// Load environment variables
+const env = dotenv.config().parsed || {};
+const envKeys = Object.keys(env).reduce((prev, next) => {
+  prev[`process.env.${next}`] = JSON.stringify(env[next]);
+  return prev;
+}, {});
+
+// Validate required environment variables
+const requiredEnvVars = [
+  'REACT_APP_FIREBASE_API_KEY',
+  'REACT_APP_FIREBASE_AUTH_DOMAIN',
+  'REACT_APP_FIREBASE_PROJECT_ID',
+  'REACT_APP_FIREBASE_STORAGE_BUCKET',
+  'REACT_APP_FIREBASE_MESSAGING_SENDER_ID',
+  'REACT_APP_FIREBASE_APP_ID'
+];
+
+if (process.env.NODE_ENV === 'production') {
+  const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName] && !env[varName]);
+  if (missingEnvVars.length > 0) {
+    console.error('Missing required environment variables:', missingEnvVars.join(', '));
+    console.error('Please ensure these variables are set in your Netlify environment settings.');
+    process.exit(1);
+  }
+}
 
 // Only require webpack-obfuscator in production
 const WebpackObfuscator = process.env.NODE_ENV === 'production' 
@@ -170,9 +197,9 @@ module.exports = (env, argv) => {
           parallel: true,
           terserOptions: {
             compress: {
-              drop_console: isProduction,
+              drop_console: false,
               drop_debugger: isProduction,
-              pure_funcs: isProduction ? ['console.log'] : [],
+              pure_funcs: isProduction ? ['console.log', 'console.info', 'console.debug', 'console.warn'] : [],
               keep_fnames: true,
               keep_classnames: true,
               passes: 2
@@ -240,7 +267,13 @@ module.exports = (env, argv) => {
         Buffer: ['buffer', 'Buffer']
       }),
       new webpack.DefinePlugin({
-        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production')
+        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
+        ...envKeys,
+        // Fallback values for development
+        'process.env.REACT_APP_USE_EMULATORS': JSON.stringify(process.env.REACT_APP_USE_EMULATORS || 'false'),
+        'process.env.REACT_APP_ENABLE_OFFLINE_MODE': JSON.stringify(process.env.REACT_APP_ENABLE_OFFLINE_MODE || 'true'),
+        'process.env.REACT_APP_ENABLE_NOTIFICATIONS': JSON.stringify(process.env.REACT_APP_ENABLE_NOTIFICATIONS || 'true'),
+        'process.env.REACT_APP_ENABLE_ANALYTICS': JSON.stringify(process.env.REACT_APP_ENABLE_ANALYTICS || 'false')
       }),
       new CopyWebpackPlugin({
         patterns: [
