@@ -103,11 +103,13 @@ const App = () => {
   console.log('App component rendering');
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<Error | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     console.log('App useEffect running');
     const initialize = async () => {
       try {
+        setIsLoading(true);
         console.log('Starting initialization process');
         // Log environment variables (without sensitive values)
         console.log('Environment check:', {
@@ -143,11 +145,18 @@ const App = () => {
           timestamp: new Date().toISOString()
         });
         setInitError(error instanceof Error ? error : new Error('Unknown initialization error'));
+      } finally {
+        setIsLoading(false);
       }
     };
 
     initialize();
   }, []);
+
+  if (isLoading) {
+    console.log('App is loading, rendering loading screen');
+    return <LoadingScreen />;
+  }
 
   if (initError) {
     console.error('Rendering error state:', initError);
@@ -177,108 +186,52 @@ const App = () => {
 
   console.log('App initialized, rendering main application');
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
-        <AuthProvider>
+    <Router>
+      <ErrorBoundary>
+        <ThemeProvider>
           <AppProvider>
-            <ProgressProvider>
+            <AuthProvider>
               <SettingsProvider>
-                <SoundProvider>
-                  <Router>
-                    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
-                      <GuestBanner />
+                <ProgressProvider>
+                  <SoundProvider>
+                    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
                       <Navigation />
-                      <main className="flex-1 container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-                        <div className="max-w-7xl mx-auto">
-                          <EmailVerification />
+                      <SessionWarning />
+                      <GuestBanner />
+                      <main className="container mx-auto px-4 py-8">
+                        <Suspense fallback={<LoadingScreen />}>
                           <Routes>
+                            <Route path="/" element={<Home />} />
                             <Route path="/login" element={<Login />} />
                             <Route path="/signup" element={<Signup />} />
                             <Route path="/reset-password" element={<ResetPassword />} />
                             <Route path="/update-password" element={<UpdatePassword />} />
-                            <Route path="/" element={
-                              <Suspense fallback={<RouteLoadingFallback />}>
-                                <Home />
-                              </Suspense>
-                            } />
-                            <Route path="/progress" element={
-                              <Suspense fallback={<RouteLoadingFallback />}>
-                                <ProgressPage />
-                              </Suspense>
-                            } />
-                            <Route path="/progress-section" element={
-                              <Suspense fallback={<RouteLoadingFallback />}>
-                                <ProgressSection />
-                              </Suspense>
-                            } />
-                            <Route path="/settings" element={
-                              <Suspense fallback={<RouteLoadingFallback />}>
-                                <SettingsPage />
-                              </Suspense>
-                            } />
-                            <Route path="/section1" element={
-                              <Suspense fallback={<RouteLoadingFallback />}>
-                                <Section1 />
-                              </Suspense>
-                            } />
-                            <Route path="/section2" element={
-                              <Suspense fallback={<RouteLoadingFallback />}>
-                                <Section2 />
-                              </Suspense>
-                            } />
-                            <Route path="/section3" element={
-                              <Suspense fallback={<RouteLoadingFallback />}>
-                                <Section3 />
-                              </Suspense>
-                            } />
-                            <Route path="/section4" element={
-                              <Suspense fallback={<RouteLoadingFallback />}>
-                                <Section4 />
-                              </Suspense>
-                            } />
-                            <Route path="/section5" element={
-                              <Suspense fallback={<RouteLoadingFallback />}>
-                                <Section5 />
-                              </Suspense>
-                            } />
-                            <Route path="/section6" element={
-                              <Suspense fallback={<RouteLoadingFallback />}>
-                                <Section6 />
-                              </Suspense>
-                            } />
-                            <Route path="/section7" element={
-                              <Suspense fallback={<RouteLoadingFallback />}>
-                                <Section7 />
-                              </Suspense>
-                            } />
-                            <Route path="/section8" element={
-                              <Suspense fallback={<RouteLoadingFallback />}>
-                                <Section8 />
-                              </Suspense>
-                            } />
-                            <Route path="/anime" element={
-                              <Suspense fallback={<RouteLoadingFallback />}>
-                                <AnimeSection />
-                              </Suspense>
-                            } />
-                            <Route path="/writing-practice" element={
-                              <Suspense fallback={<RouteLoadingFallback />}>
-                                <WritingPracticePage />
-                              </Suspense>
-                            } />
+                            <Route path="/verify-email" element={<EmailVerification />} />
+                            <Route path="/section1" element={<ProtectedRoute><Section1 /></ProtectedRoute>} />
+                            <Route path="/section2" element={<ProtectedRoute><Section2 /></ProtectedRoute>} />
+                            <Route path="/section3" element={<ProtectedRoute><Section3 /></ProtectedRoute>} />
+                            <Route path="/section4" element={<ProtectedRoute><Section4 /></ProtectedRoute>} />
+                            <Route path="/section5" element={<ProtectedRoute><Section5 /></ProtectedRoute>} />
+                            <Route path="/section6" element={<ProtectedRoute><Section6 /></ProtectedRoute>} />
+                            <Route path="/section7" element={<ProtectedRoute><Section7 /></ProtectedRoute>} />
+                            <Route path="/section8" element={<ProtectedRoute><Section8 /></ProtectedRoute>} />
+                            <Route path="/anime" element={<ProtectedRoute><AnimeSection /></ProtectedRoute>} />
+                            <Route path="/progress" element={<ProtectedRoute><ProgressPage /></ProtectedRoute>} />
+                            <Route path="/progress/:sectionId" element={<ProtectedRoute><ProgressSection /></ProtectedRoute>} />
+                            <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+                            <Route path="/writing-practice" element={<ProtectedRoute><WritingPracticePage /></ProtectedRoute>} />
                           </Routes>
-                        </div>
+                        </Suspense>
                       </main>
-                      <SessionWarning />
                     </div>
-                  </Router>
-                </SoundProvider>
+                  </SoundProvider>
+                </ProgressProvider>
               </SettingsProvider>
-            </ProgressProvider>
+            </AuthProvider>
           </AppProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+        </ThemeProvider>
+      </ErrorBoundary>
+    </Router>
   );
 };
 

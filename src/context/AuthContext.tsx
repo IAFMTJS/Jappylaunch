@@ -37,6 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<AuthErrorResponse | null>(null);
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [sessionWarning, setSessionWarning] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const MAX_LOGIN_ATTEMPTS = 5;
   const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
   const [lockoutEndTime, setLockoutEndTime] = useState<number | null>(null);
@@ -44,7 +45,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Get Firebase services lazily
   const getAuth = useCallback(() => {
     try {
-      return getAuthInstance();
+      const auth = getAuthInstance();
+      if (!auth) {
+        throw new Error('Firebase Auth not initialized');
+      }
+      return auth;
     } catch (error) {
       console.error('Failed to get Auth instance:', error);
       throw error;
@@ -53,7 +58,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const getDb = useCallback(() => {
     try {
-      return getFirestoreInstance();
+      const db = getFirestoreInstance();
+      if (!db) {
+        throw new Error('Firestore not initialized');
+      }
+      return db;
     } catch (error) {
       console.error('Failed to get Firestore instance:', error);
       throw error;
@@ -62,43 +71,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     console.log('AuthProvider: Starting authentication state listener...');
-    try {
-      const auth = getAuth();
-      const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
-        console.log('AuthProvider: Auth state changed:', {
-          hasUser: !!user,
-          email: user?.email,
-          emailVerified: user?.emailVerified,
-          timestamp: new Date().toISOString()
+    let unsubscribe: (() => void) | undefined;
+
+    const setupAuth = async () => {
+      try {
+        const auth = getAuth();
+        unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+          console.log('AuthProvider: Auth state changed:', {
+            hasUser: !!user,
+            email: user?.email,
+            emailVerified: user?.emailVerified,
+            timestamp: new Date().toISOString()
+          });
+          setCurrentUser(user);
+          setLoading(false);
+          setIsInitialized(true);
+        }, (error: unknown) => {
+          console.error('AuthProvider: Firebase auth initialization error:', {
+            error,
+            code: (error as { code?: string })?.code,
+            message: (error as Error)?.message,
+            timestamp: new Date().toISOString()
+          });
+          setError(handleAuthError(error));
+          setLoading(false);
+          setIsInitialized(true);
         });
-        setCurrentUser(user);
-        setLoading(false);
-      }, (error: unknown) => {
-        console.error('AuthProvider: Firebase auth initialization error:', {
+
+        console.log('AuthProvider: Auth state listener set up successfully');
+      } catch (error) {
+        console.error('AuthProvider: Critical error setting up auth state listener:', {
           error,
-          code: (error as { code?: string })?.code,
-          message: (error as Error)?.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
           timestamp: new Date().toISOString()
         });
         setError(handleAuthError(error));
         setLoading(false);
-      });
+        setIsInitialized(true);
+      }
+    };
 
-      console.log('AuthProvider: Auth state listener set up successfully');
-      return () => {
-        console.log('AuthProvider: Cleaning up auth state listener');
+    setupAuth();
+
+    return () => {
+      console.log('AuthProvider: Cleaning up auth state listener');
+      if (unsubscribe) {
         unsubscribe();
-      };
-    } catch (error) {
-      console.error('AuthProvider: Critical error setting up auth state listener:', {
-        error,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        timestamp: new Date().toISOString()
-      });
-      setError(handleAuthError(error));
-      setLoading(false);
-    }
+      }
+    };
   }, [getAuth]);
 
   const handleAuthError = (error: unknown): AuthErrorResponse => {
@@ -247,9 +268,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearError
   };
 
-  if (loading) {
-    console.log('AuthProvider: Rendering loading screen');
+  if (!isInitialized || loading) {
+    console.log('AuthProvider: Not initialized or loading, rendering loading screen');
     return <LoadingScreen />;
+  }
+
+  if (error && !currentUser) {
+    console.error('AuthProvider: Error state with no user, rendering error screen');
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center p-6 bg-red-50 dark:bg-red-900 rounded-lg max-w-2xl mx-4">
+          <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-2">Authentication Error</h2>
+          <p className="text-red-500 dark:text-red-300 mb-4">{error.message}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
   }
 
   console.log('AuthProvider: Rendering children with auth context');
