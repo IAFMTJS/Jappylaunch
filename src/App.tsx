@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -9,19 +9,6 @@ import { SoundProvider } from './context/SoundContext';
 import { initializeSecurity } from './utils/security';
 import { initializeApp } from './utils/firebase';
 import Navigation from './components/Navigation';
-import Home from './pages/Home';
-import Section1 from './pages/Section1';
-import Section2 from './pages/Section2';
-import Section3 from './pages/Section3';
-import Section4 from './pages/Section4';
-import Section5 from './pages/Section5';
-import Section6 from './pages/Section6';
-import Section7 from './pages/Section7';
-import Section8 from './pages/Section8';
-import AnimeSection from './pages/AnimeSection';
-import ProgressPage from './pages/ProgressPage';
-import SettingsPage from './pages/Settings';
-import WritingPracticePage from './pages/WritingPracticePage';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import ResetPassword from './components/ResetPassword';
@@ -30,7 +17,29 @@ import ProtectedRoute from './components/ProtectedRoute';
 import SessionWarning from './components/SessionWarning';
 import EmailVerification from './components/EmailVerification';
 import GuestBanner from './components/GuestBanner';
-import ProgressSection from './pages/ProgressSection';
+
+// Lazy load route components
+const Home = lazy(() => import('./pages/Home'));
+const Section1 = lazy(() => import('./pages/Section1'));
+const Section2 = lazy(() => import('./pages/Section2'));
+const Section3 = lazy(() => import('./pages/Section3'));
+const Section4 = lazy(() => import('./pages/Section4'));
+const Section5 = lazy(() => import('./pages/Section5'));
+const Section6 = lazy(() => import('./pages/Section6'));
+const Section7 = lazy(() => import('./pages/Section7'));
+const Section8 = lazy(() => import('./pages/Section8'));
+const AnimeSection = lazy(() => import('./pages/AnimeSection'));
+const ProgressPage = lazy(() => import('./pages/ProgressPage'));
+const ProgressSection = lazy(() => import('./pages/ProgressSection'));
+const SettingsPage = lazy(() => import('./pages/Settings'));
+const WritingPracticePage = lazy(() => import('./pages/WritingPracticePage'));
+
+// Loading component for Suspense fallback
+const RouteLoadingFallback = () => (
+  <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+  </div>
+);
 
 const LoadingScreen = () => {
   console.log('Rendering loading screen');
@@ -118,20 +127,76 @@ const App = () => {
                           <Route path="/signup" element={<Signup />} />
                           <Route path="/reset-password" element={<ResetPassword />} />
                           <Route path="/update-password" element={<UpdatePassword />} />
-                          <Route path="/" element={<Home />} />
-                          <Route path="/progress" element={<ProgressPage />} />
-                          <Route path="/progress-section" element={<ProgressSection />} />
-                          <Route path="/settings" element={<SettingsPage />} />
-                          <Route path="/section1" element={<Section1 />} />
-                          <Route path="/section2" element={<Section2 />} />
-                          <Route path="/section3" element={<Section3 />} />
-                          <Route path="/section4" element={<Section4 />} />
-                          <Route path="/section5" element={<Section5 />} />
-                          <Route path="/section6" element={<Section6 />} />
-                          <Route path="/section7" element={<Section7 />} />
-                          <Route path="/section8" element={<Section8 />} />
-                          <Route path="/anime" element={<AnimeSection />} />
-                          <Route path="/writing-practice" element={<WritingPracticePage />} />
+                          <Route path="/" element={
+                            <Suspense fallback={<RouteLoadingFallback />}>
+                              <Home />
+                            </Suspense>
+                          } />
+                          <Route path="/progress" element={
+                            <Suspense fallback={<RouteLoadingFallback />}>
+                              <ProgressPage />
+                            </Suspense>
+                          } />
+                          <Route path="/progress-section" element={
+                            <Suspense fallback={<RouteLoadingFallback />}>
+                              <ProgressSection />
+                            </Suspense>
+                          } />
+                          <Route path="/settings" element={
+                            <Suspense fallback={<RouteLoadingFallback />}>
+                              <SettingsPage />
+                            </Suspense>
+                          } />
+                          <Route path="/section1" element={
+                            <Suspense fallback={<RouteLoadingFallback />}>
+                              <Section1 />
+                            </Suspense>
+                          } />
+                          <Route path="/section2" element={
+                            <Suspense fallback={<RouteLoadingFallback />}>
+                              <Section2 />
+                            </Suspense>
+                          } />
+                          <Route path="/section3" element={
+                            <Suspense fallback={<RouteLoadingFallback />}>
+                              <Section3 />
+                            </Suspense>
+                          } />
+                          <Route path="/section4" element={
+                            <Suspense fallback={<RouteLoadingFallback />}>
+                              <Section4 />
+                            </Suspense>
+                          } />
+                          <Route path="/section5" element={
+                            <Suspense fallback={<RouteLoadingFallback />}>
+                              <Section5 />
+                            </Suspense>
+                          } />
+                          <Route path="/section6" element={
+                            <Suspense fallback={<RouteLoadingFallback />}>
+                              <Section6 />
+                            </Suspense>
+                          } />
+                          <Route path="/section7" element={
+                            <Suspense fallback={<RouteLoadingFallback />}>
+                              <Section7 />
+                            </Suspense>
+                          } />
+                          <Route path="/section8" element={
+                            <Suspense fallback={<RouteLoadingFallback />}>
+                              <Section8 />
+                            </Suspense>
+                          } />
+                          <Route path="/anime" element={
+                            <Suspense fallback={<RouteLoadingFallback />}>
+                              <AnimeSection />
+                            </Suspense>
+                          } />
+                          <Route path="/writing-practice" element={
+                            <Suspense fallback={<RouteLoadingFallback />}>
+                              <WritingPracticePage />
+                            </Suspense>
+                          } />
                         </Routes>
                       </div>
                     </main>

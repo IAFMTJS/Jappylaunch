@@ -8,20 +8,43 @@
 
 # production
 /build
+/dist
+/stats.json
 
 # misc
 .DS_Store
+.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.development
+.env.production
 
+# logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
 
 # IDE
 .idea/
 .vscode/
 *.swp
-*.swo 
+*.swo
+
+# Cache
+.cache/
+.webpack/
+.eslintcache
+.stylelintcache
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+
+# Generated files
+*.generated.*
+*.min.*
+*.bundle.* 

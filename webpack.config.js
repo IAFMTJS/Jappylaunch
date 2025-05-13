@@ -5,6 +5,7 @@ const CompressionPlugin = require('compression-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const os = require('os');
 
 // Only require webpack-obfuscator in production
 const WebpackObfuscator = process.env.NODE_ENV === 'production' 
@@ -29,13 +30,23 @@ module.exports = (env, argv) => {
         {
           test: /\.(ts|tsx)$/,
           exclude: /node_modules/,
-          use: {
-            loader: 'ts-loader',
-            options: {
-              transpileOnly: true,
-              happyPackMode: true
+          use: [
+            {
+              loader: 'thread-loader',
+              options: {
+                workers: os.cpus().length - 1,
+                poolTimeout: isProduction ? 500 : 2000
+              }
+            },
+            {
+              loader: 'ts-loader',
+              options: {
+                transpileOnly: true,
+                happyPackMode: true,
+                configFile: path.resolve(__dirname, 'tsconfig.json')
+              }
             }
-          }
+          ]
         },
         {
           test: /\.js$/,
@@ -50,10 +61,10 @@ module.exports = (env, argv) => {
               loader: 'babel-loader',
               options: {
                 presets: ['@babel/preset-env'],
-                cacheDirectory: true
+                cacheDirectory: true,
+                cacheCompression: false
               }
             },
-            // Only apply obfuscation to JavaScript files in production
             ...(isProduction && WebpackObfuscator ? [{
               loader: WebpackObfuscator.loader,
               options: {
@@ -68,15 +79,12 @@ module.exports = (env, argv) => {
                 debugProtection: false,
                 debugProtectionInterval: false,
                 disableConsoleOutput: false,
-                identifierNamesGenerator: 'hexadecimal',
                 log: false,
                 numbersToExpressions: false,
                 renameGlobals: false,
                 selfDefending: false,
                 simplify: true,
                 splitStrings: false,
-                stringArray: true,
-                stringArrayEncoding: ['base64'],
                 stringArrayIndexShift: true,
                 stringArrayRotate: true,
                 stringArrayShuffle: true,
@@ -84,7 +92,6 @@ module.exports = (env, argv) => {
                 stringArrayWrappersChainedCalls: true,
                 stringArrayWrappersParametersMaxCount: 4,
                 stringArrayWrappersType: 'variable',
-                stringArrayThreshold: 0.75,
                 transformObjectKeys: false,
                 unicodeEscapeSequence: false
               }
@@ -95,25 +102,52 @@ module.exports = (env, argv) => {
           test: /\.css$/,
           use: [
             isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
-            'css-loader',
-            'postcss-loader'
+            {
+              loader: 'css-loader',
+              options: {
+                importLoaders: 1,
+                sourceMap: !isProduction
+              }
+            },
+            {
+              loader: 'postcss-loader',
+              options: {
+                sourceMap: !isProduction
+              }
+            }
           ]
         },
         {
-          test: /\.(png|svg|jpg|jpeg|gif)$/i,
-          type: 'asset/resource',
+          test: /\.(png|jpe?g|gif|svg)$/i,
+          type: 'asset',
+          parser: {
+            dataUrlCondition: {
+              maxSize: 8 * 1024 // 8kb
+            }
+          },
           generator: {
-            filename: 'static/media/[name].[hash][ext]'
+            filename: 'static/media/[name].[hash:8][ext]'
           }
         },
         {
           test: /\.json$/,
           type: 'json',
-        },
+          parser: {
+            parse: JSON.parse
+          }
+        }
       ]
     },
     resolve: {
       extensions: ['.tsx', '.ts', '.js', '.jsx'],
+      modules: [path.resolve(__dirname, 'src'), 'node_modules'],
+      alias: {
+        '@': path.resolve(__dirname, 'src'),
+        '@components': path.resolve(__dirname, 'src/components'),
+        '@pages': path.resolve(__dirname, 'src/pages'),
+        '@utils': path.resolve(__dirname, 'src/utils'),
+        '@context': path.resolve(__dirname, 'src/context')
+      },
       fallback: {
         "path": "path-browserify",
         "crypto": "crypto-browserify",
@@ -133,13 +167,15 @@ module.exports = (env, argv) => {
       minimize: isProduction,
       minimizer: [
         new TerserPlugin({
+          parallel: true,
           terserOptions: {
             compress: {
               drop_console: isProduction,
               drop_debugger: isProduction,
               pure_funcs: isProduction ? ['console.log'] : [],
               keep_fnames: true,
-              keep_classnames: true
+              keep_classnames: true,
+              passes: 2
             },
             mangle: {
               keep_fnames: true,
@@ -152,6 +188,8 @@ module.exports = (env, argv) => {
           extractComments: false
         })
       ],
+      moduleIds: 'deterministic',
+      chunkIds: 'deterministic',
       splitChunks: {
         chunks: 'all',
         minSize: 20000,
@@ -161,21 +199,26 @@ module.exports = (env, argv) => {
         maxInitialRequests: 30,
         enforceSizeThreshold: 50000,
         cacheGroups: {
-          defaultVendors: {
+          vendor: {
             test: /[\\/]node_modules[\\/]/,
-            priority: -10,
-            reuseExistingChunk: true,
+            name(module) {
+              const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
+              return `vendor.${packageName.replace('@', '')}`;
+            },
+            priority: 20,
+            reuseExistingChunk: true
           },
-          default: {
+          common: {
             minChunks: 2,
-            priority: -20,
-            reuseExistingChunk: true,
-          },
-        },
+            priority: 10,
+            reuseExistingChunk: true
+          }
+        }
       },
       runtimeChunk: 'single'
     },
     plugins: [
+      new webpack.ProgressPlugin(),
       new HtmlWebpackPlugin({
         template: './public/index.html',
         inject: true,
@@ -221,7 +264,8 @@ module.exports = (env, argv) => {
           test: /\.(js|css|html|svg)$/,
           algorithm: 'gzip',
           threshold: 10240,
-          minRatio: 0.8
+          minRatio: 0.8,
+          deleteOriginalAssets: false
         }),
         new MiniCssExtractPlugin({
           filename: 'static/css/[name].[contenthash:8].css',
@@ -235,9 +279,14 @@ module.exports = (env, argv) => {
       port: 3000,
       static: {
         directory: path.join(__dirname, 'public')
+      },
+      compress: true,
+      client: {
+        overlay: true,
+        progress: true
       }
     },
-    devtool: isProduction ? false : 'source-map',
+    devtool: isProduction ? false : 'eval-source-map',
     performance: {
       hints: isProduction ? 'warning' : false,
       maxEntrypointSize: 512000,
