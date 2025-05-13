@@ -38,44 +38,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [sessionWarning, setSessionWarning] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [firebaseInitialized, setFirebaseInitialized] = useState(false);
   const MAX_LOGIN_ATTEMPTS = 5;
   const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
   const [lockoutEndTime, setLockoutEndTime] = useState<number | null>(null);
 
-  // Get Firebase services lazily
-  const getAuth = useCallback(() => {
-    try {
-      const auth = getAuthInstance();
-      if (!auth) {
-        throw new Error('Firebase Auth not initialized');
-      }
-      return auth;
-    } catch (error) {
-      console.error('Failed to get Auth instance:', error);
-      throw error;
-    }
-  }, []);
-
-  const getDb = useCallback(() => {
-    try {
-      const db = getFirestoreInstance();
-      if (!db) {
-        throw new Error('Firestore not initialized');
-      }
-      return db;
-    } catch (error) {
-      console.error('Failed to get Firestore instance:', error);
-      throw error;
-    }
-  }, []);
-
+  // Initialize Firebase first
   useEffect(() => {
-    console.log('AuthProvider: Starting authentication state listener...');
+    console.log('AuthProvider: Starting Firebase initialization check...');
+    const checkFirebaseInitialization = async () => {
+      try {
+        // Try to get auth instance - this will throw if Firebase is not initialized
+        const auth = getAuthInstance();
+        console.log('AuthProvider: Firebase is initialized, auth instance:', auth);
+        setFirebaseInitialized(true);
+      } catch (error) {
+        console.error('AuthProvider: Firebase not initialized yet:', error);
+        setFirebaseInitialized(false);
+        // Retry after a short delay
+        setTimeout(checkFirebaseInitialization, 100);
+      }
+    };
+
+    checkFirebaseInitialization();
+  }, []);
+
+  // Only set up auth state listener after Firebase is initialized
+  useEffect(() => {
+    if (!firebaseInitialized) {
+      console.log('AuthProvider: Waiting for Firebase initialization...');
+      return;
+    }
+
+    console.log('AuthProvider: Firebase initialized, setting up auth state listener...');
     let unsubscribe: (() => void) | undefined;
 
     const setupAuth = async () => {
       try {
-        const auth = getAuth();
+        const auth = getAuthInstance();
         unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
           console.log('AuthProvider: Auth state changed:', {
             hasUser: !!user,
@@ -120,7 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unsubscribe();
       }
     };
-  }, [getAuth]);
+  }, [firebaseInitialized]); // Only run when firebaseInitialized changes
 
   const handleAuthError = (error: unknown): AuthErrorResponse => {
     if (error instanceof Error) {
@@ -159,7 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(`Account is locked. Please try again in ${remainingTime} minutes`);
       }
 
-      const auth = getAuth();
+      const auth = getAuthInstance();
       await signInWithEmailAndPassword(auth, email, password);
       setLoginAttempts(0);
       setLockoutEndTime(null);
@@ -185,8 +185,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signup = async (email: string, password: string) => {
     try {
       clearError();
-      const auth = getAuth();
-      const db = getDb();
+      const auth = getAuthInstance();
+      const db = getFirestoreInstance();
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
@@ -207,7 +207,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       clearError();
-      const auth = getAuth();
+      const auth = getAuthInstance();
       await signOut(auth);
     } catch (err) {
       const errorMessage = handleAuthError(err);
@@ -219,7 +219,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetPassword = async (email: string) => {
     try {
       clearError();
-      const auth = getAuth();
+      const auth = getAuthInstance();
       await sendPasswordResetEmail(auth, email);
     } catch (err) {
       const errorMessage = handleAuthError(err);
@@ -268,8 +268,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearError
   };
 
-  if (!isInitialized || loading) {
-    console.log('AuthProvider: Not initialized or loading, rendering loading screen');
+  if (!firebaseInitialized || !isInitialized || loading) {
+    console.log('AuthProvider: Not ready, rendering loading screen', {
+      firebaseInitialized,
+      isInitialized,
+      loading
+    });
     return <LoadingScreen />;
   }
 
