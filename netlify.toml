@@ -1,10 +1,17 @@
 [build]
-  command = "npm run build"
+  command = "npm run clean && npm run build:verify && npm run build"
   publish = "build"
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF ./"
 
 [build.environment]
   NODE_VERSION = "20"
   NODE_ENV = "production"
+  # Add a build-time environment variable to force webpack to use environment variables
+  WEBPACK_USE_ENV = "true"
+  # Force clean builds
+  NETLIFY_USE_YARN = "false"
+  NETLIFY_BUILD_BASE = "build"
+  NETLIFY_CACHE_DIR = ".netlify/cache"
 
 # Add environment variable verification
 [[plugins]]
