@@ -64,7 +64,6 @@
     "webpack-obfuscator": "^3.5.1"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.14",
     "react-app-rewired": "^2.2.1",
     "webpack-dev-server": "^5.2.1"
   },
@@ -80,7 +79,8 @@
     "generate-pwa-assets": "npm run convert-logo && node scripts/generate-pwa-assets.js",
     "generate-romaji": "node scripts/generate-romaji-data.js",
     "clean": "rimraf node_modules/.cache",
-    "postinstall": "npm run clean"
+    "postinstall": "npm run clean",
+    "verify-env": "node scripts/verify-env.js"
   },
   "eslintConfig": {
     "extends": [
