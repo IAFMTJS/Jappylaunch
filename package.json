@@ -36,6 +36,7 @@
     "react-scripts": "^5.0.1",
     "react-transition-group": "^4.4.5",
     "recharts": "^2.15.3",
+    "rimraf": "^5.0.5",
     "sharp": "^0.33.2",
     "stream-browserify": "^3.0.0",
     "stream-http": "^3.2.0",
@@ -63,7 +64,6 @@
     "kuroshiro": "^1.2.0",
     "kuroshiro-analyzer-kuromoji": "^1.1.0",
     "react-app-rewired": "^2.2.1",
-    "rimraf": "^5.0.5",
     "webpack-dev-server": "^5.2.1"
   },
   "scripts": {
