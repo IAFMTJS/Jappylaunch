@@ -8,9 +8,18 @@ import {
   sendEmailVerification,
   onAuthStateChanged
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { getAuthInstance, getFirestoreInstance } from '../utils/firebase';
-import type { AuthContextType, AuthErrorResponse, User } from '../types/auth';
+import { checkPasswordStrength, isValidEmail } from '../utils/security';
+import { AUTH_CONSTANTS } from '../types/auth';
+import type { 
+  AuthContextType, 
+  AuthErrorResponse, 
+  AuthErrorCode,
+  User,
+  SessionState,
+  SessionConfig
+} from '../types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -38,29 +47,81 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [sessionWarning, setSessionWarning] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [firebaseInitialized, setFirebaseInitialized] = useState(false);
-  const MAX_LOGIN_ATTEMPTS = 5;
-  const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
-  const [lockoutEndTime, setLockoutEndTime] = useState<number | null>(null);
+  const [sessionState, setSessionState] = useState<SessionState>({
+    lastActivity: Date.now(),
+    warningShown: false,
+    expiresAt: Date.now() + AUTH_CONSTANTS.SESSION_TIMEOUT,
+    isActive: true
+  });
 
   // Initialize Firebase first
   useEffect(() => {
     console.log('AuthProvider: Starting Firebase initialization check...');
     const checkFirebaseInitialization = async () => {
       try {
-        // Try to get auth instance - this will initialize Firebase if needed
         const auth = await getAuthInstance();
         console.log('AuthProvider: Firebase is initialized, auth instance:', auth);
         setFirebaseInitialized(true);
       } catch (error) {
         console.error('AuthProvider: Firebase initialization failed:', error);
         setFirebaseInitialized(false);
-        setError(handleAuthError(error));
+        setError(handleAuthError(error, 'Firebase initialization'));
       }
     };
 
     checkFirebaseInitialization();
   }, []);
+
+  // Session management
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const updateSessionState = () => {
+      const now = Date.now();
+      setSessionState(prev => {
+        const newState = {
+          ...prev,
+          lastActivity: now,
+          expiresAt: now + AUTH_CONSTANTS.SESSION_TIMEOUT
+        };
+
+        // Show warning if approaching timeout
+        if (!prev.warningShown && newState.expiresAt - now <= AUTH_CONSTANTS.WARNING_TIME) {
+          setSessionWarning(true);
+          newState.warningShown = true;
+        }
+
+        return newState;
+      });
+    };
+
+    // Update session on user activity
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    activityEvents.forEach(event => {
+      window.addEventListener(event, updateSessionState);
+    });
+
+    // Check session timeout
+    const sessionCheck = setInterval(() => {
+      const now = Date.now();
+      if (now >= sessionState.expiresAt) {
+        // Session expired
+        logout();
+      } else if (now >= sessionState.expiresAt - AUTH_CONSTANTS.WARNING_TIME && !sessionWarning) {
+        // Show warning
+        setSessionWarning(true);
+      }
+    }, 1000);
+
+    return () => {
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, updateSessionState);
+      });
+      clearInterval(sessionCheck);
+    };
+  }, [currentUser, sessionState.expiresAt, sessionWarning]);
 
   // Only set up auth state listener after Firebase is initialized
   useEffect(() => {
@@ -77,16 +138,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const auth = await getAuthInstance();
         const { onAuthStateChanged } = await import('firebase/auth');
         
-        unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+        unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
           console.log('AuthProvider: Auth state changed:', {
             hasUser: !!user,
             email: user?.email,
             emailVerified: user?.emailVerified,
             timestamp: new Date().toISOString()
           });
+
+          if (user) {
+            // Update last login in Firestore
+            try {
+              const db = await getFirestoreInstance();
+              await updateDoc(doc(db, 'users', user.uid), {
+                lastLogin: new Date().toISOString()
+              });
+            } catch (err) {
+              console.error('AuthProvider: Failed to update last login:', err);
+            }
+          }
+
           setCurrentUser(user);
           setLoading(false);
           setIsInitialized(true);
+          setIsEmailVerified(user?.emailVerified || false);
         }, (error: unknown) => {
           console.error('AuthProvider: Firebase auth initialization error:', {
             error,
@@ -94,7 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             message: (error as Error)?.message,
             timestamp: new Date().toISOString()
           });
-          setError(handleAuthError(error));
+          setError(handleAuthError(error, 'Firebase auth initialization'));
           setLoading(false);
           setIsInitialized(true);
         });
@@ -107,7 +182,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           stack: error instanceof Error ? error.stack : undefined,
           timestamp: new Date().toISOString()
         });
-        setError(handleAuthError(error));
+        setError(handleAuthError(error, 'Firebase auth initialization'));
         setLoading(false);
         setIsInitialized(true);
       }
@@ -123,59 +198,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [firebaseInitialized]);
 
-  const handleAuthError = (error: unknown): AuthErrorResponse => {
-    if (error instanceof Error) {
-      const errorCode = (error as { code?: string })?.code;
-      const errorName = error.name || 'FirebaseError';
-      switch (errorCode) {
-        case 'auth/invalid-email':
-          return { code: 'auth/invalid-email', message: 'Invalid email address', name: errorName };
-        case 'auth/user-disabled':
-          return { code: 'auth/user-disabled', message: 'This account has been disabled', name: errorName };
-        case 'auth/user-not-found':
-          return { code: 'auth/user-not-found', message: 'No account found with this email', name: errorName };
-        case 'auth/wrong-password':
-          return { code: 'auth/wrong-password', message: 'Incorrect password', name: errorName };
-        case 'auth/too-many-requests':
-          return { code: 'auth/too-many-requests', message: 'Too many failed attempts. Please try again later', name: errorName };
-        default:
-          return { code: 'unknown', message: error.message || 'An error occurred during authentication', name: errorName };
-      }
-    }
-    return { code: 'unknown', message: 'An unexpected error occurred', name: 'UnknownError' };
-  };
+  const handleAuthError = useCallback((error: any, context: string): AuthErrorResponse => {
+    const errorResponse: AuthErrorResponse = {
+      code: (error.code as AuthErrorCode) || 'auth/unknown-error',
+      message: error.message || 'An unknown error occurred',
+      details: context,
+      timestamp: Date.now(),
+      userAgent: navigator.userAgent,
+      url: window.location.href
+    };
+
+    console.error('Auth Error:', {
+      ...errorResponse,
+      context,
+      originalError: error
+    });
+
+    setError(errorResponse);
+    return errorResponse;
+  }, []);
 
   const clearError = () => setError(null);
 
-  const resetSessionTimer = () => {
-    setLockoutEndTime(null);
-    setLoginAttempts(0);
-  };
+  const resetSessionTimer = useCallback(() => {
+    setSessionState(prev => ({
+      ...prev,
+      lastActivity: Date.now(),
+      expiresAt: Date.now() + AUTH_CONSTANTS.SESSION_TIMEOUT,
+      warningShown: false
+    }));
+    setSessionWarning(false);
+  }, []);
 
   const login = async (email: string, password: string) => {
     try {
-      if (lockoutEndTime && Date.now() < lockoutEndTime) {
-        const remainingTime = Math.ceil((lockoutEndTime - Date.now()) / 60000);
+      if (!isValidEmail(email)) {
+        throw new Error('Invalid email address');
+      }
+
+      if (sessionState.expiresAt && Date.now() < sessionState.expiresAt) {
+        const remainingTime = Math.ceil((sessionState.expiresAt - Date.now()) / 60000);
         throw new Error(`Account is locked. Please try again in ${remainingTime} minutes`);
       }
 
       const auth = await getAuthInstance();
       const { signInWithEmailAndPassword } = await import('firebase/auth');
       await signInWithEmailAndPassword(auth, email, password);
+      
+      // Reset session state on successful login
+      resetSessionTimer();
       setLoginAttempts(0);
-      setLockoutEndTime(null);
     } catch (err) {
-      const errorMessage = handleAuthError(err);
+      const errorMessage = handleAuthError(err, 'login');
       setError(errorMessage);
       
       if (errorMessage.code === 'auth/wrong-password') {
         const newAttempts = loginAttempts + 1;
         setLoginAttempts(newAttempts);
         
-        if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
-          const endTime = Date.now() + LOCKOUT_DURATION;
-          setLockoutEndTime(endTime);
-          throw new Error(`Too many failed attempts. Account locked for 15 minutes`);
+        if (newAttempts >= AUTH_CONSTANTS.MAX_LOGIN_ATTEMPTS) {
+          const endTime = Date.now() + AUTH_CONSTANTS.LOCKOUT_DURATION;
+          setSessionState(prev => ({ ...prev, expiresAt: endTime }));
+          throw new Error(`Too many failed attempts. Account locked for ${AUTH_CONSTANTS.LOCKOUT_DURATION / 60000} minutes`);
         }
       }
       
@@ -185,6 +269,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signup = async (email: string, password: string) => {
     try {
+      if (!isValidEmail(email)) {
+        throw new Error('Invalid email address');
+      }
+
+      const { score, feedback } = checkPasswordStrength(password);
+      if (score < AUTH_CONSTANTS.PASSWORD_REQUIREMENTS.minScore) {
+        throw new Error(feedback.join('. '));
+      }
+
       clearError();
       const auth = await getAuthInstance();
       const db = await getFirestoreInstance();
@@ -198,13 +291,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await setDoc(doc(db, 'users', user.uid), {
         email: user.email,
         createdAt: new Date().toISOString(),
-        lastLogin: new Date().toISOString()
+        lastLogin: new Date().toISOString(),
+        settings: {
+          theme: 'system',
+          notifications: true,
+          sessionTimeout: AUTH_CONSTANTS.SESSION_TIMEOUT
+        }
       });
 
       // Send email verification
       await sendEmailVerification(user);
-    } catch (error: unknown) {
-      handleAuthError(error);
+      
+      // Reset session state on successful signup
+      resetSessionTimer();
+    } catch (error) {
+      const errorMessage = handleAuthError(error, 'signup');
+      setError(errorMessage);
+      throw new Error(errorMessage.message);
     }
   };
 
@@ -214,8 +317,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const auth = await getAuthInstance();
       const { signOut } = await import('firebase/auth');
       await signOut(auth);
+      
+      // Reset session state
+      setSessionState({
+        lastActivity: Date.now(),
+        warningShown: false,
+        expiresAt: Date.now() + AUTH_CONSTANTS.SESSION_TIMEOUT,
+        isActive: true
+      });
+      setSessionWarning(false);
     } catch (err) {
-      const errorMessage = handleAuthError(err);
+      const errorMessage = handleAuthError(err, 'logout');
       setError(errorMessage);
       throw new Error(errorMessage.message);
     }
@@ -223,40 +335,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resetPassword = async (email: string) => {
     try {
+      if (!isValidEmail(email)) {
+        throw new Error('Invalid email address');
+      }
+
       clearError();
       const auth = await getAuthInstance();
       const { sendPasswordResetEmail } = await import('firebase/auth');
       await sendPasswordResetEmail(auth, email);
     } catch (err) {
-      const errorMessage = handleAuthError(err);
+      const errorMessage = handleAuthError(err, 'resetPassword');
       setError(errorMessage);
       throw new Error(errorMessage.message);
     }
   };
 
-  const updateUserPassword = async (_actionCode: string, newPassword: string) => {
+  const updateUserPassword = async (newPassword: string): Promise<void> => {
     try {
-      clearError();
       if (!currentUser) {
         throw new Error('No user is currently signed in');
       }
-      const { updatePassword } = await import('firebase/auth');
-      await updatePassword(currentUser, newPassword);
-    } catch (error: unknown) {
-      handleAuthError(error);
+
+      if (!checkPasswordStrength(newPassword)) {
+        throw new Error('Password does not meet security requirements');
+      }
+
+      const auth = await getAuthInstance();
+      await updatePassword(auth.currentUser!, newPassword);
+      
+      // Update the user's password in Firestore
+      const userRef = doc(getFirestoreInstance(), 'users', currentUser.uid);
+      await updateDoc(userRef, {
+        passwordUpdatedAt: new Date().toISOString()
+      });
+
+      // Reset session timer after password update
+      resetSessionTimer();
+    } catch (err) {
+      const errorMessage = handleAuthError(err, 'updateUserPassword');
+      setError(errorMessage);
+      throw new Error(errorMessage.message);
     }
   };
 
   const sendVerificationEmail = async () => {
     try {
-      clearError();
       if (!currentUser) {
         throw new Error('No user is currently signed in');
       }
+
+      clearError();
+      const auth = await getAuthInstance();
       const { sendEmailVerification } = await import('firebase/auth');
-      await sendEmailVerification(currentUser);
-    } catch (error: unknown) {
-      handleAuthError(error);
+      await sendEmailVerification(auth.currentUser!);
+    } catch (err) {
+      const errorMessage = handleAuthError(err, 'sendVerificationEmail');
+      setError(errorMessage);
+      throw new Error(errorMessage.message);
     }
   };
 
@@ -264,24 +399,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     currentUser,
     loading,
     error,
+    loginAttempts,
+    sessionWarning,
+    isInitialized,
+    isEmailVerified,
     login,
+    signup,
     logout,
     resetPassword,
     updateUserPassword,
     sendVerificationEmail,
-    isEmailVerified: currentUser?.emailVerified ?? false,
-    sessionWarning,
-    resetSessionTimer,
-    signup,
-    clearError
+    resetSessionTimer
   };
 
-  if (!firebaseInitialized || !isInitialized || loading) {
-    console.log('AuthProvider: Not ready, rendering loading screen', {
-      firebaseInitialized,
-      isInitialized,
-      loading
-    });
+  if (loading) {
     return <LoadingScreen />;
   }
 

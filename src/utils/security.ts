@@ -1,3 +1,23 @@
+// Add type declarations for window properties
+declare global {
+  interface Window {
+    Firebug?: {
+      chrome?: {
+        isInitialized: boolean;
+      };
+    };
+    __REACT_DEVTOOLS_GLOBAL_HOOK__?: unknown;
+    __REDUX_DEVTOOLS_EXTENSION__?: unknown;
+    __INTEGRITY__?: {
+      timestamp: number;
+      checksum: string;
+      version: string;
+      environment: string;
+      functionHash: string;
+    };
+  }
+}
+
 // Security headers configuration
 export const securityHeaders = {
   // Prevent clickjacking and other frame-based attacks
@@ -15,17 +35,18 @@ export const securityHeaders = {
   // Content Security Policy
   'Content-Security-Policy': `
     default-src 'self';
-    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com;
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://www.googletagmanager.com;
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-    img-src 'self' data: https:;
+    img-src 'self' data: https: blob:;
     font-src 'self' https://fonts.gstatic.com;
-    connect-src 'self' https://*.firebaseio.com https://*.googleapis.com;
+    connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://*.firebase.com wss://*.firebaseio.com;
     frame-src 'self' https://*.firebaseauth.com;
     object-src 'none';
     base-uri 'self';
     form-action 'self';
     frame-ancestors 'none';
     upgrade-insecure-requests;
+    require-trusted-types-for 'script';
   `.replace(/\s+/g, ' ').trim(),
   // Prevent caching of sensitive data
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -112,16 +133,24 @@ export function checkPasswordStrength(password: string): {
   return { score, feedback };
 }
 
-// Function to generate CSRF token
-export function generateCSRFToken(): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(32)))
+// Function to generate CSRF token with expiration
+export function generateCSRFToken(): { token: string; expires: number } {
+  const token = Array.from(crypto.getRandomValues(new Uint8Array(32)))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
+  const expires = Date.now() + 3600000; // 1 hour expiration
+  return { token, expires };
 }
 
-// Function to validate CSRF token
-export function validateCSRFToken(token: string, storedToken: string): boolean {
-  return token === storedToken;
+// Function to validate CSRF token with expiration check
+export function validateCSRFToken(token: string, storedToken: { token: string; expires: number }): boolean {
+  if (!storedToken || !storedToken.token || !storedToken.expires) {
+    return false;
+  }
+  if (Date.now() > storedToken.expires) {
+    return false;
+  }
+  return safeStringCompare(token, storedToken.token);
 }
 
 // Function to prevent timing attacks in string comparison
@@ -162,81 +191,153 @@ export const protectSourceMaps = (): void => {
   }
 };
 
-// Add runtime integrity check
+// Add runtime integrity check with enhanced verification
 export const checkRuntimeIntegrity = (): boolean => {
   try {
-    // Check if code has been tampered with
+    // Create a more complex integrity check
     const integrityCheck = {
       timestamp: Date.now(),
-      checksum: window.btoa(navigator.userAgent + window.location.href)
+      checksum: window.btoa(navigator.userAgent + window.location.href),
+      version: process.env.REACT_APP_VERSION || '1.0.0',
+      environment: process.env.NODE_ENV,
+      // Add a hash of critical functions
+      functionHash: window.btoa(
+        Object.keys(window)
+          .filter(key => typeof (window as any)[key] === 'function')
+          .sort()
+          .join('')
+      )
     };
     
     // Store the check in a way that's hard to tamper with
     Object.defineProperty(window, '__INTEGRITY__', {
       value: integrityCheck,
       writable: false,
-      configurable: false
+      configurable: false,
+      enumerable: false
     });
+    
+    // Add periodic re-verification
+    setInterval(() => {
+      const currentCheck = (window as any).__INTEGRITY__;
+      if (!currentCheck || currentCheck.checksum !== integrityCheck.checksum) {
+        console.error('Runtime integrity verification failed');
+        window.location.href = '/error.html?error=Integrity%20check%20failed';
+      }
+    }, 30000); // Check every 30 seconds
     
     return true;
   } catch (error) {
-    console.error('Runtime integrity check failed');
+    console.error('Runtime integrity check failed:', error);
     return false;
   }
 };
 
-// Add anti-debugging protection
+// Add anti-debugging protection with better detection
 export const enableAntiDebugging = (): void => {
   if (process.env.NODE_ENV === 'production') {
-    // Detect and prevent debugging
+    let debuggerDetected = false;
+    
+    // More sophisticated debugger detection
     const debuggerCheck = () => {
-      const startTime = performance.now();
-      debugger;
-      const endTime = performance.now();
+      if (debuggerDetected) return;
       
-      if (endTime - startTime > 100) {
-        // Debugger detected
-        window.location.href = '/'; // Redirect to home page
+      const startTime = performance.now();
+      const stack = new Error().stack;
+      
+      // Check for devtools
+      const devtools = /./;
+      devtools.toString = function() {
+        debuggerDetected = true;
+        return '';
+      };
+      
+      // Check for common debugging patterns
+      if (
+        window.Firebug?.chrome?.isInitialized ||
+        window.__REACT_DEVTOOLS_GLOBAL_HOOK__ ||
+        window.__REDUX_DEVTOOLS_EXTENSION__ ||
+        (stack && stack.includes('debugger'))
+      ) {
+        debuggerDetected = true;
+      }
+      
+      const endTime = performance.now();
+      if (endTime - startTime > 100 || debuggerDetected) {
+        debuggerDetected = true;
+        // Instead of redirecting, just disable sensitive operations
+        window.location.href = '/error.html?error=Debugging%20detected';
       }
     };
 
-    // Run checks periodically
-    setInterval(debuggerCheck, 1000);
+    // Run checks less frequently to reduce performance impact
+    setInterval(debuggerCheck, 5000);
     
-    // Prevent console access
-    const consoleMethods = ['log', 'debug', 'info', 'warn', 'error', 'assert', 'clear', 'count', 'dir', 'dirxml', 'group', 'groupCollapsed', 'groupEnd', 'time', 'timeEnd', 'trace', 'profile', 'profileEnd'];
-    consoleMethods.forEach(method => {
-      // @ts-ignore
-      console[method] = () => {};
-    });
+    // Only disable console in production and only for sensitive methods
+    if (process.env.NODE_ENV === 'production') {
+      const sensitiveMethods = ['debug', 'trace', 'profile', 'profileEnd'];
+      sensitiveMethods.forEach(method => {
+        const original = (console as any)[method];
+        (console as any)[method] = function() {
+          debuggerDetected = true;
+          return original.apply(console, arguments);
+        };
+      });
+    }
   }
 };
 
-// Add domain lock
+// Add domain lock with proper configuration
 export const checkDomainLock = (): boolean => {
   const allowedDomains = [
     'localhost',
     '127.0.0.1',
-    // Add your production domain here
-    'yourdomain.com'
+    'japvoc.com', // Replace with your actual domain
+    'netlify.app' // Allow Netlify preview deployments
   ];
   
   const currentDomain = window.location.hostname;
-  return allowedDomains.some(domain => currentDomain === domain || currentDomain.endsWith('.' + domain));
+  const isAllowed = allowedDomains.some(domain => 
+    currentDomain === domain || 
+    currentDomain.endsWith('.' + domain) ||
+    (process.env.NODE_ENV === 'development' && domain === 'localhost')
+  );
+  
+  if (!isAllowed && process.env.NODE_ENV === 'production') {
+    console.error('Domain not allowed:', currentDomain);
+    window.location.href = '/error.html?error=Invalid%20domain';
+    return false;
+  }
+  
+  return isAllowed;
 };
 
-// Initialize security measures
+// Initialize security measures with better error handling
 export const initializeSecurity = (): void => {
-  if (process.env.NODE_ENV === 'production') {
-    try {
-      // Only enable basic security measures in production
-      protectSourceMaps();
+  try {
+    // Always enable basic security measures
+    protectSourceMaps();
+    
+    if (process.env.NODE_ENV === 'production') {
+      // Enable additional security measures in production
+      if (!checkDomainLock()) {
+        throw new Error('Domain check failed');
+      }
       
-      // Log initialization status
-      console.log('Security initialization completed');
-    } catch (error) {
-      // Log security initialization errors but don't block the app
-      console.error('Security initialization error:', error);
+      if (!checkRuntimeIntegrity()) {
+        throw new Error('Runtime integrity check failed');
+      }
+      
+      enableAntiDebugging();
+    }
+    
+    // Log initialization status
+    console.log('Security initialization completed successfully');
+  } catch (error) {
+    // Log security initialization errors but don't block the app in development
+    console.error('Security initialization error:', error);
+    if (process.env.NODE_ENV === 'production') {
+      window.location.href = '/error.html?error=Security%20initialization%20failed';
     }
   }
 }; 

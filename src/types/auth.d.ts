@@ -5,13 +5,21 @@ import type { FirebaseError } from 'firebase/app';
 export type User = FirebaseUser;
 
 // Custom error types for better error handling
-export type AuthErrorResponse = Pick<FirebaseError, 'code' | 'message' | 'name'>;
+export interface AuthErrorResponse {
+  code: AuthErrorCode;
+  message: string;
+  details: string;
+  timestamp: number;
+  userAgent?: string;
+  url?: string;
+}
 
 // Session management types
 export interface SessionState {
-  isActive: boolean;
   lastActivity: number;
   warningShown: boolean;
+  expiresAt: number;
+  isActive: boolean;
 }
 
 // User profile types
@@ -37,17 +45,18 @@ export interface AuthState {
 export interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
-  signup: (email: string, password: string) => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-  sendVerificationEmail: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  updateUserPassword: (actionCode: string, newPassword: string) => Promise<void>;
-  isEmailVerified: boolean;
-  sessionWarning: boolean;
-  resetSessionTimer: () => void;
   error: AuthErrorResponse | null;
-  clearError: () => void;
+  loginAttempts: number;
+  sessionWarning: boolean;
+  isInitialized: boolean;
+  isEmailVerified: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updateUserPassword: (newPassword: string) => Promise<void>;
+  sendVerificationEmail: () => Promise<void>;
+  resetSessionTimer: () => void;
 }
 
 // Form input types
@@ -95,12 +104,56 @@ export const AUTH_CONSTANTS = {
   RESET_COOLDOWN: 60 * 60 * 1000, // 1 hour
   SESSION_TIMEOUT: 30 * 60 * 1000, // 30 minutes
   WARNING_TIME: 5 * 60 * 1000, // 5 minutes
-  MIN_PASSWORD_LENGTH: 8,
   PASSWORD_REQUIREMENTS: {
     minLength: 8,
+    minScore: 3,
     requireUppercase: true,
     requireLowercase: true,
     requireNumbers: true,
-    requireSpecialChars: true
+    requireSpecialChars: true,
+    maxLength: 128,
+    commonPatterns: [
+      'password',
+      '123456',
+      'qwerty',
+      'admin',
+      'welcome',
+      'letmein',
+      'monkey',
+      'dragon',
+      'baseball',
+      'football',
+      'shadow',
+      'master',
+      'hello',
+      'freedom',
+      'whatever',
+      'trustno1',
+      'sunshine',
+      'princess',
+      'passw0rd',
+      'login'
+    ]
   }
-} as const; 
+} as const;
+
+// Session types
+export interface SessionConfig {
+  timeout: number;
+  warningTime: number;
+  extendOnActivity: boolean;
+}
+
+// Auth error types
+export type AuthErrorCode = 
+  | 'auth/invalid-email'
+  | 'auth/user-disabled'
+  | 'auth/user-not-found'
+  | 'auth/wrong-password'
+  | 'auth/too-many-requests'
+  | 'auth/email-already-in-use'
+  | 'auth/weak-password'
+  | 'auth/expired-action-code'
+  | 'auth/invalid-action-code'
+  | 'auth/network-request-failed'
+  | 'unknown'; 

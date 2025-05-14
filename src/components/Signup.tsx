@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { checkPasswordStrength, isValidEmail } from '../utils/security';
+import { AUTH_CONSTANTS } from '../types/auth';
 
 const PASSWORD_REQUIREMENTS = {
   minLength: 8,
@@ -38,24 +40,31 @@ export default function Signup() {
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
+  const [passwordFeedback, setPasswordFeedback] = useState<string[]>([]);
   const { signup } = useAuth();
   const navigate = useNavigate();
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newPassword = e.target.value;
     setPassword(newPassword);
-    setPasswordErrors(validatePassword(newPassword));
+    const { feedback } = checkPasswordStrength(newPassword);
+    setPasswordFeedback(feedback);
   };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
+    if (!isValidEmail(email)) {
+      return setError('Please enter a valid email address');
+    }
+
     if (password !== passwordConfirm) {
       return setError('Passwords do not match');
     }
 
-    if (passwordErrors.length > 0) {
+    const { score, feedback } = checkPasswordStrength(password);
+    if (score < AUTH_CONSTANTS.PASSWORD_REQUIREMENTS.minScore) {
+      setPasswordFeedback(feedback);
       return setError('Please fix password requirements');
     }
 
@@ -69,6 +78,8 @@ export default function Signup() {
         setError('An account with this email already exists');
       } else if (err.code === 'auth/invalid-email') {
         setError('Invalid email address');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Password is too weak. Please use a stronger password.');
       } else {
         setError('Failed to create an account. Please try again.');
       }
@@ -118,9 +129,9 @@ export default function Signup() {
                   value={password}
                   onChange={handlePasswordChange}
                 />
-                {passwordErrors.length > 0 && (
+                {passwordFeedback.length > 0 && (
                   <ul className="mt-2 text-xs text-red-600 dark:text-red-300 list-disc list-inside">
-                    {passwordErrors.map((err, idx) => (
+                    {passwordFeedback.map((err, idx) => (
                       <li key={idx}>{err}</li>
                     ))}
                   </ul>
