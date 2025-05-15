@@ -4,6 +4,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useProgress } from '../context/ProgressContext';
 import { useApp } from '../context/AppContext';
 import { kuroshiroInstance } from '../utils/kuroshiro';
+import { ProgressItem } from '../types';
 
 type Mode = 'flashcards' | 'meaning-quiz' | 'reading-quiz' | 'writing-quiz';
 type QuizDifficulty = 'easy' | 'medium' | 'hard';
@@ -63,7 +64,7 @@ const KanjiPractice: React.FC = () => {
   const [quizComplete, setQuizComplete] = useState(false);
   const [romajiMap, setRomajiMap] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
-  const { updateProgress } = useProgress();
+  const { updateProgress, progress } = useProgress();
 
   // Sound effects
   const correctSound = new Audio('/sounds/correct.mp3');
@@ -296,6 +297,17 @@ const KanjiPractice: React.FC = () => {
 
   const currentKanji = filteredKanji[currentIndex];
 
+  // --- Progress tracking for Kanji section ---
+  const kanjiProgressItems = kanjiList.map(kanji => {
+    const key = `kanji-${kanji.character}`;
+    return progress[key] as ProgressItem | undefined;
+  });
+  const totalKanji = kanjiList.length;
+  const mastered = kanjiProgressItems.filter(item => item && item.correct >= 3).length;
+  const inProgress = kanjiProgressItems.filter(item => item && item.correct > 0 && item.correct < 3).length;
+  const notStarted = kanjiProgressItems.filter(item => !item || item.correct === 0).length;
+  const kanjiProgressPercent = totalKanji > 0 ? Math.round((mastered / totalKanji) * 100) : 0;
+
   const renderQuizContent = () => {
     if (quizComplete) {
       return (
@@ -479,7 +491,30 @@ const KanjiPractice: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto p-6">
+      <h1 className="text-3xl font-bold text-center mb-8 text-gray-800 dark:text-white">
+        Kanji Practice
+      </h1>
+
+      {/* Kanji Progress Bar and Stats */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-2">
+          <span className="font-semibold text-gray-700 dark:text-gray-200">Kanji Progress</span>
+          <span className="font-bold text-gray-700 dark:text-gray-200">{kanjiProgressPercent}%</span>
+        </div>
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-2">
+          <div
+            className="bg-green-500 h-3 rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${kanjiProgressPercent}%` }}
+          />
+        </div>
+        <div className="flex gap-6 text-sm text-gray-700 dark:text-gray-300 mt-2">
+          <span>Not started: <span className="font-bold">{notStarted}</span></span>
+          <span>In progress: <span className="font-bold">{inProgress}</span></span>
+          <span>Mastered: <span className="font-bold">{mastered}</span> / {totalKanji}</span>
+        </div>
+      </div>
+
       <div className={`mb-8 ${themeClasses.container} rounded-lg shadow-md p-6`}>
         <div className="flex flex-wrap gap-4 mb-6">
           <select

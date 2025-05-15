@@ -634,6 +634,12 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
     setTotalItems(mode, items.length);
   }, [mode, difficulty]);
 
+  const handlePlayAudio = (text: string) => {
+    const utterance = new window.SpeechSynthesisUtterance(text);
+    utterance.lang = 'ja-JP';
+    window.speechSynthesis.speak(utterance);
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4">
       <div className="mb-6 flex flex-wrap gap-4 justify-center">
@@ -750,6 +756,13 @@ const WritingPractice: React.FC<WritingPracticeProps> = ({ mode: initialMode, on
                 {state.strokeFeedback.message}
               </div>
             )}
+            <button
+              onClick={() => handlePlayAudio(state.currentWord && 'japanese' in state.currentWord ? state.currentWord.japanese : '')}
+              className="ml-2 p-2 rounded-full hover:bg-opacity-10"
+              title="Play Audio"
+            >
+              🔊
+            </button>
           </>
         )}
       </div>

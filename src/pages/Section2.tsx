@@ -4,7 +4,7 @@ import Dictionary from '../components/Dictionary';
 import SettingsPanel from '../components/Settings';
 
 const Section2 = () => {
-  const [dictionaryMode, setDictionaryMode] = useState<'hiragana' | 'katakana' | 'kanji'>('hiragana');
+  const [dictionaryMode, setDictionaryMode] = useState<'all' | 'hiragana' | 'katakana' | 'kanji'>('all');
 
   return (
     <div className="py-8">
@@ -16,7 +16,7 @@ const Section2 = () => {
           <h1 className="text-3xl font-bold text-gray-900">Japanese Dictionary</h1>
         </div>
         <div className="flex gap-4">
-          {(['hiragana', 'katakana', 'kanji'] as const).map(mode => (
+          {(['all', 'hiragana', 'katakana', 'kanji'] as const).map(mode => (
             <button
               key={mode}
               onClick={() => setDictionaryMode(mode)}

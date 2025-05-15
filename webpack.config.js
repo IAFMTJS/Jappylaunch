@@ -27,12 +27,14 @@ module.exports = (env, argv) => {
           test: /\.(ts|tsx)$/,
           exclude: /node_modules/,
           use: {
-            loader: 'ts-loader',
+            loader: 'babel-loader',
             options: {
-              transpileOnly: true,
-              compilerOptions: {
-                module: 'esnext'
-              }
+              cacheDirectory: true,
+              presets: [
+                '@babel/preset-env',
+                ['@babel/preset-react', { runtime: 'automatic' }],
+                '@babel/preset-typescript'
+              ]
             }
           }
         },
@@ -153,6 +155,11 @@ module.exports = (env, argv) => {
             noErrorOnMissing: true
           },
           {
+            from: 'node_modules/kuromoji/dict',
+            to: 'dict',
+            noErrorOnMissing: true
+          },
+          {
             from: 'public',
             to: '.',
             globOptions: {
@@ -176,12 +183,33 @@ module.exports = (env, argv) => {
       ] : [])
     ],
     devServer: {
-      historyApiFallback: true,
-      hot: true,
-      port: 3000,
       static: {
-        directory: path.join(__dirname, 'public')
-      }
+        directory: path.join(__dirname, 'public'),
+      },
+      historyApiFallback: true,
+      host: '0.0.0.0',
+      port: 3000,
+      hot: true,
+      open: true,
+      allowedHosts: 'all',
+      client: {
+        overlay: true,
+        webSocketURL: {
+          hostname: 'localhost',
+          pathname: '/ws',
+          port: 3000
+        }
+      },
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+        'Access-Control-Allow-Headers': 'X-Requested-With, content-type, Authorization'
+      },
+      webSocketServer: 'ws',
+      proxy: [{
+        context: ['/api'],
+        target: 'http://localhost:3000'
+      }]
     },
     devtool: isProduction ? false : 'source-map',
     performance: {

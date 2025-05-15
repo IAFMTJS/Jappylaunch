@@ -1,277 +1,449 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import SettingsPanel from '../components/Settings';
+import { useProgress } from '../context/ProgressContext';
+import { useWordLevel } from '../context/WordLevelContext';
+import { useSound } from '../context/SoundContext';
 import { kuroshiroInstance } from '../utils/kuroshiro';
-
-interface BaseWord {
-  japanese: string;
-  english: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-  romaji?: string;
-}
-
-interface ThemedWord extends BaseWord {
-  category: string;
-}
-
-interface SynonymWord extends BaseWord {
-  synonym: string;
-  antonym: string;
-}
-
-interface WordFamilyWord extends BaseWord {
-  related: string[];
-}
-
-interface CollocationWord extends BaseWord {
-  usage: string;
-}
-
-interface IdiomWord extends BaseWord {
-  literal: string;
-}
-
-type Word = ThemedWord | SynonymWord | WordFamilyWord | CollocationWord | IdiomWord;
+import { allWords } from '../data/quizData';
+import { wordLevels } from '../data/wordLevels';
+import { Box, Typography, Stack, Chip, Button, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import LockIcon from '@mui/icons-material/Lock';
+import SettingsPanel from '../components/Settings';
 
 interface Category {
   id: string;
   name: string;
-  words: Word[];
+  words: typeof allWords;
+}
+
+// Add new interface for level statistics
+interface LevelStats {
+  level: number;
+  totalWords: number;
+  masteredWords: number;
+  inProgressWords: number;
+  notStartedWords: number;
 }
 
 const Section5 = () => {
-  const { settings, updateProgress } = useApp();
-  const [selectedCategory, setSelectedCategory] = useState<string>('themed');
+  const { settings } = useApp();
+  const { progress, updateProgress } = useProgress();
+  const { currentLevel, unlockedLevels } = useWordLevel();
+  const { playSound } = useSound();
+  const [selectedCategory, setSelectedCategory] = useState<string>('all-words');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [completedWords, setCompletedWords] = useState<number>(0);
   const [totalWords, setTotalWords] = useState<number>(0);
   const [romajiMap, setRomajiMap] = useState<{ [key: string]: string }>({});
+  const [showLockedAlert, setShowLockedAlert] = useState(false);
+  const [selectedWord, setSelectedWord] = useState<typeof allWords[0] | null>(null);
+  const [levelFilter, setLevelFilter] = useState<number | 'all'>('all');
+  const [levelStats, setLevelStats] = useState<LevelStats[]>([]);
 
-  const categories: Category[] = [
-    { 
-      id: 'themed',
-      name: 'Themed Lists',
-      words: [
-        { japanese: '食べ物', english: 'Food', category: 'Food', difficulty: 'easy' },
-        { japanese: '飲み物', english: 'Drinks', category: 'Food', difficulty: 'easy' },
-        { japanese: '動物', english: 'Animals', category: 'Animals', difficulty: 'easy' },
-        { japanese: '色', english: 'Colors', category: 'Colors', difficulty: 'easy' }
-      ]
-    },
-    { 
-      id: 'synonyms',
-      name: 'Synonyms & Antonyms',
-      words: [
-        { japanese: '大きい', english: 'Big', synonym: 'でかい', antonym: '小さい', difficulty: 'medium' },
-        { japanese: '新しい', english: 'New', synonym: 'フレッシュ', antonym: '古い', difficulty: 'medium' },
-        { japanese: '速い', english: 'Fast', synonym: 'スピーディー', antonym: '遅い', difficulty: 'medium' }
-      ]
-    },
-    { 
-      id: 'word-families',
-      name: 'Word Families',
-      words: [
-        { japanese: '食べる', english: 'To eat', related: ['食べ物', '食べ方', '食べ過ぎる'], difficulty: 'medium' },
-        { japanese: '書く', english: 'To write', related: ['書き方', '書き取り', '書き直す'], difficulty: 'medium' },
-        { japanese: '見る', english: 'To see', related: ['見方', '見物', '見直す'], difficulty: 'medium' }
-      ]
-    },
-    { 
-      id: 'collocations',
-      name: 'Collocations',
-      words: [
-        { japanese: '電話をかける', english: 'To make a phone call', usage: 'Common phrase', difficulty: 'hard' },
-        { japanese: '約束を守る', english: 'To keep a promise', usage: 'Common phrase', difficulty: 'hard' },
-        { japanese: '気をつける', english: 'To be careful', usage: 'Common phrase', difficulty: 'hard' }
-      ]
-    },
-    { 
-      id: 'idioms',
-      name: 'Idiomatic Expressions',
-      words: [
-        { japanese: '猫の手も借りたい', english: 'To be very busy', literal: 'Want to borrow even a cat\'s paw', difficulty: 'hard' },
-        { japanese: '猿も木から落ちる', english: 'Even experts make mistakes', literal: 'Even monkeys fall from trees', difficulty: 'hard' },
-        { japanese: '目が回る', english: 'To be dizzy/busy', literal: 'Eyes are spinning', difficulty: 'hard' }
-      ]
-    }
-  ];
+  // Add function to calculate level statistics
+  const calculateLevelStats = useCallback(() => {
+    const stats: LevelStats[] = [];
+    
+    // Get all unlocked levels
+    const levels = wordLevels.filter(level => unlockedLevels.includes(level.level));
+    
+    levels.forEach(level => {
+      const levelWords = allWords.filter(word => 
+        level.words.some(w => w.japanese === word.japanese)
+      );
+      
+      const levelStat: LevelStats = {
+        level: level.level,
+        totalWords: levelWords.length,
+        masteredWords: levelWords.filter(word => {
+          const key = `vocabulary-${word.japanese}`;
+          return progress[key]?.correct >= 3;
+        }).length,
+        inProgressWords: levelWords.filter(word => {
+          const key = `vocabulary-${word.japanese}`;
+          return progress[key]?.correct > 0 && progress[key]?.correct < 3;
+        }).length,
+        notStartedWords: levelWords.filter(word => {
+          const key = `vocabulary-${word.japanese}`;
+          return !progress[key] || progress[key]?.correct === 0;
+        }).length
+      };
+      
+      stats.push(levelStat);
+    });
+    
+    setLevelStats(stats);
+  }, [progress, unlockedLevels]);
+
+  // Update level stats when progress or unlocked levels change
+  useEffect(() => {
+    calculateLevelStats();
+  }, [calculateLevelStats, progress, unlockedLevels]);
+
+  // Modify getAvailableWords to include level filter
+  const getAvailableWords = () => {
+    return allWords.filter(word => {
+      const wordLevel = wordLevels.find(level => 
+        level.words.some(w => w.japanese === word.japanese)
+      );
+      const isAvailable = wordLevel && unlockedLevels.includes(wordLevel.level);
+      const matchesLevel = levelFilter === 'all' || wordLevel?.level === levelFilter;
+      return isAvailable && matchesLevel;
+    });
+  };
+
+  // Dynamically generate categories from available words
+  const availableWords = getAvailableWords();
+  const dynamicCategories = Array.from(
+    availableWords.reduce((map, word) => {
+      if (!map.has(word.category)) map.set(word.category, []);
+      map.get(word.category).push(word);
+      return map;
+    }, new Map<string, typeof availableWords>())
+  ).map(([cat, words]) => ({
+    id: `cat-${cat}`,
+    name: cat.charAt(0).toUpperCase() + cat.slice(1),
+    words
+  }));
+
+  // Add the 'All Words' category
+  const allWordsCategory = {
+    id: 'all-words',
+    name: 'All Words',
+    words: availableWords
+  };
+
+  // Combine all categories for the UI
+  const categories: Category[] = [allWordsCategory, ...dynamicCategories].filter(cat => cat.words.length > 0);
 
   const currentCategory = categories.find(cat => cat.id === selectedCategory);
-  const filteredWords = currentCategory?.words.filter((word: Word) => 
+  const filteredWords = currentCategory?.words.filter(word => 
     word.japanese.toLowerCase().includes(searchTerm.toLowerCase()) ||
     word.english.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
-  React.useEffect(() => {
+  const section = 'vocabulary';
+  const completedWords = currentCategory
+    ? currentCategory.words.filter(word => progress[`${section}-${word.japanese}`]?.correct > 0).length
+    : 0;
+
+  useEffect(() => {
     if (currentCategory) {
       setTotalWords(currentCategory.words.length);
     }
   }, [currentCategory]);
 
-  React.useEffect(() => {
-    updateProgress('section5', completedWords, totalWords);
-  }, [completedWords, totalWords, updateProgress]);
+  const handleWordClick = (word: typeof allWords[0]) => {
+    const wordLevel = wordLevels.find(level => 
+      level.words.some(w => w.japanese === word.japanese)
+    );
 
-  const handleWordComplete = () => {
-    setCompletedWords(prev => prev + 1);
+    if (wordLevel && !unlockedLevels.includes(wordLevel.level)) {
+      setShowLockedAlert(true);
+      return;
+    }
+
+    setSelectedWord(word);
   };
 
-  const getRomaji = async (text: string) => {
-    if (romajiMap[text]) return romajiMap[text];
-    try {
-      const romaji = await kuroshiroInstance.convert(text);
-      setRomajiMap(prev => ({ ...prev, [text]: romaji }));
-      return romaji;
-    } catch (error) {
-      console.error('Error converting to romaji:', error);
-      return '';
-    }
-  };
-
-  useEffect(() => {
-    if (settings.showRomajiVocabulary) {
-      const updateRomaji = async () => {
-        // Collect all words that need romaji conversion
-        const wordsToConvert = categories.flatMap(category => 
-          category.words.map(word => word.japanese.trim())
-        ).filter(word => !romajiMap[word]);
-        console.log('Batching for romaji:', wordsToConvert);
-        if (wordsToConvert.length > 0) {
-          const newRomajiMap = await kuroshiroInstance.convertBatch(wordsToConvert);
-          console.log('Batch result:', newRomajiMap);
-          setRomajiMap(prev => ({ ...prev, ...newRomajiMap }));
-        }
-      };
-      updateRomaji();
-    }
-  }, [settings.showRomajiVocabulary, categories]);
-
-  const renderWord = (word: Word) => (
-    <div className="bg-gray-50 p-4 rounded-lg">
-      <div className="flex justify-between items-start">
-        <div>
-          <h3 className="text-lg font-semibold">{word.japanese}</h3>
-          {settings.showRomajiVocabulary && (
-            <p className="text-gray-500 italic">
-              {romajiMap[word.japanese.trim()] || 'Loading...'}
-            </p>
-          )}
-          <p className="text-gray-600">{word.english}</p>
-        </div>
-        <span className={`px-2 py-1 rounded text-sm ${
-          word.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
-          word.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-red-100 text-red-800'
-        }`}>
-          {word.difficulty}
-        </span>
-      </div>
-      
-      {'synonym' in word && (
-        <div className="mt-2">
-          <p className="text-sm text-gray-500">
-            Synonym: {word.synonym} | Antonym: {word.antonym}
-          </p>
-        </div>
-      )}
-      
-      {'related' in word && (
-        <div className="mt-2">
-          <p className="text-sm text-gray-500">
-            Related words: {word.related.join(', ')}
-          </p>
-        </div>
-      )}
-      
-      {'usage' in word && (
-        <div className="mt-2">
-          <p className="text-sm text-gray-500">
-            Usage: {word.usage}
-          </p>
-        </div>
-      )}
-      
-      {'literal' in word && (
-        <div className="mt-2">
-          <p className="text-sm text-gray-500">
-            Literal meaning: {word.literal}
-          </p>
-        </div>
-      )}
-
-      <button
-        onClick={handleWordComplete}
-        className="mt-2 px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
-      >
-        Mark as Learned
-      </button>
-    </div>
+  const renderLockedAlert = () => (
+    <Dialog
+      open={showLockedAlert}
+      onClose={() => setShowLockedAlert(false)}
+      maxWidth="sm"
+      fullWidth
+    >
+      <DialogTitle>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <LockIcon color="warning" />
+          <Typography>Word Locked</Typography>
+        </Box>
+      </DialogTitle>
+      <DialogContent>
+        <Alert severity="info" sx={{ mt: 2 }}>
+          This word is not yet available at your current level. Continue practicing to unlock more words!
+        </Alert>
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body1" gutterBottom>
+            To unlock more words:
+          </Typography>
+          <ul className="list-disc pl-5">
+            <li>Complete quizzes for your current level</li>
+            <li>Master the required number of words</li>
+            <li>Practice reading materials</li>
+            <li>Meet the level requirements to advance</li>
+          </ul>
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setShowLockedAlert(false)}>Close</Button>
+      </DialogActions>
+    </Dialog>
   );
 
-  return (
-    <div className="py-8">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center">
-          <Link to="/" className="text-blue-600 hover:text-blue-800 mr-4">
-            ← Back to Home
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Vocabulary Builder</h1>
-        </div>
-        <div className="text-sm text-gray-600">
-          Progress: {completedWords}/{totalWords} words completed
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">Choose a Category</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {categories.map((category) => (
-                  <button
-                    key={category.id}
-                    onClick={() => setSelectedCategory(category.id)}
-                    className={`p-4 rounded-lg border ${
-                      selectedCategory === category.id
-                        ? 'bg-blue-100 border-blue-500'
-                        : 'bg-white border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {category.name}
-                  </button>
-                ))}
-              </div>
-            </div>
+  const renderLevelStats = () => (
+    <Box sx={{ mb: 4, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
+      <Typography variant="h6" gutterBottom>
+        Level Progress
+      </Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+        {levelStats.map((stats) => (
+          <Box
+            key={stats.level}
+            sx={{
+              p: 2,
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 1,
+              bgcolor: levelFilter === stats.level ? 'action.selected' : 'background.paper',
+              cursor: 'pointer',
+              '&:hover': {
+                bgcolor: 'action.hover'
+              }
+            }}
+            onClick={() => setLevelFilter(levelFilter === stats.level ? 'all' : stats.level)}
+          >
+            <Typography variant="subtitle1" gutterBottom>
+              Level {stats.level}
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Typography variant="body2">
+                Total Words: {stats.totalWords}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Box sx={{ width: '100%', height: 8, bgcolor: 'grey.200', borderRadius: 1, overflow: 'hidden' }}>
+                  <Box
+                    sx={{
+                      width: `${(stats.masteredWords / stats.totalWords) * 100}%`,
+                      height: '100%',
+                      bgcolor: 'success.main'
+                    }}
+                  />
+                  <Box
+                    sx={{
+                      width: `${(stats.inProgressWords / stats.totalWords) * 100}%`,
+                      height: '100%',
+                      bgcolor: 'warning.main',
+                      position: 'relative',
+                      top: -8
+                    }}
+                  />
+                </Box>
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                Mastered: {stats.masteredWords} | In Progress: {stats.inProgressWords} | Not Started: {stats.notStartedWords}
+              </Typography>
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
 
-            <div className="mb-6">
-              <input
-                type="text"
-                placeholder="Search vocabulary..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+  const renderLevelFilter = () => (
+    <Box sx={{ mb: 3 }}>
+      <Typography variant="subtitle2" gutterBottom>
+        Filter by Level
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Button
+          variant={levelFilter === 'all' ? 'contained' : 'outlined'}
+          onClick={() => setLevelFilter('all')}
+          size="small"
+        >
+          All Levels
+        </Button>
+        {wordLevels
+          .filter(level => unlockedLevels.includes(level.level))
+          .map(level => (
+            <Button
+              key={level.level}
+              variant={levelFilter === level.level ? 'contained' : 'outlined'}
+              onClick={() => setLevelFilter(level.level)}
+              size="small"
+            >
+              Level {level.level}
+              <Chip
+                size="small"
+                label={levelStats.find(s => s.level === level.level)?.totalWords || 0}
+                sx={{ ml: 1 }}
               />
-            </div>
+            </Button>
+          ))}
+      </Box>
+    </Box>
+  );
 
-            {currentCategory && (
-              <div className="space-y-4">
-                {filteredWords.map((word: Word, index: number) => (
-                  <React.Fragment key={index}>
-                    {renderWord(word)}
-                  </React.Fragment>
-                ))}
-              </div>
+  const renderWord = (word: typeof allWords[0]) => {
+    const wordLevel = wordLevels.find(level => 
+      level.words.some(w => w.japanese === word.japanese)
+    );
+    const isLocked = wordLevel && !unlockedLevels.includes(wordLevel.level);
+    const key = `${section}-${word.japanese}`;
+    const isMarked = progress[key]?.correct > 0;
+
+    return (
+      <Box
+        key={word.japanese}
+        onClick={() => handleWordClick(word)}
+        sx={{
+          cursor: isLocked ? 'not-allowed' : 'pointer',
+          opacity: isLocked ? 0.6 : 1,
+          position: 'relative',
+          '&:hover': {
+            backgroundColor: isLocked ? 'inherit' : 'action.hover'
+          }
+        }}
+        className="bg-gray-50 p-4 rounded-lg"
+      >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Box>
+            <Typography variant="h6" component="h3">
+              {word.japanese}
+            </Typography>
+            {settings.showRomajiVocabulary && (
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                {romajiMap[word.japanese.trim()] || 'Loading...'}
+              </Typography>
             )}
-          </div>
-        </div>
+            <Typography variant="body1" color="text.secondary">
+              {word.english}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {isLocked && <LockIcon color="action" fontSize="small" />}
+            {wordLevel && !isLocked && (
+              <Chip
+                size="small"
+                label={`Level ${wordLevel.level}`}
+                color="primary"
+                variant="outlined"
+              />
+            )}
+            <Chip
+              size="small"
+              label={word.difficulty}
+              color={
+                word.difficulty === 'easy' ? 'success' :
+                word.difficulty === 'medium' ? 'warning' :
+                'error'
+              }
+              variant="outlined"
+            />
+          </Box>
+        </Box>
 
-        <div>
+        {'synonym' in word && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Synonym: {word.synonym} | Antonym: {word.antonym}
+          </Typography>
+        )}
+
+        {'related' in word && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Related words: {word.related.join(', ')}
+          </Typography>
+        )}
+
+        {'usage' in word && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Usage: {word.usage}
+          </Typography>
+        )}
+
+        {'literal' in word && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Literal meaning: {word.literal}
+          </Typography>
+        )}
+
+        <Button
+          onClick={(e) => {
+            e.stopPropagation();
+            updateProgress(section, word.japanese, !isMarked);
+            playSound(isMarked ? 'incorrect' : 'correct');
+          }}
+          variant={isMarked ? "contained" : "outlined"}
+          color={isMarked ? "success" : "primary"}
+          size="small"
+          sx={{ mt: 2 }}
+        >
+          {isMarked ? '✓ Learned' : 'Mark as Learned'}
+        </Button>
+      </Box>
+    );
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Button
+            component={Link}
+            to="/"
+            variant="outlined"
+            color="primary"
+          >
+            ← Back to Home
+          </Button>
+          <Typography variant="h4" component="h1">
+            Vocabulary Builder
+          </Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary">
+          Progress: {completedWords}/{totalWords} words completed
+        </Typography>
+      </Box>
+
+      {/* Level Statistics */}
+      {renderLevelStats()}
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 3 }}>
+        <Box>
+          {/* Level Filter */}
+          {renderLevelFilter()}
+
+          <Box sx={{ bgcolor: 'background.paper', borderRadius: 1, p: 3, mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Choose a Category
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+              {categories.map((category) => (
+                <Button
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category.id)}
+                  variant={selectedCategory === category.id ? "contained" : "outlined"}
+                  color="primary"
+                  fullWidth
+                >
+                  {category.name}
+                </Button>
+              ))}
+            </Box>
+          </Box>
+
+          <Box sx={{ mb: 3 }}>
+            <input
+              type="text"
+              placeholder="Search vocabulary..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </Box>
+
+          <Stack spacing={2}>
+            {filteredWords.map((word) => renderWord(word))}
+          </Stack>
+        </Box>
+
+        <Box>
           <SettingsPanel />
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Box>
+
+      {renderLockedAlert()}
+    </Box>
   );
 };
 

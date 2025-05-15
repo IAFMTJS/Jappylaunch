@@ -30,7 +30,8 @@ const loadPrecachedData = async (): Promise<void> => {
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to load pre-cached data: ${response.status} ${response.statusText}`);
+        console.warn('[Kuroshiro] Failed to load pre-cached data, will use analyzer only');
+        return;
       }
       
       preloadedData = await response.json();
@@ -73,19 +74,16 @@ const initKuroshiro = async () => {
     initPromise = (async () => {
       if (!initialized) {
         try {
-          // Try to load pre-cached data first
+          // Always initialize the analyzer first
+          console.log('[Kuroshiro] Initializing KuromojiAnalyzer...');
+          const analyzer = new KuromojiAnalyzer({
+            dictPath: '/dict'
+          });
+          await kuroshiro.init(analyzer);
+          console.log('[Kuroshiro] Kuroshiro initialization successful');
+
+          // Then try to load pre-cached data
           await loadPrecachedData();
-          
-          // Only initialize Kuroshiro if we don't have pre-cached data
-          if (!preloadedData || Object.keys(preloadedData).length === 0) {
-            console.log('[Kuroshiro] No pre-cached data available, initializing Kuroshiro...');
-            const analyzer = new KuromojiAnalyzer();
-            console.log('[Kuroshiro] KuromojiAnalyzer created, initializing...');
-            await kuroshiro.init(analyzer);
-            console.log('[Kuroshiro] Kuroshiro initialization successful');
-          } else {
-            console.log('[Kuroshiro] Using pre-cached data, skipping Kuroshiro initialization');
-          }
           
           initialized = true;
         } catch (error) {

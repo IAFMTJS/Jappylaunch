@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useProgress } from '../context/ProgressContext';
 import { useTheme } from '../context/ThemeContext';
 import { kuroshiroInstance } from '../utils/kuroshiro';
+import { useApp } from '../context/AppContext';
+import type { Settings } from '../context/AppContext';
+import { quizWords, Category } from '../data/quizData';
 
 interface WordPair {
   id: string;
@@ -37,49 +40,150 @@ interface SentenceWord {
   isPlaced: boolean;
 }
 
+interface GameSettings {
+  showRomajiGames: boolean;
+  showKanjiGames: boolean;
+}
+
+// Separate game states
+interface BaseGameState {
+  isPlaying: boolean;
+  score: number;
+  mistakes: number;
+}
+
+interface MemoryCard {
+  id: number;
+  word: string;
+  match: string;
+  isFlipped: boolean;
+  isMatched: boolean;
+}
+
+interface MemoryGameState extends BaseGameState {
+  cards: MemoryCard[];
+  feedback: string;
+  isWin: boolean;
+}
+
+interface MatchingPair {
+  id: number;
+  japanese: string;
+  english: string;
+  hiragana: string;
+  isMatched: boolean;
+  isSelected: boolean;
+}
+
+interface MatchingGameState extends BaseGameState {
+  pairs: MatchingPair[];
+}
+
+interface SentenceGameState extends BaseGameState {
+  currentSentence: typeof sentenceExamples[0];
+  choices: SentenceWord[];
+  answer: SentenceWord[];
+  feedback: string;
+}
+
+interface QuizQuestion {
+  id: number;
+  question: string;
+  options: string[];
+  correctAnswer: string;
+}
+
+interface QuizGameState extends BaseGameState {
+  currentQuestion: number;
+  selectedAnswer: string | null;
+  showFeedback: boolean;
+  isCorrect: boolean | null;
+  showCorrect: boolean;
+  questions: QuizQuestion[];
+}
+
+interface AssociationGameState extends BaseGameState {
+  currentWord: string;
+  selectedAssociations: string[];
+  correctAssociations: string[];
+}
+
+const sentenceExamples = [
+  { english: 'I am a student.', japanese: 'わたし は がくせい です' },
+  { english: 'I go to school every day.', japanese: '毎日 学校 に 行きます' },
+  { english: 'I study Japanese.', japanese: '日本語 を 勉強 します' },
+  { english: 'I drink coffee in the morning.', japanese: '朝 コーヒー を のみます' },
+  { english: 'Tomorrow I will eat sushi.', japanese: '明日 すし を たべます' }
+] as const;
+
 const Section8 = () => {
   const { theme, isDarkMode } = useTheme();
-  const { updateProgress, settings } = useApp();
+  const { updateProgress } = useProgress();
+  const { settings } = useApp();
   const [selectedGame, setSelectedGame] = useState<string>('matching');
-  const [gameState, setGameState] = useState<GameState>({
-    isPlaying: false,
-    score: 0,
-    timeLeft: 60,
-    level: 1,
-    mistakes: 0
-  });
-  const [memoryCards, setMemoryCards] = useState<Card[]>([]);
-  const [matchingPairs, setMatchingPairs] = useState<WordPair[]>([]);
-  const [sentenceWords, setSentenceWords] = useState<SentenceWord[]>([]);
-  const [sentenceDropZone, setSentenceDropZone] = useState<SentenceWord[]>([]);
-  const [quizState, setQuizState] = useState({
-    currentQuestion: 0,
-    selectedAnswer: null as number | null,
-    showFeedback: false,
-    isCorrect: null as boolean | null,
-    showCorrect: false
-  });
-  const [associationState, setAssociationState] = useState({
-    currentWord: '',
-    selectedAssociations: [] as string[],
-    correctAssociations: [] as string[]
-  });
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [romajiMap, setRomajiMap] = useState<Record<string, string>>({});
-  const [memoryFeedback, setMemoryFeedback] = useState<string>('');
-  const [memoryWin, setMemoryWin] = useState<boolean>(false);
+  const [selectedCategory, setSelectedCategory] = useState<Category>('all');
 
+  // Game data
   const sentenceExamples = [
     { english: 'I am a student.', japanese: 'わたし は がくせい です' },
     { english: 'I go to school every day.', japanese: '毎日 学校 に 行きます' },
     { english: 'I study Japanese.', japanese: '日本語 を 勉強 します' },
     { english: 'I drink coffee in the morning.', japanese: '朝 コーヒー を のみます' },
-    { english: 'Tomorrow I will eat sushi.', japanese: '明日 すし を たべます' },
-  ];
-  const [currentSentence, setCurrentSentence] = useState(sentenceExamples[0]);
-  const [sentenceChoices, setSentenceChoices] = useState<string[]>([]);
-  const [sentenceAnswer, setSentenceAnswer] = useState<string[]>([]);
-  const [sentenceFeedback, setSentenceFeedback] = useState<string>('');
-  const [sentenceScore, setSentenceScore] = useState<number>(0);
+    { english: 'Tomorrow I will eat sushi.', japanese: '明日 すし を たべます' }
+  ] as const;
+
+  // Game-specific states
+  const [memoryState, setMemoryState] = useState<MemoryGameState>({
+    isPlaying: false,
+    score: 0,
+    mistakes: 0,
+    cards: [],
+    feedback: '',
+    isWin: false
+  });
+
+  const [matchingState, setMatchingState] = useState<MatchingGameState>({
+    isPlaying: false,
+    score: 0,
+    mistakes: 0,
+    pairs: []
+  });
+
+  const [sentenceState, setSentenceState] = useState<SentenceGameState>({
+    isPlaying: false,
+    score: 0,
+    mistakes: 0,
+    currentSentence: sentenceExamples[0],
+    choices: [],
+    answer: [],
+    feedback: ''
+  });
+
+  const [quizState, setQuizState] = useState<QuizGameState>({
+    isPlaying: false,
+    score: 0,
+    mistakes: 0,
+    currentQuestion: 0,
+    selectedAnswer: null,
+    showFeedback: false,
+    isCorrect: null,
+    showCorrect: false,
+    questions: []
+  });
+
+  const [associationState, setAssociationState] = useState<AssociationGameState>({
+    isPlaying: false,
+    score: 0,
+    mistakes: 0,
+    currentWord: '',
+    selectedAssociations: [],
+    correctAssociations: []
+  });
+
+  // Timer state
+  const [timeLeft, setTimeLeft] = useState<number>(60);
 
   const games = [
     { id: 'matching', name: 'Word Matching', description: 'Match Japanese words with their English meanings' },
@@ -90,31 +194,32 @@ const Section8 = () => {
   ];
 
   // Game data
-  const matchingGameData: WordPair[] = [
-    { id: '1', japanese: '猫', english: 'cat', hiragana: 'ねこ' },
-    { id: '2', japanese: '犬', english: 'dog', hiragana: 'いぬ' },
-    { id: '3', japanese: '鳥', english: 'bird', hiragana: 'とり' },
-    { id: '4', japanese: '魚', english: 'fish', hiragana: 'さかな' },
-    { id: '5', japanese: '本', english: 'book', hiragana: 'ほん' },
-    { id: '6', japanese: '水', english: 'water', hiragana: 'みず' },
-    { id: '7', japanese: '山', english: 'mountain', hiragana: 'やま' },
-    { id: '8', japanese: '川', english: 'river', hiragana: 'かわ' },
-    { id: '9', japanese: '空', english: 'sky', hiragana: 'そら' },
-    { id: '10', japanese: '海', english: 'sea', hiragana: 'うみ' },
-    { id: '11', japanese: '花', english: 'flower', hiragana: 'はな' },
-    { id: '12', japanese: '木', english: 'tree', hiragana: 'き' },
-    { id: '13', japanese: 'あめ', english: 'rain', hiragana: 'あめ' },
-    { id: '14', japanese: 'くも', english: 'cloud', hiragana: 'くも' },
-    { id: '15', japanese: 'かみ', english: 'paper', hiragana: 'かみ' },
-    { id: '16', japanese: 'みず', english: 'water', hiragana: 'みず' },
-    { id: '17', japanese: 'テレビ', english: 'TV', hiragana: 'テレビ' },
-    { id: '18', japanese: 'ラジオ', english: 'radio', hiragana: 'ラジオ' },
-    { id: '19', japanese: 'パソコン', english: 'computer', hiragana: 'パソコン' },
-    { id: '20', japanese: 'カメラ', english: 'camera', hiragana: 'カメラ' },
-    { id: '21', japanese: 'ピアノ', english: 'piano', hiragana: 'ピアノ' },
-    { id: '22', japanese: 'ギター', english: 'guitar', hiragana: 'ギター' },
-    { id: '23', japanese: 'コーヒー', english: 'coffee', hiragana: 'コーヒー' },
-    { id: '24', japanese: 'ジュース', english: 'juice', hiragana: 'ジュース' }
+  const memoryGameData: MemoryCard[] = [
+    { id: 1, word: 'あ', match: 'a', isFlipped: false, isMatched: false },
+    { id: 2, word: 'い', match: 'i', isFlipped: false, isMatched: false },
+    { id: 3, word: 'う', match: 'u', isFlipped: false, isMatched: false },
+    { id: 4, word: 'え', match: 'e', isFlipped: false, isMatched: false },
+    { id: 5, word: 'お', match: 'o', isFlipped: false, isMatched: false },
+    { id: 6, word: 'か', match: 'ka', isFlipped: false, isMatched: false },
+    { id: 7, word: 'き', match: 'ki', isFlipped: false, isMatched: false },
+    { id: 8, word: 'く', match: 'ku', isFlipped: false, isMatched: false },
+    { id: 9, word: 'け', match: 'ke', isFlipped: false, isMatched: false },
+    { id: 10, word: 'こ', match: 'ko', isFlipped: false, isMatched: false },
+    { id: 11, word: 'さ', match: 'sa', isFlipped: false, isMatched: false },
+    { id: 12, word: 'し', match: 'shi', isFlipped: false, isMatched: false },
+    { id: 13, word: 'す', match: 'su', isFlipped: false, isMatched: false },
+    { id: 14, word: 'せ', match: 'se', isFlipped: false, isMatched: false },
+    { id: 15, word: 'そ', match: 'so', isFlipped: false, isMatched: false },
+    { id: 16, word: 'た', match: 'ta', isFlipped: false, isMatched: false }
+  ];
+
+  const matchingGameData: MatchingPair[] = [
+    { id: 1, japanese: '猫', english: 'cat', hiragana: 'ねこ', isMatched: false, isSelected: false },
+    { id: 2, japanese: '犬', english: 'dog', hiragana: 'いぬ', isMatched: false, isSelected: false },
+    { id: 3, japanese: '鳥', english: 'bird', hiragana: 'とり', isMatched: false, isSelected: false },
+    { id: 4, japanese: '魚', english: 'fish', hiragana: 'さかな', isMatched: false, isSelected: false },
+    { id: 5, japanese: '本', english: 'book', hiragana: 'ほん', isMatched: false, isSelected: false },
+    { id: 6, japanese: '水', english: 'water', hiragana: 'みず', isMatched: false, isSelected: false }
   ];
 
   const sentenceGameData = [
@@ -152,310 +257,174 @@ const Section8 = () => {
     { id: 32, word: 'ジュース', type: 'noun' }
   ];
 
-  const memoryGameData = [
-    { id: 1, content: 'あ', match: 'a' },
-    { id: 2, content: 'い', match: 'i' },
-    { id: 3, content: 'う', match: 'u' },
-    { id: 4, content: 'え', match: 'e' },
-    { id: 5, content: 'お', match: 'o' },
-    { id: 6, content: 'か', match: 'ka' },
-    { id: 7, content: 'き', match: 'ki' },
-    { id: 8, content: 'く', match: 'ku' },
-    { id: 9, content: 'け', match: 'ke' },
-    { id: 10, content: 'こ', match: 'ko' },
-    { id: 11, content: 'さ', match: 'sa' },
-    { id: 12, content: 'し', match: 'shi' },
-    { id: 13, content: 'す', match: 'su' },
-    { id: 14, content: 'せ', match: 'se' },
-    { id: 15, content: 'そ', match: 'so' },
-    { id: 16, content: 'た', match: 'ta' }
-  ];
-
-  const quizGameData = [
-    {
-      question: 'What is the Japanese word for "book"?',
-      options: ['ほん', 'えんぴつ', 'つくえ', 'いす'],
-      correct: 0
-    },
-    {
-      question: 'How do you say "good morning" in Japanese?',
-      options: ['こんにちは', 'おはようございます', 'こんばんは', 'さようなら'],
-      correct: 1
-    },
-    {
-      question: 'What does "水" mean?',
-      options: ['Fire', 'Water', 'Earth', 'Air'],
-      correct: 1
-    },
-    {
-      question: 'What is the Japanese word for "mountain"?',
-      options: ['やま', 'かわ', 'うみ', 'そら'],
-      correct: 0
-    },
-    {
-      question: 'How do you say "thank you" in Japanese?',
-      options: ['ありがとう', 'すみません', 'おめでとう', 'さようなら'],
-      correct: 0
-    },
-    {
-      question: 'What does "学校" mean?',
-      options: ['School', 'Hospital', 'Library', 'Park'],
-      correct: 0
-    },
-    {
-      question: 'What is the Japanese word for "flower"?',
-      options: ['はな', 'き', 'くさ', 'みどり'],
-      correct: 0
-    },
-    {
-      question: 'How do you say "I am a student" in Japanese?',
-      options: ['わたしはがくせいです', 'わたしはせんせいです', 'わたしはいしゃです', 'わたしはエンジニアです'],
-      correct: 0
-    },
-    {
-      question: 'What does "毎日" mean?',
-      options: ['Every day', 'Sometimes', 'Never', 'Once'],
-      correct: 0
-    },
-    {
-      question: 'What is the Japanese word for "tree"?',
-      options: ['き', 'はな', 'くさ', 'みどり'],
-      correct: 0
-    },
-    {
-      question: 'What is the Japanese word for "rain"?',
-      options: ['あめ', 'くも', 'かぜ', 'ゆき'],
-      correct: 0
-    },
-    {
-      question: 'How do you say "computer" in Japanese?',
-      options: ['パソコン', 'テレビ', 'ラジオ', 'カメラ'],
-      correct: 0
-    },
-    {
-      question: 'What is the Japanese word for "piano"?',
-      options: ['ピアノ', 'ギター', 'バイオリン', 'ドラム'],
-      correct: 0
-    },
-    {
-      question: 'How do you say "coffee" in Japanese?',
-      options: ['コーヒー', 'ジュース', 'おちゃ', 'みず'],
-      correct: 0
-    },
-    {
-      question: 'What is the Japanese word for "morning"?',
-      options: ['あさ', 'よる', 'ひる', 'ゆうがた'],
-      correct: 0
-    },
-    {
-      question: 'How do you say "to eat" in Japanese?',
-      options: ['たべる', 'のむ', 'みる', 'きく'],
-      correct: 0
-    },
-    {
-      question: 'What is the Japanese word for "camera"?',
-      options: ['カメラ', 'テレビ', 'ラジオ', 'パソコン'],
-      correct: 0
-    },
-    {
-      question: 'How do you say "juice" in Japanese?',
-      options: ['ジュース', 'コーヒー', 'おちゃ', 'みず'],
-      correct: 0
-    }
-  ];
-
-  const associationGameData = [
-    {
-      word: '食べる',
-      associations: ['ごはん', 'レストラン', 'お箸', 'おいしい', '料理'],
-      distractors: ['学校', '本', '電車', '音楽']
-    },
-    {
-      word: '学校',
-      associations: ['勉強', '先生', '学生', '教室', '授業'],
-      distractors: ['食べる', '旅行', '音楽', 'スポーツ']
-    },
-    {
-      word: '旅行',
-      associations: ['飛行機', 'ホテル', '観光', 'カメラ', '地図'],
-      distractors: ['学校', '仕事', '勉強', '料理']
-    },
-    {
-      word: '音楽',
-      associations: ['ピアノ', 'ギター', '歌', 'コンサート', 'CD'],
-      distractors: ['料理', '勉強', '運動', '仕事']
-    },
-    {
-      word: 'スポーツ',
-      associations: ['サッカー', '野球', 'テニス', '運動', '試合'],
-      distractors: ['勉強', '料理', '音楽', '旅行']
-    },
-    {
-      word: 'テレビ',
-      associations: ['ニュース', 'ドラマ', 'アニメ', 'チャンネル', 'リモコン'],
-      distractors: ['ラジオ', 'パソコン', 'カメラ', 'ピアノ']
-    },
-    {
-      word: 'コーヒー',
-      associations: ['カフェ', 'ミルク', '砂糖', 'カップ', 'ドーナツ'],
-      distractors: ['ジュース', 'おちゃ', 'みず', 'ビール']
-    },
-    {
-      word: 'たべる',
-      associations: ['ごはん', 'レストラン', 'お箸', 'おいしい', '料理'],
-      distractors: ['のむ', 'みる', 'きく', 'あるく']
-    },
-    {
-      word: 'あさ',
-      associations: ['おはよう', '朝ごはん', '新聞', 'テレビ', 'コーヒー'],
-      distractors: ['よる', 'ひる', 'ゆうがた', 'ばん']
-    },
-    {
-      word: 'ピアノ',
-      associations: ['音楽', 'コンサート', '練習', '曲', '先生'],
-      distractors: ['ギター', 'バイオリン', 'ドラム', 'フルート']
-    }
-  ];
-
   // Game initialization functions
   const initializeSentenceBuilder = useCallback(() => {
     console.log('Initializing sentence builder...');
     try {
       const example = sentenceExamples[Math.floor(Math.random() * sentenceExamples.length)];
-      setCurrentSentence(example);
-      const words = example.japanese.split(' ');
-      setSentenceChoices(words.sort(() => Math.random() - 0.5));
-      setSentenceAnswer([]);
-      setSentenceFeedback('');
-      setSentenceScore(0);
+      setSentenceState(prev => ({
+        ...prev,
+        currentSentence: example,
+        choices: example.japanese.split(' ').map((word, idx) => ({ id: idx, word, type: 'word', isPlaced: false })).sort(() => Math.random() - 0.5),
+        answer: [],
+        feedback: '',
+        score: 0,
+        mistakes: 0
+      }));
       console.log('Sentence builder initialized successfully');
     } catch (error) {
       console.error('Error initializing sentence builder:', error);
-      setSentenceFeedback('Error initializing game. Please try again.');
+      setSentenceState(prev => ({ ...prev, feedback: 'Error initializing game. Please try again.' }));
     }
   }, [sentenceExamples]);
 
   const initializeMemoryGame = useCallback(() => {
-    console.log('Initializing memory game...');
-    try {
-      // Create pairs of cards
-      const pairs = matchingGameData.map(item => [
-        { 
-          id: `${item.id}-japanese`, 
-          content: item.japanese, 
-          type: 'japanese', 
-          isFlipped: false, 
-          isMatched: false,
-          match: item.hiragana
-        },
-        { 
-          id: `${item.id}-hiragana`, 
-          content: item.hiragana, 
-          type: 'hiragana', 
-          isFlipped: false, 
-          isMatched: false,
-          match: item.japanese
-        }
-      ]).flat();
-
-      // Shuffle the cards
-      const shuffled = pairs.sort(() => Math.random() - 0.5);
-      setMemoryCards(shuffled);
-      setMemoryFeedback('');
-      setMemoryWin(false);
-      console.log('Memory game initialized successfully with', shuffled.length, 'cards');
-    } catch (error) {
-      console.error('Error initializing memory game:', error);
-      setMemoryFeedback('Error initializing game. Please try again.');
-    }
-  }, [matchingGameData]);
+    const shuffledCards = [...memoryGameData]
+      .sort(() => Math.random() - 0.5)
+      .map(card => ({ ...card, isFlipped: false, isMatched: false }));
+    
+    setMemoryState(prev => ({
+      ...prev,
+      cards: shuffledCards,
+      feedback: '',
+      isWin: false,
+      score: 0,
+      mistakes: 0,
+      isPlaying: true
+    }));
+  }, []);
 
   const initializeMatchingGame = useCallback(() => {
-    const pairs = matchingGameData.map(item => ({
-      ...item,
-      isMatched: false,
-      isSelected: false
+    const shuffledPairs = [...matchingGameData]
+      .sort(() => Math.random() - 0.5)
+      .map(pair => ({ ...pair, isMatched: false, isSelected: false }));
+    
+    setMatchingState(prev => ({
+      ...prev,
+      pairs: shuffledPairs,
+      score: 0,
+      mistakes: 0,
+      isPlaying: true
     }));
-    setMatchingPairs(pairs);
-  }, [matchingGameData]);
+  }, []);
 
   const initializeSentenceGameData = useCallback(() => {
     const words = sentenceGameData
       .map(word => ({ ...word, isPlaced: false }))
       .sort(() => Math.random() - 0.5);
-    setSentenceWords(words);
-    setSentenceDropZone([]);
+    setSentenceState(prev => ({
+      ...prev,
+      choices: words,
+      answer: [],
+      score: 0,
+      mistakes: 0
+    }));
   }, []);
 
   const initializeQuizGame = useCallback(() => {
-    setQuizState({
+    // Filter questions based on selectedCategory
+    let filteredQuestions = quizWords;
+    if (selectedCategory === 'hiragana') {
+      filteredQuestions = quizWords.filter(q => q.isHiragana);
+    } else if (selectedCategory === 'katakana') {
+      filteredQuestions = quizWords.filter(q => q.isKatakana);
+    }
+    // Shuffle and pick 10 questions
+    const shuffled = [...filteredQuestions].sort(() => Math.random() - 0.5).slice(0, 10);
+    // Map to QuizQuestion format
+    const questions = shuffled.map((q, idx) => ({
+      id: idx + 1,
+      question: `What is the reading for "${q.japanese}"?`,
+      options: shuffleArray([
+        q.english,
+        ...shuffleArray(quizWords.filter(w => w !== q && ((selectedCategory === 'hiragana' && w.isHiragana) || (selectedCategory === 'katakana' && w.isKatakana) || selectedCategory === 'all')).map(w => w.english)).slice(0, 3)
+      ]),
+      correctAnswer: q.english
+    }));
+    setQuizState(prev => ({
+      ...prev,
       currentQuestion: 0,
       selectedAnswer: null,
       showFeedback: false,
       isCorrect: null,
-      showCorrect: false
-    });
-  }, []);
+      showCorrect: false,
+      score: 0,
+      mistakes: 0,
+      questions
+    }));
+  }, [selectedCategory]);
 
   const initializeAssociationGame = useCallback(() => {
     const currentWordData = associationGameData[0];
-    setAssociationState({
+    setAssociationState(prev => ({
+      ...prev,
       currentWord: currentWordData.word,
       selectedAssociations: [],
-      correctAssociations: currentWordData.associations
-    });
+      correctAssociations: currentWordData.associations,
+      score: 0,
+      mistakes: 0
+    }));
   }, []);
 
+  // Helper to shuffle an array
+  function shuffleArray<T>(array: T[]): T[] {
+    return array.slice().sort(() => Math.random() - 0.5);
+  }
+
   // Game action handlers
-  const handleMemoryCardClick = (cardId: string) => {
-    if (!gameState.isPlaying) return;
-    setMemoryFeedback('');
-    setMemoryCards(prev => {
-      const flippedCards = prev.filter(card => card.isFlipped && !card.isMatched);
-      if (flippedCards.length === 2) return prev;
-      const newCards = prev.map(card => {
-        if (card.id === cardId && !card.isFlipped && !card.isMatched) {
-          return { ...card, isFlipped: true };
-        }
-        return card;
-      });
-      const newlyFlipped = newCards.filter(card => card.isFlipped && !card.isMatched);
-      if (newlyFlipped.length === 2) {
-        const [card1, card2] = newlyFlipped;
-        if (card1.match === card2.match) {
-          setTimeout(() => {
-            setMemoryCards(cards =>
-              cards.map(card =>
-                card.id === card1.id || card.id === card2.id
-                  ? { ...card, isMatched: true }
-                  : card
-              )
-            );
-            setGameState(prev => ({ ...prev, score: prev.score + 10 }));
-            setMemoryFeedback('Correct!');
-          }, 500);
+  const handleMemoryCardClick = (cardId: number) => {
+    if (!memoryState.isPlaying) return;
+
+    setMemoryState(prev => {
+      const card = prev.cards.find(c => c.id === cardId);
+      if (!card || card.isMatched || card.isFlipped) return prev;
+
+      const flippedCards = prev.cards.filter(c => c.isFlipped && !c.isMatched);
+      const newCards = prev.cards.map(c => 
+        c.id === cardId ? { ...c, isFlipped: true } : c
+      );
+
+      if (flippedCards.length === 1) {
+        const firstCard = flippedCards[0];
+        const secondCard = card;
+
+        if (firstCard.match === secondCard.match) {
+          return {
+            ...prev,
+            cards: newCards.map(c => 
+              c.id === firstCard.id || c.id === secondCard.id
+                ? { ...c, isMatched: true }
+                : c
+            ),
+            score: prev.score + 1
+          };
         } else {
           setTimeout(() => {
-            setMemoryCards(cards =>
-              cards.map(card => ({ ...card, isFlipped: false }))
-            );
-            setGameState(prev => ({ ...prev, mistakes: prev.mistakes + 1 }));
-            setMemoryFeedback('Try again!');
+            setMemoryState(current => ({
+              ...current,
+              cards: current.cards.map(c => 
+                c.id === firstCard.id || c.id === secondCard.id
+                  ? { ...c, isFlipped: false }
+                  : c
+              ),
+              mistakes: current.mistakes + 1
+            }));
           }, 1000);
         }
       }
-      return newCards;
+
+      return { ...prev, cards: newCards };
     });
   };
 
   const handleMatchingPairClick = (pairId: string) => {
-    if (!gameState.isPlaying) return;
+    if (!matchingState.isPlaying) return;
     
-    setMatchingPairs(prev => {
-      const selectedPairs = prev.filter(pair => !pair.isMatched);
+    setMatchingState(prev => {
+      const selectedPairs = prev.pairs.filter(pair => !pair.isMatched);
       if (selectedPairs.length === 2) return prev;
 
-      const newPairs = prev.map(pair => {
+      const newPairs = prev.pairs.map(pair => {
         if (pair.id === pairId && !pair.isMatched) {
           return { ...pair, isSelected: !pair.isSelected };
         }
@@ -467,62 +436,74 @@ const Section8 = () => {
         const [pair1, pair2] = selected;
         if (pair1.english === pair2.english || pair1.japanese === pair2.japanese) {
           setTimeout(() => {
-            setMatchingPairs(pairs =>
+            setMatchingState(pairs =>
               pairs.map(pair =>
                 pair.id === pair1.id || pair.id === pair2.id
                   ? { ...pair, isMatched: true, isSelected: false }
                   : pair
               )
             );
-            setGameState(prev => ({ ...prev, score: prev.score + 10 }));
+            setMemoryState(prev => ({ ...prev, score: prev.score + 10 }));
           }, 500);
         } else {
           setTimeout(() => {
-            setMatchingPairs(pairs =>
+            setMatchingState(pairs =>
               pairs.map(pair => ({ ...pair, isSelected: false }))
             );
-            setGameState(prev => ({ ...prev, mistakes: prev.mistakes + 1 }));
+            setMemoryState(prev => ({ ...prev, mistakes: prev.mistakes + 1 }));
           }, 1000);
         }
       }
 
-      return newPairs;
+      return { ...prev, pairs: newPairs };
     });
   };
 
   const handleSentenceWordDrag = (wordId: number) => {
-    if (!gameState.isPlaying) return;
+    if (!sentenceState.isPlaying) return;
     
-    setSentenceWords(prev => {
-      const word = prev.find(w => w.id === wordId);
+    setSentenceState(prev => {
+      const word = prev.choices.find(w => w.id === wordId);
       if (!word || word.isPlaced) return prev;
 
-      setSentenceDropZone(zone => [...zone, { ...word, isPlaced: true }]);
-      return prev.map(w => w.id === wordId ? { ...w, isPlaced: true } : w);
+      return {
+        ...prev,
+        choices: prev.choices.map(w => w.id === wordId ? { ...w, isPlaced: true } : w),
+        answer: [...prev.answer, { ...word, isPlaced: true }]
+      };
     });
   };
 
-  const handleQuizAnswerSelect = (answerIndex: number) => {
-    if (!gameState.isPlaying || quizState.showFeedback) return;
+  const handleQuizAnswer = (answer: string) => {
+    if (!quizState.isPlaying) return;
 
-    const isCorrect = answerIndex === quizGameData[quizState.currentQuestion].correct;
+    const currentQuestion = quizState.questions[quizState.currentQuestion];
+    const isCorrect = answer === currentQuestion.correctAnswer;
+
     setQuizState(prev => ({
       ...prev,
-      selectedAnswer: answerIndex,
+      selectedAnswer: answer,
       showFeedback: true,
       isCorrect,
-      showCorrect: !isCorrect
+      showCorrect: true,
+      score: isCorrect ? prev.score + 1 : prev.score,
+      mistakes: isCorrect ? prev.mistakes : prev.mistakes + 1
     }));
 
-    if (isCorrect) {
-      setGameState(prev => ({ ...prev, score: prev.score + 10 }));
-    } else {
-      setGameState(prev => ({ ...prev, mistakes: prev.mistakes + 1 }));
-    }
+    setTimeout(() => {
+      setQuizState(prev => ({
+        ...prev,
+        currentQuestion: prev.currentQuestion + 1,
+        selectedAnswer: null,
+        showFeedback: false,
+        isCorrect: null,
+        showCorrect: false
+      }));
+    }, 2000);
   };
 
   const handleNextQuizQuestion = () => {
-    if (quizState.currentQuestion < quizGameData.length - 1) {
+    if (quizState.currentQuestion < quizState.questions.length - 1) {
       setQuizState(prev => ({
         ...prev,
         currentQuestion: prev.currentQuestion + 1,
@@ -537,16 +518,16 @@ const Section8 = () => {
   };
 
   const handleAssociationSelect = (association: string) => {
-    if (!gameState.isPlaying) return;
+    if (!associationState.isPlaying) return;
 
     setAssociationState(prev => {
       const newSelected = [...prev.selectedAssociations, association];
       const isCorrect = associationGameData[0].associations.includes(association);
       
       if (isCorrect) {
-        setGameState(game => ({ ...game, score: game.score + 5 }));
+        setMemoryState(game => ({ ...game, score: game.score + 5 }));
       } else {
-        setGameState(game => ({ ...game, mistakes: game.mistakes + 1 }));
+        setMemoryState(game => ({ ...game, mistakes: game.mistakes + 1 }));
       }
 
       return {
@@ -557,89 +538,140 @@ const Section8 = () => {
   };
 
   // Game state management
-  const startGame = () => {
-    setGameState({
-      isPlaying: true,
-      score: 0,
-      timeLeft: 60,
-      level: 1,
-      mistakes: 0
-    });
+  const startGame = useCallback(() => {
+    console.log('Starting game:', selectedGame);
+    setTimeLeft(60);
 
     switch (selectedGame) {
       case 'memory':
+        setMemoryState(prev => ({ ...prev, isPlaying: true }));
         initializeMemoryGame();
         break;
       case 'matching':
+        setMatchingState(prev => ({ ...prev, isPlaying: true }));
         initializeMatchingGame();
         break;
       case 'sentence':
+        setSentenceState(prev => ({ ...prev, isPlaying: true }));
         initializeSentenceBuilder();
         break;
       case 'quiz':
+        setQuizState(prev => ({ ...prev, isPlaying: true }));
         initializeQuizGame();
         break;
       case 'association':
+        setAssociationState(prev => ({ ...prev, isPlaying: true }));
         initializeAssociationGame();
         break;
     }
-  };
+  }, [selectedGame, initializeMemoryGame, initializeMatchingGame, initializeSentenceBuilder, initializeQuizGame, initializeAssociationGame]);
 
-  const endGame = () => {
-    setGameState(prev => ({ ...prev, isPlaying: false }));
-    
-    // Update progress
-    updateProgress('section8', gameState.score, 100, {
-      score: gameState.score,
-      category: selectedGame,
-      difficulty: 'medium',
-      quizType: 'game',
-      timeTaken: 60 - gameState.timeLeft,
-      date: new Date().toISOString(),
-      totalQuestions: 10,
-      correctAnswers: Math.floor(gameState.score / 10)
-    });
-  };
+  const endGame = useCallback(() => {
+    console.log('Ending game:', selectedGame);
+    const getScore = () => {
+      switch (selectedGame) {
+        case 'memory': return memoryState.score;
+        case 'matching': return matchingState.score;
+        case 'sentence': return sentenceState.score;
+        case 'quiz': return quizState.score;
+        case 'association': return associationState.score;
+        default: return 0;
+      }
+    };
 
-  // Timer effect
+    const score = getScore();
+    if (score > 0) {
+      const itemId = `${selectedGame}-${Date.now()}`;
+      updateProgress('section8', itemId, true).catch((err: Error) => {
+        console.error('Failed to update progress:', err);
+      });
+    }
+
+    switch (selectedGame) {
+      case 'memory':
+        setMemoryState(prev => ({ ...prev, isPlaying: false }));
+        break;
+      case 'matching':
+        setMatchingState(prev => ({ ...prev, isPlaying: false }));
+        break;
+      case 'sentence':
+        setSentenceState(prev => ({ ...prev, isPlaying: false }));
+        break;
+      case 'quiz':
+        setQuizState(prev => ({ ...prev, isPlaying: false }));
+        break;
+      case 'association':
+        setAssociationState(prev => ({ ...prev, isPlaying: false }));
+        break;
+    }
+  }, [selectedGame, memoryState.score, matchingState.score, sentenceState.score, quizState.score, associationState.score, updateProgress]);
+
+  // Timer effect - only run for active game
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (gameState.isPlaying && gameState.timeLeft > 0) {
+    const isPlaying = (() => {
+      switch (selectedGame) {
+        case 'memory': return memoryState.isPlaying;
+        case 'matching': return matchingState.isPlaying;
+        case 'sentence': return sentenceState.isPlaying;
+        case 'quiz': return quizState.isPlaying;
+        case 'association': return associationState.isPlaying;
+        default: return false;
+      }
+    })();
+
+    if (isPlaying && timeLeft > 0) {
       timer = setInterval(() => {
-        setGameState(prev => {
-          if (prev.timeLeft <= 1) {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
             endGame();
             return prev;
           }
-          return { ...prev, timeLeft: prev.timeLeft - 1 };
+          return prev - 1;
         });
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [gameState.isPlaying, gameState.timeLeft]);
+  }, [selectedGame, memoryState.isPlaying, matchingState.isPlaying, sentenceState.isPlaying, quizState.isPlaying, associationState.isPlaying, timeLeft, endGame]);
 
   // Game completion checks
   useEffect(() => {
-    if (!gameState.isPlaying) return;
+    const isPlaying = (() => {
+      switch (selectedGame) {
+        case 'memory': return memoryState.isPlaying;
+        case 'matching': return matchingState.isPlaying;
+        case 'sentence': return sentenceState.isPlaying;
+        case 'quiz': return quizState.isPlaying;
+        case 'association': return associationState.isPlaying;
+        default: return false;
+      }
+    })();
+
+    if (!isPlaying) return;
 
     switch (selectedGame) {
       case 'memory':
-        if (memoryCards.every(card => card.isMatched)) {
+        if (memoryState.cards.every((card: MemoryCard) => card.isMatched)) {
           endGame();
         }
         break;
       case 'matching':
-        if (matchingPairs.every(pair => pair.isMatched)) {
+        if (matchingState.pairs.every((pair: MatchingPair) => pair.isMatched)) {
           endGame();
         }
         break;
       case 'sentence':
-        if (sentenceWords.every(word => word.isPlaced)) {
+        if (sentenceState.choices.every((word: SentenceWord) => word.isPlaced)) {
+          endGame();
+        }
+        break;
+      case 'quiz':
+        if (quizState.currentQuestion >= quizState.questions.length) {
           endGame();
         }
         break;
     }
-  }, [memoryCards, matchingPairs, sentenceWords, gameState.isPlaying, selectedGame]);
+  }, [selectedGame, memoryState, matchingState, sentenceState, quizState, associationState, endGame]);
 
   // Function to get romaji for a given text
   const getRomaji = async (text: string) => {
@@ -654,191 +686,35 @@ const Section8 = () => {
     }
   };
 
-  // Initialize games when component mounts
-  useEffect(() => {
-    console.log('Section8 component mounted, initializing games...');
-    initializeSentenceBuilder();
-    initializeMemoryGame();
-    initializeMatchingGame();
-  }, [initializeSentenceBuilder, initializeMemoryGame, initializeMatchingGame]);
-
-  // Update romaji when settings change
-  useEffect(() => {
-    if (settings.showRomajiGames) {
-      console.log('Updating romaji for games...');
-      const updateRomaji = async () => {
-        try {
-          // Update romaji for sentence game
-          const sentenceWords = sentenceExamples.flatMap(example => example.japanese.split(' '));
-          for (const word of sentenceWords) {
-            if (!romajiMap[word]) {
-              await getRomaji(word);
-            }
-          }
-
-          // Update romaji for memory game
-          for (const item of matchingGameData) {
-            if (!romajiMap[item.japanese]) {
-              await getRomaji(item.japanese);
-            }
-            if (!romajiMap[item.hiragana]) {
-              await getRomaji(item.hiragana);
-            }
-          }
-
-          console.log('Romaji update complete');
-        } catch (error) {
-          console.error('Error updating romaji:', error);
-        }
-      };
-      updateRomaji();
-    }
-  }, [settings.showRomajiGames]);
-
-  // Functie om een nieuwe zin te starten
-  const startNewSentence = () => {
-    const example = sentenceExamples[Math.floor(Math.random() * sentenceExamples.length)];
-    setCurrentSentence(example);
-    const words = example.japanese.split(' ');
-    setSentenceChoices(words.sort(() => Math.random() - 0.5));
-    setSentenceAnswer([]);
-    setSentenceFeedback('');
-  };
-
-  // Start een nieuwe zin bij het starten van het spel
-  useEffect(() => {
-    if (selectedGame === 'sentence' && gameState.isPlaying) {
-      startNewSentence();
-    }
-  }, [selectedGame, gameState.isPlaying]);
-
-  // Handler voor het kiezen van een woord
-  const handleSentenceChoice = (word: string, idx: number) => {
-    setSentenceAnswer(ans => [...ans, word]);
-    setSentenceChoices(choices => choices.filter((w, i) => i !== idx));
-  };
-
-  // Handler voor het verwijderen van een woord uit het antwoord
-  const handleRemoveAnswerWord = (idx: number) => {
-    setSentenceChoices(choices => [...choices, sentenceAnswer[idx]]);
-    setSentenceAnswer(ans => ans.filter((w, i) => i !== idx));
-  };
-
-  // Controleer of het antwoord klopt
-  useEffect(() => {
-    if (sentenceAnswer.length === currentSentence.japanese.split(' ').length) {
-      if (sentenceAnswer.join(' ') === currentSentence.japanese) {
-        setSentenceFeedback('Correct!');
-        setSentenceScore(score => score + 1);
-      } else {
-        setSentenceFeedback('Incorrect, try again!');
-      }
-    } else {
-      setSentenceFeedback('');
-    }
-  }, [sentenceAnswer, currentSentence]);
-
-  // Winmelding effect:
-  useEffect(() => {
-    if (gameState.isPlaying && memoryCards.length > 0 && memoryCards.every(card => card.isMatched)) {
-      setMemoryWin(true);
-      setTimeout(() => setMemoryWin(false), 2000);
-    }
-  }, [memoryCards, gameState.isPlaying]);
-
+  // Modify the render function to use game-specific states
   const renderGameContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      );
+    }
+
     switch (selectedGame) {
-      case 'matching':
-        return (
-          <div className="grid grid-cols-2 gap-4">
-            {matchingPairs.map((pair) => (
-              <button
-                key={pair.id}
-                onClick={() => handleMatchingPairClick(pair.id)}
-                className={`p-4 rounded-lg border transition-all ${
-                  pair.isMatched
-                    ? 'bg-green-100 border-green-500'
-                    : pair.isSelected
-                    ? 'bg-blue-100 border-blue-500'
-                    : 'bg-white border-gray-300 hover:bg-gray-50'
-                }`}
-                disabled={pair.isMatched || !gameState.isPlaying}
-              >
-                <span className="text-lg">
-                  {settings.showKanjiGames ? pair.japanese : pair.hiragana}
-                </span>
-                {settings.showRomajiGames && (
-                  <span className="block text-sm text-gray-600 mt-1">
-                    {romajiMap[settings.showKanjiGames ? pair.japanese : pair.hiragana] || 'Loading...'}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        );
-
-      case 'sentence':
-        return (
-          <div className="space-y-6">
-            <div className="mb-2 text-lg font-semibold">Build this sentence:</div>
-            <div className="mb-4 text-blue-700">{currentSentence.english}</div>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {sentenceChoices.map((word, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleSentenceChoice(word, idx)}
-                  className="px-4 py-2 rounded-lg bg-blue-100 text-blue-800 hover:bg-blue-200"
-                  disabled={sentenceFeedback === 'Correct!'}
-                >
-                  {word}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2 mb-4 min-h-[40px]">
-              {sentenceAnswer.map((word, idx) => (
-                <span
-                  key={idx}
-                  className="px-4 py-2 rounded-lg bg-green-100 text-green-800 cursor-pointer"
-                  onClick={() => handleRemoveAnswerWord(idx)}
-                >
-                  {word}
-                </span>
-              ))}
-            </div>
-            {sentenceFeedback && (
-              <div className={sentenceFeedback === 'Correct!' ? 'text-green-600' : 'text-red-600'}>
-                {sentenceFeedback}
-              </div>
-            )}
-            <div className="mt-4 flex gap-4 items-center">
-              <button
-                onClick={startNewSentence}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-              >
-                New Sentence
-              </button>
-              <span className="text-lg">Score: {sentenceScore}</span>
-            </div>
-          </div>
-        );
-
       case 'memory':
         return (
           <div className="space-y-4">
             <div className="flex gap-6 items-center">
-              <span className="text-lg">Score: {gameState.score}</span>
-              <span className="text-lg">Mistakes: {gameState.mistakes}</span>
+              <span className="text-lg">Score: {memoryState.score}</span>
+              <span className="text-lg">Mistakes: {memoryState.mistakes}</span>
+              <span className="text-lg">Time: {timeLeft}s</span>
             </div>
-            {memoryFeedback && (
-              <div className={memoryFeedback === 'Correct!' ? 'text-green-600' : 'text-red-600'}>
-                {memoryFeedback}
+            {memoryState.feedback && (
+              <div className={memoryState.feedback === 'Correct!' ? 'text-green-600' : 'text-red-600'}>
+                {memoryState.feedback}
               </div>
             )}
-            {memoryWin && (
+            {memoryState.isWin && (
               <div className="text-2xl text-green-700 font-bold animate-bounce">You won!</div>
             )}
             <div className="grid grid-cols-4 gap-4">
-              {memoryCards.map((card) => (
+              {memoryState.cards.map((card) => (
                 <button
                   key={card.id}
                   onClick={() => handleMemoryCardClick(card.id)}
@@ -847,35 +723,82 @@ const Section8 = () => {
                       card.isFlipped ? 'bg-blue-100 border-blue-500 scale-105' :
                       'bg-gray-100 border-gray-300 hover:bg-gray-200'}
                   `}
-                  disabled={card.isMatched || !gameState.isPlaying}
+                  disabled={card.isMatched || !memoryState.isPlaying}
                 >
                   <span className={`block text-2xl transition-opacity duration-300 ${card.isFlipped || card.isMatched ? 'opacity-100' : 'opacity-0'}`}>
-                    {settings.showKanjiGames ? card.content : card.match}
+                    {settings.showKanjiGames ? card.word : card.match}
                   </span>
                   {settings.showRomajiGames && (
                     <span className="block text-sm text-gray-600 mt-1">
-                      {romajiMap[card.content] || 'Loading...'}
+                      {romajiMap[card.word] || 'Loading...'}
                     </span>
                   )}
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => {
-                initializeMemoryGame();
-                setGameState(prev => ({ ...prev, score: 0, mistakes: 0 }));
-                setMemoryFeedback('');
-                setMemoryWin(false);
-              }}
-              className="mt-4 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-            >
-              New Game
-            </button>
+          </div>
+        );
+
+      case 'sentence':
+        return (
+          <div className="space-y-6">
+            <div className="mb-2 text-lg font-semibold">Build this sentence:</div>
+            <div className="mb-4 text-blue-700">{sentenceState.currentSentence.english}</div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {sentenceState.choices.map((word, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleSentenceWordDrag(word.id)}
+                  className="px-4 py-2 rounded-lg bg-blue-100 text-blue-800 hover:bg-blue-200"
+                  disabled={sentenceState.feedback === 'Correct!'}
+                >
+                  {word.word}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2 mb-4 min-h-[40px]">
+              {sentenceState.answer.map((word, idx) => (
+                <span
+                  key={idx}
+                  className="px-4 py-2 rounded-lg bg-green-100 text-green-800 cursor-pointer"
+                  onClick={() => handleSentenceWordDrag(word.id)}
+                >
+                  {word.word}
+                </span>
+              ))}
+            </div>
+            {sentenceState.feedback && (
+              <div className={sentenceState.feedback === 'Correct!' ? 'text-green-600' : 'text-red-600'}>
+                {sentenceState.feedback}
+              </div>
+            )}
+            <div className="mt-4 flex gap-4 items-center">
+              <button
+                onClick={initializeSentenceBuilder}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              >
+                New Sentence
+              </button>
+              <span className="text-lg">Score: {sentenceState.score}</span>
+            </div>
           </div>
         );
 
       case 'quiz':
-        const currentQuestion = quizGameData[quizState.currentQuestion];
+        const currentQuestion = quizState.questions[quizState.currentQuestion];
+        if (!currentQuestion) {
+          return (
+            <div className="text-center p-6">
+              <p className="text-xl text-gray-600">No questions available.</p>
+              <button
+                onClick={initializeQuizGame}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Load Questions
+              </button>
+            </div>
+          );
+        }
         return (
           <div className="space-y-6">
             <div className="bg-gray-50 p-6 rounded-lg">
@@ -884,10 +807,10 @@ const Section8 = () => {
                 {currentQuestion.options.map((option, index) => (
                   <button
                     key={index}
-                    onClick={() => handleQuizAnswerSelect(index)}
+                    onClick={() => handleQuizAnswer(option)}
                     className={`w-full text-left p-4 rounded-lg transition-all ${
-                      quizState.selectedAnswer === index
-                        ? index === currentQuestion.correct
+                      quizState.selectedAnswer === option
+                        ? index === currentQuestion.correctAnswer
                           ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
                         : 'bg-white hover:bg-gray-50'
@@ -904,7 +827,7 @@ const Section8 = () => {
                     <div className="text-green-700 font-semibold">Correct!</div>
                   ) : (
                     <div className="text-red-700 font-semibold">
-                      Incorrect! The correct answer is: <span className="underline">{currentQuestion.options[currentQuestion.correct]}</span>
+                      Incorrect! The correct answer is: <span className="underline">{currentQuestion.correctAnswer}</span>
                     </div>
                   )}
                   <button
@@ -943,7 +866,7 @@ const Section8 = () => {
                       : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
                   }`}
                   disabled={
-                    !gameState.isPlaying ||
+                    !associationState.isPlaying ||
                     associationState.selectedAssociations.includes(word)
                   }
                 >
@@ -1057,96 +980,75 @@ const Section8 = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
-        {/* Render Start buttons for each game when not playing */}
-        {selectedGame === 'sentence' && !gameState.isPlaying && (
-          <div className="mb-4 flex justify-center">
-            <button
-              onClick={() => {
-                console.log('Start Sentence Builder clicked');
-                initializeSentenceBuilder();
-                setGameState(prev => ({ ...prev, isPlaying: true }));
-              }}
-              className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
-            >
-              Start Sentence Builder
-            </button>
-          </div>
-        )}
-        {selectedGame === 'memory' && !gameState.isPlaying && (
-          <div className="mb-4 flex justify-center">
-            <button
-              onClick={() => {
-                console.log('Start Memory Game clicked');
-                initializeMemoryGame();
-                setGameState(prev => ({ ...prev, isPlaying: true }));
-              }}
-              className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
-            >
-              Start Memory Game
-            </button>
-          </div>
-        )}
-        {selectedGame === 'quiz' && !gameState.isPlaying && (
-          <div className="mb-4 flex justify-center">
-            <button
-              onClick={() => {
-                console.log('Start Quiz clicked');
-                initializeQuizGame();
-                setGameState(prev => ({ ...prev, isPlaying: true }));
-              }}
-              className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
-            >
-              Start Quiz
-            </button>
-          </div>
-        )}
-        {selectedGame === 'association' && !gameState.isPlaying && (
-          <div className="mb-4 flex justify-center">
-            <button
-              onClick={() => {
-                console.log('Start Word Association clicked');
-                initializeAssociationGame();
-                setGameState(prev => ({ ...prev, isPlaying: true }));
-              }}
-              className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
-            >
-              Start Word Association
-            </button>
-          </div>
-        )}
-        {/* Always render game content for any selected game, with debug logging and fallback */}
         {(() => {
-          console.log('renderGameContent called for', selectedGame, 'isPlaying:', gameState.isPlaying);
-          const content = ['sentence', 'memory', 'quiz', 'association'].includes(selectedGame) ? renderGameContent() : null;
-          if (!content) {
-            return <div className="text-red-600">No game content to display. (Debug: {selectedGame}, isPlaying: {String(gameState.isPlaying)})</div>;
+          const isPlaying = (() => {
+            switch (selectedGame) {
+              case 'memory': return memoryState.isPlaying;
+              case 'matching': return matchingState.isPlaying;
+              case 'sentence': return sentenceState.isPlaying;
+              case 'quiz': return quizState.isPlaying;
+              case 'association': return associationState.isPlaying;
+              default: return false;
+            }
+          })();
+
+          if (!isPlaying) {
+            return (
+              <div className="mb-4 flex justify-center">
+                <button
+                  onClick={startGame}
+                  className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+                >
+                  Start {selectedGame.charAt(0).toUpperCase() + selectedGame.slice(1)} Game
+                </button>
+              </div>
+            );
           }
-          return content;
+
+          return (
+            <>
+              {(() => {
+                console.log('Rendering game content for:', selectedGame);
+                const content = renderGameContent();
+                if (!content) {
+                  return (
+                    <div className="text-red-600">
+                      Error: Unable to render game content. (Debug: {selectedGame})
+                    </div>
+                  );
+                }
+                return content;
+              })()}
+              
+              <div className="mt-4 flex justify-between items-center">
+                <div className="flex space-x-4">
+                  <div className={`text-lg font-medium ${themeClasses.text}`}>
+                    Time: {timeLeft}s
+                  </div>
+                  <div className={`text-lg font-medium ${themeClasses.text}`}>
+                    Mistakes: {(() => {
+                      switch (selectedGame) {
+                        case 'memory': return memoryState.mistakes;
+                        case 'matching': return matchingState.mistakes;
+                        case 'sentence': return sentenceState.mistakes;
+                        case 'quiz': return quizState.mistakes;
+                        case 'association': return associationState.mistakes;
+                        default: return 0;
+                      }
+                    })()}
+                  </div>
+                </div>
+                <button
+                  onClick={endGame}
+                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                >
+                  End Game
+                </button>
+              </div>
+            </>
+          );
         })()}
       </div>
-
-      {gameState.isPlaying && (
-        <div className="mt-4 flex justify-between items-center">
-          <div className="flex space-x-4">
-            <div className={`text-lg font-medium ${themeClasses.text}`}>
-              Time: {gameState.timeLeft}s
-            </div>
-            <div className={`text-lg font-medium ${themeClasses.text}`}>
-              Mistakes: {gameState.mistakes}
-            </div>
-          </div>
-          <button
-            onClick={gameState.isPlaying ? endGame : startGame}
-            className={`px-4 py-2 rounded-lg ${
-              gameState.isPlaying
-                ? 'bg-red-600 hover:bg-red-700 text-white'
-                : themeClasses.button.primary
-            }`}
-          >
-            {gameState.isPlaying ? 'End Game' : 'Start Game'}
-          </button>
-        </div>
-      )}
     </div>
   );
 };

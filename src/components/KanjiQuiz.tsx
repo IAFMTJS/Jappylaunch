@@ -169,6 +169,12 @@ const KanjiQuiz: React.FC = () => {
     }
   }, [settings.useTimer, quizState.mode, timeRemaining, checkAnswer, handleNext]);
 
+  const handlePlayAudio = (text: string) => {
+    const utterance = new window.SpeechSynthesisUtterance(text);
+    utterance.lang = 'ja-JP';
+    window.speechSynthesis.speak(utterance);
+  };
+
   const renderQuizContent = () => {
     if (quizState.mode === 'setup') {
       return (
@@ -397,6 +403,14 @@ const KanjiQuiz: React.FC = () => {
             Streak: {currentStreak} 🔥
           </div>
         )}
+
+        <button
+          onClick={() => handlePlayAudio(currentKanji.english || currentKanji.character)}
+          className="ml-2 p-2 rounded-full hover:bg-opacity-10"
+          title="Play Audio"
+        >
+          🔊
+        </button>
       </div>
     );
   };

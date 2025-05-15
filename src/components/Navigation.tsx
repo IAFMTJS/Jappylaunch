@@ -21,10 +21,11 @@ const Navigation = () => {
     { path: '/section6', name: 'Reading Practice', shortName: 'Read' },
     { path: '/section7', name: 'JLPT Preparation', shortName: 'JLPT' },
     { path: '/section8', name: 'Interactive Games', shortName: 'Games' },
+    { path: '/word-levels', name: 'Word Levels', shortName: 'Levels' },
   ];
   const extraLinks = [
     { path: '/anime', name: 'Anime & Manga Phrases', shortName: 'Anime' },
-    { path: '/progress-section', name: 'Progress', shortName: 'Progress' },
+    { path: '/progress', name: 'Progress', shortName: 'Progress' },
     { path: '/settings', name: 'Settings', shortName: 'Settings' },
   ];
 

@@ -4,11 +4,32 @@ import { useTheme } from '../context/ThemeContext';
 import { useProgress } from '../context/ProgressContext';
 import { checkAnswer, calculateScore, calculateAverageTime } from '../utils/quizUtils';
 import QuizModeSelector, { QuizMode } from './QuizModeSelector';
+import { Chip } from '@mui/material';
 
 // Sound effects
 const correctSound = new Audio('/sounds/correct.mp3');
 const incorrectSound = new Audio('/sounds/incorrect.mp3');
 const timeUpSound = new Audio('/sounds/timeup.mp3');
+
+// Update the QuizWord interface
+interface QuizWord {
+  japanese: string;
+  english: string;
+  category: Category;
+  difficulty: Difficulty;
+  hint?: string;
+  romaji?: string;
+  isHiragana: boolean;
+  isKatakana: boolean;
+  examples?: Array<{
+    japanese: string;
+    english: string;
+    romaji: string;
+    notes?: string;
+  }>;
+  notes?: string;
+  jlptLevel?: string;
+}
 
 const WordPractice: React.FC = () => {
   const { theme, isDarkMode } = useTheme();
@@ -195,6 +216,12 @@ const WordPractice: React.FC = () => {
     if (inputRef.current) {
       inputRef.current.focus();
     }
+  };
+
+  const handlePlayAudio = (text: string) => {
+    const utterance = new window.SpeechSynthesisUtterance(text);
+    utterance.lang = 'ja-JP';
+    window.speechSynthesis.speak(utterance);
   };
 
   useEffect(() => {
@@ -459,94 +486,103 @@ const WordPractice: React.FC = () => {
 
           {currentWord && (
             <div className={`${themeClasses.container} rounded-lg shadow-md p-6 transform transition-all duration-300 hover:shadow-lg`}>
-              <div className={`text-3xl font-bold text-center mb-4 ${themeClasses.text}`}>
-                {currentWord.japanese}
-              </div>
-              {selectedDifficulty === 'easy' && currentWord.romaji && (
-                <div className={`text-xl text-center mb-4 ${themeClasses.text} opacity-75`}>
-                  {currentWord.romaji}
-                </div>
-              )}
-
-              {!showHint && !showResult && (
-                <button
-                  onClick={() => setShowHint(true)}
-                  className={`w-full mb-6 ${themeClasses.button.hint} py-3 rounded-lg transition-colors`}
-                >
-                  Show Hint
-                </button>
-              )}
-
-              {showHint && !showResult && (
-                <div className={`mb-6 p-4 rounded-lg ${themeClasses.hint}`}>
-                  <p>{currentWord.hint}</p>
-                </div>
-              )}
-
-              {quizMode === 'multiple-choice' && !showResult && (
-                <div className="grid grid-cols-1 gap-3">
-                  {options.map((option, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleAnswer(option)}
-                      className={`p-4 rounded-lg text-left transition-colors ${
-                        themeClasses.button.inactive
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {quizMode === 'writing' && !showResult && (
-                <form onSubmit={(e) => { e.preventDefault(); handleAnswer(userAnswer); }} className="space-y-4">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={userAnswer}
-                    onChange={(e) => setUserAnswer(e.target.value)}
-                    placeholder="Type the English translation"
-                    className={`w-full p-3 border rounded-lg ${themeClasses.input} focus:ring-2 focus:ring-primary focus:border-primary`}
-                    disabled={showResult}
-                  />
-
+              <div className="flex justify-between items-center mb-4">
+                <div className={`text-3xl font-bold text-center mb-4 ${themeClasses.text}`}>
+                  {currentWord.japanese}
                   <button
-                    type="submit"
-                    className={`w-full ${themeClasses.button.primary} py-3 rounded-lg transition-colors`}
+                    onClick={() => handlePlayAudio(currentWord.japanese)}
+                    className="ml-2 p-2 rounded-full hover:bg-opacity-10"
+                    title="Play Audio"
                   >
-                    Check Answer
+                    🔊
                   </button>
-                </form>
-              )}
-
-              {showResult && (
-                <div className="space-y-4">
-                  <div className={`text-center p-6 rounded-lg ${
-                    isCorrect ? themeClasses.result.correct : themeClasses.result.incorrect
-                  }`}>
-                    <div className="text-2xl mb-2">
-                      {isCorrect ? '🎉' : '💪'}
-                    </div>
-                    <div className="text-xl font-bold mb-2">
-                      {isCorrect ? 'Correct!' : 'Incorrect'}
-                    </div>
-                    <div className="mb-2">
-                      {feedbackMessage}
-                    </div>
-                    <div className="text-sm opacity-75">
-                      {!isCorrect && `The correct answer is: ${currentWord.english}`}
-                    </div>
+                </div>
+                {selectedDifficulty === 'easy' && currentWord.romaji && (
+                  <div className={`text-xl text-center mb-4 ${themeClasses.text} opacity-75`}>
+                    {currentWord.romaji}
                   </div>
+                )}
+
+                {!showHint && !showResult && (
                   <button
-                    onClick={handleNext}
-                    className={`w-full ${themeClasses.button.secondary} py-3 rounded-lg transition-colors flex items-center justify-center gap-2`}
+                    onClick={() => setShowHint(true)}
+                    className={`w-full mb-6 ${themeClasses.button.hint} py-3 rounded-lg transition-colors`}
                   >
-                    <span>Next Question</span>
-                    <span>→</span>
+                    Show Hint
                   </button>
-                </div>
-              )}
+                )}
+
+                {showHint && !showResult && (
+                  <div className={`mb-6 p-4 rounded-lg ${themeClasses.hint}`}>
+                    <p>{currentWord.hint}</p>
+                  </div>
+                )}
+
+                {quizMode === 'multiple-choice' && !showResult && (
+                  <div className="grid grid-cols-1 gap-3">
+                    {options.map((option, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleAnswer(option)}
+                        className={`p-4 rounded-lg text-left transition-colors ${
+                          themeClasses.button.inactive
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {quizMode === 'writing' && !showResult && (
+                  <form onSubmit={(e) => { e.preventDefault(); handleAnswer(userAnswer); }} className="space-y-4">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={userAnswer}
+                      onChange={(e) => setUserAnswer(e.target.value)}
+                      placeholder="Type the English translation"
+                      className={`w-full p-3 border rounded-lg ${themeClasses.input} focus:ring-2 focus:ring-primary focus:border-primary`}
+                      disabled={showResult}
+                    />
+
+                    <button
+                      type="submit"
+                      className={`w-full ${themeClasses.button.primary} py-3 rounded-lg transition-colors`}
+                    >
+                      Check Answer
+                    </button>
+                  </form>
+                )}
+
+                {showResult && (
+                  <div className="space-y-4">
+                    <div className={`text-center p-6 rounded-lg ${
+                      isCorrect ? themeClasses.result.correct : themeClasses.result.incorrect
+                    }`}>
+                      <div className="text-2xl mb-2">
+                        {isCorrect ? '🎉' : '💪'}
+                      </div>
+                      <div className="text-xl font-bold mb-2">
+                        {isCorrect ? 'Correct!' : 'Incorrect'}
+                      </div>
+                      <div className="mb-2">
+                        {feedbackMessage}
+                      </div>
+                      <div className="text-sm opacity-75">
+                        {!isCorrect && `The correct answer is: ${currentWord.english}`}
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleNext}
+                      className={`w-full ${themeClasses.button.secondary} py-3 rounded-lg transition-colors flex items-center justify-center gap-2`}
+                    >
+                      <span>Next Question</span>
+                      <span>→</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </>

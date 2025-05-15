@@ -28,6 +28,7 @@ const SentencePractice: React.FC = () => {
   const [averageTime, setAverageTime] = useState(0);
   const [questionsRemaining, setQuestionsRemaining] = useState(10);
   const [quizComplete, setQuizComplete] = useState(false);
+  const [mode, setMode] = useState<'translate' | 'fill-blank'>('fill-blank');
   const progressRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { updateProgress } = useProgress();
@@ -122,6 +123,57 @@ const SentencePractice: React.FC = () => {
     if (inputRef.current) {
       inputRef.current.focus();
     }
+  };
+
+  const getBlankedSentence = (sentence: string, blankIndex: number) => {
+    const words = sentence.split(' ');
+    if (blankIndex < 0 || blankIndex >= words.length) return sentence;
+    words[blankIndex] = '____';
+    return words.join(' ');
+  };
+
+  const handleBlankSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!timerActive) return;
+    // For now, blankIndex is always 0
+    const blankIndex = 0;
+    const correctWord = currentExample?.japanese.split(' ')[blankIndex] || '';
+    const isAnswerCorrect = userAnswer.trim() === correctWord;
+    const pointsEarned = calculateScore(isAnswerCorrect, streak);
+
+    if (isAnswerCorrect) {
+      correctSound.play();
+      setScore(prev => prev + pointsEarned);
+      setStreak(prev => prev + 1);
+    } else {
+      incorrectSound.play();
+      setStreak(0);
+    }
+
+    setTotalQuestions(prev => prev + 1);
+    setUsedExamples(prev => new Set([...prev, currentExample?.japanese || '']));
+    setIsCorrect(isAnswerCorrect);
+    setShowResult(true);
+    setTimerActive(false);
+    setUserAnswer('');
+
+    // Update progress
+    updateProgress('sentencePractice', {
+      totalQuestions: totalQuestions + 1,
+      correctAnswers: isAnswerCorrect ? (score + 1) : score,
+      bestStreak: Math.max(streak, streak + (isAnswerCorrect ? 1 : 0)),
+      averageTime: ((averageTime * totalQuestions) + (30 - timeLeft)) / (totalQuestions + 1)
+    });
+
+    if (questionsRemaining <= 1) {
+      setQuizComplete(true);
+    }
+  };
+
+  const handlePlayAudio = (text: string) => {
+    const utterance = new window.SpeechSynthesisUtterance(text);
+    utterance.lang = 'ja-JP';
+    window.speechSynthesis.speak(utterance);
   };
 
   useEffect(() => {
@@ -280,9 +332,66 @@ const SentencePractice: React.FC = () => {
             style={{ width: '100%' }}
           />
         </div>
+
+        <div className="mb-4">
+          <label className="mr-2">Mode:</label>
+          <select value={mode} onChange={e => setMode(e.target.value as 'translate' | 'fill-blank')}>
+            <option value="translate">Translate</option>
+            <option value="fill-blank">Fill in the Blank</option>
+          </select>
+        </div>
       </div>
 
-      {currentExample && (
+      {currentExample && mode === 'fill-blank' && (
+        <div className={`${themeClasses.container} rounded-lg shadow-md p-6`}>
+          <div className={`text-3xl font-bold text-center mb-4 ${themeClasses.text}`}>
+            {getBlankedSentence(currentExample.japanese, 0)}
+          </div>
+          <button
+            onClick={() => handlePlayAudio(currentExample.japanese)}
+            className="ml-2 p-2 rounded-full hover:bg-opacity-10"
+            title="Play Audio"
+          >
+            🔊
+          </button>
+          <form onSubmit={handleBlankSubmit}>
+            <input
+              ref={inputRef}
+              type="text"
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              placeholder="Type the missing word"
+              className={`w-full p-3 border rounded-lg ${themeClasses.input} focus:ring-2 focus:ring-primary focus:border-primary`}
+              disabled={showResult}
+            />
+            {!showResult ? (
+              <button
+                type="submit"
+                className={`w-full ${themeClasses.button.primary} py-3 rounded-lg transition-colors`}
+              >
+                Check Answer
+              </button>
+            ) : (
+              <div className="space-y-4">
+                <div className={`text-center p-4 rounded-lg ${
+                  isCorrect ? themeClasses.result.correct : themeClasses.result.incorrect
+                }`}>
+                  {isCorrect ? 'Correct! 🎉' : `Incorrect. The answer is: ${currentExample.japanese.split(' ')[0]}`}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className={`w-full ${themeClasses.button.secondary} py-3 rounded-lg transition-colors`}
+                >
+                  Next Example
+                </button>
+              </div>
+            )}
+          </form>
+        </div>
+      )}
+
+      {currentExample && mode === 'translate' && (
         <div className={`${themeClasses.container} rounded-lg shadow-md p-6 transform transition-all duration-300 hover:shadow-lg`}>
           <div className={`text-3xl font-bold text-center mb-4 ${themeClasses.text}`}>
             {currentExample.japanese}
@@ -306,6 +415,14 @@ const SentencePractice: React.FC = () => {
               <p>{currentExample.hint}</p>
             </div>
           )}
+
+          <button
+            onClick={() => handlePlayAudio(currentExample.japanese)}
+            className="ml-2 p-2 rounded-full hover:bg-opacity-10"
+            title="Play Audio"
+          >
+            🔊
+          </button>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <input

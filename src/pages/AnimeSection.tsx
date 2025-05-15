@@ -4,6 +4,7 @@ import { useProgress } from '../context/ProgressContext';
 import { useApp } from '../context/AppContext';
 import { kuroshiroInstance } from '../utils/kuroshiro';
 import AnimePhraseCard from '../components/AnimePhraseCard';
+import { ProgressItem } from '../types';
 
 interface AnimePhrase {
   japanese: string;
@@ -27,7 +28,7 @@ const beginnerPhrases: AnimePhrase[] = [
     example: 'おはようございます、先生！(Good morning, teacher!) - Used by Tanjiro in Demon Slayer when greeting his teacher.',
     difficulty: 'beginner',
     category: 'greeting',
-    animeImage: 'https://i.imgur.com/8YtG5Yx.png',
+    animeImage: '/anime/tanjiro-demonslayer.JPG',
     characterName: 'Tanjiro Kamado',
     animeTitle: 'Demon Slayer'
   },
@@ -39,7 +40,7 @@ const beginnerPhrases: AnimePhrase[] = [
     example: 'ありがとう、ナルト！(Thank you, Naruto!) - Said by Sasuke when Naruto helps him in battle.',
     difficulty: 'beginner',
     category: 'response',
-    animeImage: 'https://i.imgur.com/2XtG5Yx.png',
+    animeImage: '/anime/naruto.JPG',
     characterName: 'Sasuke Uchiha',
     animeTitle: 'Naruto'
   },
@@ -51,7 +52,7 @@ const beginnerPhrases: AnimePhrase[] = [
     example: '頑張って、ミドリヤ！(Do your best, Midoriya!) - All Might cheering on Deku in My Hero Academia.',
     difficulty: 'beginner',
     category: 'emotion',
-    animeImage: 'https://i.imgur.com/QZxG5Yx.png',
+    animeImage: '/anime/hide-tokyoghoul.JPG',
     characterName: 'All Might',
     animeTitle: 'My Hero Academia'
   },
@@ -207,7 +208,7 @@ const beginnerPhrases: AnimePhrase[] = [
     example: "喰種、俺は人間だ。 (Ghoul, I am human.) – Kaneki's declaration.",
     difficulty: "beginner",
     category: "emotion",
-    animeImage: "kaneki-tokyoghoul.JPG",
+    animeImage: "/anime/kaneki-tokyoghoul.JPG",
     characterName: "Kaneki Ken",
     animeTitle: "Tokyo Ghoul"
   },
@@ -219,7 +220,7 @@ const beginnerPhrases: AnimePhrase[] = [
     example: "風のブレーカー、俺は速いぞ。 (Wind Breaker, I am fast.) – Placeholder quote.",
     difficulty: "beginner",
     category: "action",
-    animeImage: "windbreaker.JPG",
+    animeImage: "/anime/windbreaker.JPG",
     characterName: "Wind Breaker",
     animeTitle: "Wind Breaker"
   },
@@ -231,7 +232,7 @@ const beginnerPhrases: AnimePhrase[] = [
     example: "ソロ・レベリング、俺は最強だ。 (Solo Leveling, I am the strongest.) – Placeholder quote.",
     difficulty: "beginner",
     category: "emotion",
-    animeImage: "sololeveling.JPG",
+    animeImage: "/anime/sololeveling.JPG",
     characterName: "Sung Jin-Woo",
     animeTitle: "Solo Leveling"
   },
@@ -243,7 +244,7 @@ const beginnerPhrases: AnimePhrase[] = [
     example: "ヒソカだよ。 (I am Hisoka.) – Hisoka introducing himself.",
     difficulty: "beginner",
     category: "greeting",
-    animeImage: "hisoka-hxh.JPG",
+    animeImage: "/anime/hisoka-hxh.JPG",
     characterName: "Hisoka",
     animeTitle: "Hunter x Hunter"
   },
@@ -255,7 +256,7 @@ const beginnerPhrases: AnimePhrase[] = [
     example: "ヒデ、がんばれ！ (Hide, do your best!) – cheering for Hide.",
     difficulty: "beginner",
     category: "greeting",
-    animeImage: "hide-tokyoghoul.JPG",
+    animeImage: "/anime/hide-tokyoghoul.JPG",
     characterName: "Hide",
     animeTitle: "Tokyo Ghoul"
   }
@@ -264,16 +265,36 @@ const beginnerPhrases: AnimePhrase[] = [
 // Helper: check if string is kana-only (hiragana/katakana)
 const isKanaOnly = (str: string) => /^[\u3040-\u309F\u30A0-\u30FF\u3000-\u303F\uFF66-\uFF9F\s]+$/.test(str);
 
+interface PracticeState {
+  mode: 'translation' | 'typing' | 'listening';
+  currentPhrase: AnimePhrase | null;
+  userInput: string;
+  isCorrect: boolean | null;
+  showHint: boolean;
+  score: number;
+  totalAttempts: number;
+}
+
 const AnimeSection: React.FC = () => {
   const { currentUser } = useAuth();
   const { settings } = useApp();
-  const { markItemMastered, setTotalItems } = useProgress();
+  const { updateProgress, setTotalItems, progress } = useProgress();
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   const [showRomaji, setShowRomaji] = useState(settings.showRomaji);
   const [romajiMap, setRomajiMap] = useState<{ [key: string]: string }>({});
   const [showEnglish, setShowEnglish] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<AnimePhrase['category'] | 'all'>('all');
   const [score, setScore] = useState(0);
+  const [practiceState, setPracticeState] = useState<PracticeState>({
+    mode: 'translation',
+    currentPhrase: null,
+    userInput: '',
+    isCorrect: null,
+    showHint: false,
+    score: 0,
+    totalAttempts: 0
+  });
+  const [isPracticeMode, setIsPracticeMode] = useState(false);
 
   // Filter phrases to kana-only
   const kanaPhrases = useMemo(() =>
@@ -316,6 +337,20 @@ const AnimeSection: React.FC = () => {
     setTotalItems('anime', filteredPhrases.length);
   }, [filteredPhrases.length, setTotalItems]);
 
+  // --- Progress tracking for Anime section ---
+  const animeProgressItems = useMemo(() =>
+    beginnerPhrases.map(phrase => {
+      const key = `anime-${phrase.japanese}`;
+      return progress[key] as ProgressItem | undefined;
+    }),
+    [progress]
+  );
+  const totalAnime = beginnerPhrases.length;
+  const mastered = animeProgressItems.filter(item => item && item.correct >= 3).length;
+  const inProgress = animeProgressItems.filter(item => item && item.correct > 0 && item.correct < 3).length;
+  const notStarted = animeProgressItems.filter(item => !item || item.correct === 0).length;
+  const animeProgressPercent = totalAnime > 0 ? Math.round((mastered / totalAnime) * 100) : 0;
+
   const handleNext = () => {
     if (currentPhraseIndex < filteredPhrases.length - 1) {
       setCurrentPhraseIndex(prev => prev + 1);
@@ -336,129 +371,284 @@ const AnimeSection: React.FC = () => {
     setShowEnglish(false);
   };
 
-  const handlePractice = () => {
+  const handlePractice = async () => {
     if (currentUser && currentPhrase) {
-      markItemMastered('anime', currentPhrase.japanese);
+      await updateProgress('anime', currentPhrase.japanese, true);
       setScore(prev => prev + 1);
     }
   };
 
-  return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold text-center mb-8 text-gray-800 dark:text-white">
-        Learn Japanese with Anime & Manga
-      </h1>
+  const startPractice = (mode: PracticeState['mode']) => {
+    const randomPhrase = filteredPhrases[Math.floor(Math.random() * filteredPhrases.length)];
+    setPracticeState({
+      mode,
+      currentPhrase: randomPhrase,
+      userInput: '',
+      isCorrect: null,
+      showHint: false,
+      score: 0,
+      totalAttempts: 0
+    });
+    setIsPracticeMode(true);
+  };
 
-      {/* Category Filter */}
-      <div className="flex flex-wrap gap-2 mb-6 justify-center px-4">
-        <div className="w-full max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-          <button
-            onClick={() => handleCategoryChange('all')}
-            className={`px-3 py-2 rounded-lg text-sm sm:text-base transition-colors ${
-              selectedCategory === 'all'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-            }`}
-          >
-            All
-          </button>
-          {['greeting', 'emotion', 'action', 'question', 'response'].map(category => (
-            <button
-              key={category}
-              onClick={() => handleCategoryChange(category as AnimePhrase['category'])}
-              className={`px-3 py-2 rounded-lg text-sm sm:text-base transition-colors capitalize ${
-                selectedCategory === category
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-              }`}
+  const checkAnswer = () => {
+    if (!practiceState.currentPhrase) return;
+
+    let isCorrect = false;
+    const userAnswer = practiceState.userInput.trim().toLowerCase();
+    
+    switch (practiceState.mode) {
+      case 'translation':
+        isCorrect = userAnswer === practiceState.currentPhrase.english.toLowerCase();
+        break;
+      case 'typing':
+        isCorrect = userAnswer === practiceState.currentPhrase.japanese.toLowerCase() ||
+                   userAnswer === practiceState.currentPhrase.romaji.toLowerCase();
+        break;
+    }
+
+    setPracticeState(prev => ({
+      ...prev,
+      isCorrect,
+      score: isCorrect ? prev.score + 1 : prev.score,
+      totalAttempts: prev.totalAttempts + 1,
+      showHint: !isCorrect
+    }));
+  };
+
+  const nextPhrase = () => {
+    const randomPhrase = filteredPhrases[Math.floor(Math.random() * filteredPhrases.length)];
+    setPracticeState(prev => ({
+      ...prev,
+      currentPhrase: randomPhrase,
+      userInput: '',
+      isCorrect: null,
+      showHint: false
+    }));
+  };
+
+  const renderPracticeMode = () => {
+    if (!practiceState.currentPhrase) return null;
+
+    return (
+      <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+        <div className="mb-6 flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Practice Mode</h2>
+          <div className="text-right">
+            <p className="text-lg">Score: {practiceState.score}/{practiceState.totalAttempts}</p>
+            <button 
+              onClick={() => setIsPracticeMode(false)}
+              className="text-blue-600 hover:text-blue-800"
             >
-              {category}
+              Exit Practice
             </button>
-          ))}
+          </div>
         </div>
-      </div>
 
-      <div className="mb-4 flex items-center gap-4 justify-center px-4">
-        <label className="flex items-center gap-2 cursor-pointer bg-gray-100 dark:bg-gray-700 px-4 py-2 rounded-lg transition-colors hover:bg-gray-200 dark:hover:bg-gray-600">
-          <input
-            type="checkbox"
-            checked={showRomaji}
-            onChange={() => setShowRomaji(r => !r)}
-            className="form-checkbox h-4 w-4 text-blue-600 transition-colors"
-          />
-          <span className="text-sm sm:text-base text-gray-700 dark:text-gray-300">Show Romaji</span>
-        </label>
-      </div>
+        <div className="mb-6">
+          <div className="text-2xl mb-4">
+            {practiceState.mode === 'translation' ? (
+              practiceState.currentPhrase.japanese
+            ) : (
+              practiceState.currentPhrase.english
+            )}
+          </div>
+          
+          <div className="flex gap-4 mb-4">
+            <input
+              type="text"
+              value={practiceState.userInput}
+              onChange={(e) => setPracticeState(prev => ({ ...prev, userInput: e.target.value }))}
+              placeholder={practiceState.mode === 'translation' ? "Enter English translation" : "Enter Japanese or Romaji"}
+              className="flex-1 p-2 border rounded"
+            />
+            <button
+              onClick={checkAnswer}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Check
+            </button>
+          </div>
 
-      {/* Phrase Card */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">
-            {currentPhrase.japanese}
-          </h2>
-          {showRomaji && (
-            <p className="text-lg text-gray-600 dark:text-gray-300 mb-2">
-              {romajiMap[currentPhrase.japanese.trim()] || 'Loading...'}
-            </p>
+          {practiceState.isCorrect !== null && (
+            <div className={`p-4 rounded ${practiceState.isCorrect ? 'bg-green-100' : 'bg-red-100'}`}>
+              {practiceState.isCorrect ? (
+                <p className="text-green-700">Correct! 🎉</p>
+              ) : (
+                <div>
+                  <p className="text-red-700">Not quite right. Try again!</p>
+                  {practiceState.showHint && (
+                    <p className="mt-2 text-gray-600">
+                      Hint: {practiceState.mode === 'translation' 
+                        ? `Romaji: ${practiceState.currentPhrase.romaji}`
+                        : `Japanese: ${practiceState.currentPhrase.japanese}`
+                      }
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           )}
-          {showEnglish && (
-            <p className="text-lg text-gray-600 dark:text-gray-300">
-              {currentPhrase.english}
-            </p>
+
+          {practiceState.isCorrect && (
+            <button
+              onClick={nextPhrase}
+              className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            >
+              Next Phrase
+            </button>
           )}
         </div>
-
-        <div className="space-y-4">
-          <p className="text-gray-600 dark:text-gray-300">
-            <span className="font-semibold">Context:</span> {currentPhrase.context}
-          </p>
-          <p className="text-gray-600 dark:text-gray-300">
-            <span className="font-semibold">Example:</span> {currentPhrase.example}
-          </p>
-        </div>
-
-        {/* Controls */}
-        <div className="flex justify-center gap-4 mt-6">
-          <button
-            onClick={() => setShowEnglish(!showEnglish)}
-            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-          >
-            {showEnglish ? 'Hide' : 'Show'} English
-          </button>
-          <button
-            onClick={handlePractice}
-            className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors"
-          >
-            Practice
-          </button>
-        </div>
-
-        {/* Navigation */}
-        <div className="flex justify-between mt-6">
-          <button
-            onClick={handlePrevious}
-            disabled={currentPhraseIndex === 0}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="text-gray-600 dark:text-gray-300">
-            {currentPhraseIndex + 1} / {filteredPhrases.length}
-          </span>
-          <button
-            onClick={handleNext}
-            disabled={currentPhraseIndex === filteredPhrases.length - 1}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
       </div>
+    );
+  };
 
-      {/* Progress */}
-      <div className="text-center text-gray-600 dark:text-gray-300">
-        <p>Phrases practiced today: {score}</p>
-      </div>
+  return (
+    <div className="container mx-auto px-4 py-8">
+      {!isPracticeMode ? (
+        <>
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-4">Anime Phrases Practice</h1>
+            <div className="flex gap-4">
+              <button
+                onClick={() => startPractice('translation')}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Practice Translation
+              </button>
+              <button
+                onClick={() => startPractice('typing')}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                Practice Typing
+              </button>
+            </div>
+          </div>
+          <div className="max-w-4xl mx-auto p-6">
+            <h1 className="text-3xl font-bold text-center mb-8 text-gray-800 dark:text-white">
+              Learn Japanese with Anime & Manga
+            </h1>
+
+            {/* Anime Progress Bar and Stats */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-semibold text-gray-700 dark:text-gray-200">Anime Progress</span>
+                <span className="font-bold text-gray-700 dark:text-gray-200">{animeProgressPercent}%</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-2">
+                <div
+                  className="bg-green-500 h-3 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${animeProgressPercent}%` }}
+                />
+              </div>
+              <div className="flex gap-6 text-sm text-gray-700 dark:text-gray-300 mt-2">
+                <span>Not started: <span className="font-bold">{notStarted}</span></span>
+                <span>In progress: <span className="font-bold">{inProgress}</span></span>
+                <span>Mastered: <span className="font-bold">{mastered}</span> / {totalAnime}</span>
+              </div>
+            </div>
+
+            {/* Category Filter */}
+            <div className="flex flex-wrap gap-2 mb-6 justify-center px-4">
+              <div className="w-full max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                <button
+                  onClick={() => handleCategoryChange('all')}
+                  className={`px-3 py-2 rounded-lg text-sm sm:text-base transition-colors ${
+                    selectedCategory === 'all'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  All
+                </button>
+                {['greeting', 'emotion', 'action', 'question', 'response'].map(category => (
+                  <button
+                    key={category}
+                    onClick={() => handleCategoryChange(category as AnimePhrase['category'])}
+                    className={`px-3 py-2 rounded-lg text-sm sm:text-base transition-colors capitalize ${
+                      selectedCategory === category
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-4 flex items-center gap-4 justify-center px-4">
+              <label className="flex items-center gap-2 cursor-pointer bg-gray-100 dark:bg-gray-700 px-4 py-2 rounded-lg transition-colors hover:bg-gray-200 dark:hover:bg-gray-600">
+                <input
+                  type="checkbox"
+                  checked={showRomaji}
+                  onChange={() => setShowRomaji(r => !r)}
+                  className="form-checkbox h-4 w-4 text-blue-600 transition-colors"
+                />
+                <span className="text-sm sm:text-base text-gray-700 dark:text-gray-300">Show Romaji</span>
+              </label>
+            </div>
+
+            {/* Phrase Card */}
+            <div className="mb-6">
+              <AnimePhraseCard
+                japanese={currentPhrase.japanese}
+                romaji={romajiMap[currentPhrase.japanese.trim()] || currentPhrase.romaji}
+                english={currentPhrase.english}
+                context={currentPhrase.context}
+                example={currentPhrase.example}
+                category={currentPhrase.category}
+                showRomaji={showRomaji}
+                showEnglish={showEnglish}
+                animeImage={currentPhrase.animeImage}
+                characterName={currentPhrase.characterName}
+                animeTitle={currentPhrase.animeTitle}
+              />
+            </div>
+
+            {/* Controls and Navigation */}
+            <div className="flex flex-wrap justify-center gap-4 mb-8">
+              <button
+                onClick={() => setShowEnglish(!showEnglish)}
+                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+              >
+                {showEnglish ? 'Hide' : 'Show'} English
+              </button>
+              <button
+                onClick={handlePractice}
+                className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors"
+              >
+                Practice
+              </button>
+              <button
+                onClick={handlePrevious}
+                disabled={currentPhraseIndex === 0}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="self-center text-gray-600 dark:text-gray-300">
+                {currentPhraseIndex + 1} / {filteredPhrases.length}
+              </span>
+              <button
+                onClick={handleNext}
+                disabled={currentPhraseIndex === filteredPhrases.length - 1}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+
+            {/* Progress */}
+            <div className="text-center text-gray-600 dark:text-gray-300">
+              <p>Phrases practiced today: {score}</p>
+            </div>
+          </div>
+        </>
+      ) : (
+        renderPracticeMode()
+      )}
     </div>
   );
 };

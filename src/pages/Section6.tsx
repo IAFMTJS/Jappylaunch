@@ -110,7 +110,20 @@ const Section6 = () => {
       
       <div className="mb-4">
         <h4 className="font-medium mb-2">Reading:</h4>
-        <p className="text-lg leading-relaxed">{material.content}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-lg leading-relaxed">{material.content}</p>
+          <button
+            onClick={() => {
+              const utterance = new window.SpeechSynthesisUtterance(material.content);
+              utterance.lang = 'ja-JP';
+              window.speechSynthesis.speak(utterance);
+            }}
+            className="ml-2 p-2 rounded-full hover:bg-opacity-10"
+            title="Play Audio"
+          >
+            ��
+          </button>
+        </div>
         <p className="text-gray-500 italic mt-2">
           {romajiMap[material.content.trim()] || 'Loading...'}
         </p>
